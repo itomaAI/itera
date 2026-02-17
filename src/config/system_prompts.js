@@ -135,6 +135,7 @@ Lists files in the Virtual File System.
 Attributes:
     - path (optional): Target directory.
     - recursive (optional): "true" or "false".
+    - detail (optional): "true" or "false". If true, lists file size and modified date.
 </define_tag>
 
 <define_tag name="search">
@@ -144,6 +145,8 @@ Attributes:
     - path (optional): Scope.
     - include (optional): File extensions to include (e.g., ".js,.html").
     - regex (optional): "true" or "false" (default: false). Set "true" to use regex matching.
+    - case_sensitive (optional): "true" or "false" (default: false).
+    - context (optional): Number of lines to show around match (default: 2).
 </define_tag>
 
 <define_tag name="delete_file">
@@ -156,6 +159,13 @@ Attributes:
 Renames or moves a file.
 Attributes:
     - path: Current path.
+    - new_path: Destination path.
+</define_tag>
+
+<define_tag name="copy_file">
+Copies a file.
+Attributes:
+    - path: Source path.
     - new_path: Destination path.
 </define_tag>
 
