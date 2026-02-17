@@ -7,21 +7,14 @@
     class VirtualFileSystem {
         constructor(initialFiles = {}, config = {}) {
             this.files = {};
-            this.listeners = {}; // Event listeners: { 'change': [cb1, cb2], ... }
-            
-            // Config
+            this.listeners = {}; 
             this.MAX_SIZE = (config.capacityMB || 256) * 1024 * 1024;
-            
-            // Initial Load
             this.loadFiles(initialFiles);
         }
-
-        // --- Event System ---
 
         on(event, callback) {
             if (!this.listeners[event]) this.listeners[event] = [];
             this.listeners[event].push(callback);
-            // Return unsubscribe function
             return () => {
                 this.listeners[event] = this.listeners[event].filter(cb => cb !== callback);
             };
@@ -33,11 +26,8 @@
             }
         }
 
-        // --- Core File Operations ---
-
         _norm(path) {
             if (!path) return "";
-            // Remove leading slash and traversal dots for security
             return path.replace(/^\/+/, '').replace(/\.\./g, '');
         }
 
@@ -87,17 +77,42 @@
             return Object.prototype.hasOwnProperty.call(this.files, this._norm(path));
         }
 
+        isDirectory(path) {
+            let p = this._norm(path);
+            if (!p) return true; // root is directory
+            if (!p.endsWith('/')) p += '/';
+            // Check if any file starts with this prefix
+            return Object.keys(this.files).some(key => key.startsWith(p));
+        }
+
+        // ★ Fix 1: Modified stat method to handle folders
         stat(path) {
             const p = this._norm(path);
-            if (!this.exists(p)) throw new Error(`File not found: ${p}`);
-            const f = this.files[p];
-            return {
-                path: p,
-                size: f.content.length,
-                created_at: f.meta.created_at,
-                updated_at: f.meta.updated_at,
-                type: 'file'
-            };
+
+            // 1. File exists
+            if (this.exists(p)) {
+                const f = this.files[p];
+                return {
+                    path: p,
+                    size: f.content.length,
+                    created_at: f.meta.created_at,
+                    updated_at: f.meta.updated_at,
+                    type: 'file'
+                };
+            }
+
+            // 2. Directory exists (Virtual check)
+            if (this.isDirectory(p)) {
+                return {
+                    path: p,
+                    size: 0,
+                    created_at: 0, // Directories don't store meta in this VFS model
+                    updated_at: 0,
+                    type: 'folder'
+                };
+            }
+
+            throw new Error(`Path not found: ${path}`);
         }
 
         readFile(path) {
@@ -142,13 +157,11 @@
                 this._emit('change', { type: 'delete', path: p, usage: this.getUsage() });
                 return `Deleted file: ${p}`;
             }
-            // Check if directory
             return this.deleteDirectory(p);
         }
 
         createDirectory(path) {
             let p = this._norm(path);
-            // Ensure no trailing slash for internal logic, but we create a .keep file
             if (p.endsWith('/')) p = p.slice(0, -1);
             if (!p) return;
             
@@ -184,13 +197,11 @@
                 return `Renamed: ${oldP} -> ${newP}`;
             }
 
-            // Directory rename
             const oldDir = oldP.endsWith('/') ? oldP : oldP + '/';
             const newDir = newP.endsWith('/') ? newP : newP + '/';
             const targets = Object.keys(this.files).filter(k => k.startsWith(oldDir));
 
             if (targets.length > 0) {
-                // Check conflicts first
                 const conflict = targets.some(k => this.exists(k.replace(oldDir, newDir)));
                 if (conflict) throw new Error(`Destination conflict in directory move.`);
 
@@ -213,16 +224,12 @@
             if (this.exists(dest)) throw new Error(`Destination ${dest} already exists.`);
 
             const content = this.files[src].content;
-            this.writeFile(dest, content); // This handles quota check and events
+            this.writeFile(dest, content);
             return `Copied: ${src} -> ${dest}`;
         }
 
         listFiles(options = {}) {
-            // options: { path: string, recursive: boolean, detail: boolean }
             const root = options.path ? this._norm(options.path) : "";
-            const recursive = options.recursive !== false; // Default true if not specified? Or false? 
-            // Better default: true for flat list, but let's stick to simple logic.
-            
             const allPaths = Object.keys(this.files).sort();
             
             let result = allPaths;
@@ -238,7 +245,6 @@
         }
         
         getTree() {
-            // Helper for UI to get nested structure
             const root = { name: "root", path: "", type: "folder", children: {} };
             
             Object.keys(this.files).sort().forEach(filePath => {
@@ -265,12 +271,10 @@
                         };
                     }
                     current = current.children[part];
-                    // If a path acts as both file and folder (rare but possible in VFS), prefer folder structure
                     if (!isLast && current.type === "file") current.type = "folder";
                 });
             });
 
-            // Convert to array
             const toArray = (node) => {
                 const children = Object.values(node.children).map(c => toArray(c));
                 children.sort((a, b) => {
@@ -283,8 +287,6 @@
             return toArray(root).children;
         }
 
-        // --- AI Helper Methods (Advanced Edits) ---
-
         replaceContent(path, patternStr, replacement) {
             const p = this._norm(path);
             if (!this.exists(p)) throw new Error(`File not found: ${p}`);
@@ -292,7 +294,6 @@
             const content = this.files[p].content;
             let regex;
             try {
-                // Multiline search support
                 regex = new RegExp(patternStr, 'm');
             } catch (e) {
                 throw new Error(`Invalid RegExp: ${e.message}`);
@@ -318,7 +319,6 @@
             
             let insertLines = [];
             if (newContent) {
-                // Remove wrapper newlines if present
                 let clean = newContent;
                 if (clean.startsWith('\n')) clean = clean.substring(1);
                 if (clean.endsWith('\n')) clean = clean.substring(0, clean.length - 1);
@@ -334,7 +334,6 @@
             if (mode === 'replace') {
                 if (isNaN(eLine)) throw new Error("End line required for replace.");
                 const count = Math.max(0, eLine - sLine + 1);
-                // Pad if file is shorter than start
                 while(lines.length < sIdx) lines.push("");
                 lines.splice(sIdx, count, ...insertLines);
                 log = `Replaced lines ${sLine}-${eLine}`;
