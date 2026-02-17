@@ -138,11 +138,12 @@ Attributes:
 </define_tag>
 
 <define_tag name="search">
-Searches file contents using regex.
+Searches file contents.
 Attributes:
-    - query: Regex pattern.
+    - query: Text or Regex pattern to search for.
     - path (optional): Scope.
     - include (optional): File extensions to include (e.g., ".js,.html").
+    - regex (optional): "true" or "false" (default: false). Set "true" to use regex matching.
 </define_tag>
 
 <define_tag name="delete_file">
