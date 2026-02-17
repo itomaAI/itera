@@ -1,438 +1,464 @@
 // src/ui/main_controller.js
 
 (function(global) {
-    global.Itera = global.Itera || {};
-    global.Itera.UI = global.Itera.UI || {};
+	global.Itera = global.Itera || {};
+	global.Itera.UI = global.Itera.UI || {};
 
-    const { State, Control, Cognitive, Bridge, UI } = global.Itera;
-    const { Components } = UI;
+	const {
+		State,
+		Control,
+		Cognitive,
+		Bridge,
+		UI
+	} = global.Itera;
+	const {
+		Components
+	} = UI;
 
-    // DOM ID Constants
-    const DOM_IDS = {
-        // Mobile Navigation
-        BTN_MOBILE_FILES: 'mobile-nav-files',
-        BTN_MOBILE_CHAT: 'mobile-nav-chat',
-        BTN_MOBILE_VIEW: 'mobile-nav-view',
-        MOBILE_OVERLAY: 'mobile-overlay',
-        SIDEBAR: 'sidebar',
-        CHAT_PANEL: 'chat-panel',
-        
-        // System Status Indicators
-        STORAGE_BAR: 'storage-usage-bar',
-        STORAGE_TEXT: 'storage-usage-text',
-        SAVE_STATUS: 'save-status',
-        MODEL_STATUS: 'model-status'
-    };
+	const DOM_IDS = {
+		BTN_MOBILE_FILES: 'mobile-nav-files',
+		BTN_MOBILE_CHAT: 'mobile-nav-chat',
+		BTN_MOBILE_VIEW: 'mobile-nav-view',
+		MOBILE_OVERLAY: 'mobile-overlay',
+		SIDEBAR: 'sidebar',
+		CHAT_PANEL: 'chat-panel',
+		STORAGE_BAR: 'storage-usage-bar',
+		STORAGE_TEXT: 'storage-usage-text',
+		SAVE_STATUS: 'save-status',
+		MODEL_STATUS: 'model-status'
+	};
 
-    class MainController {
-        constructor() {
-            this.config = global.Itera.Config || {};
-            this.components = {};
-            this.state = {};
-            this.engine = null;
-            this.bridge = null;
-            this.saveTimer = null;
-            this.els = {}; // Cache for generic UI elements
-        }
+	class MainController {
+		constructor() {
+			this.config = global.Itera.Config || {};
+			this.components = {};
+			this.state = {};
+			this.engine = null;
+			this.bridge = null;
+			this.saveTimer = null;
+			this.els = {};
+		}
 
-        async init() {
-            console.log("[Itera] Booting system...");
-            this._initGenericElements();
+		async init() {
+			console.log("[Itera] Booting system...");
+			this._initGenericElements();
 
-            // 1. Initialize State Layer
-            const storage = new State.StorageManager();
-            await storage.ready();
+			const storage = new State.StorageManager();
+			await storage.ready();
 
-            const savedSystem = await storage.loadSystemState();
-            const initialFiles = savedSystem ? savedSystem.files : (this.config.DEFAULT_FILES || {});
-            const initialHistory = savedSystem ? savedSystem.history : [];
+			const savedSystem = await storage.loadSystemState();
+			const initialFiles = savedSystem ? savedSystem.files : (this.config.DEFAULT_FILES || {});
+			const initialHistory = savedSystem ? savedSystem.history : [];
 
-            const vfs = new State.VirtualFileSystem(initialFiles);
-            const history = new State.HistoryManager();
-            history.load(initialHistory);
-            const configManager = new State.ConfigManager(vfs);
+			const vfs = new State.VirtualFileSystem(initialFiles);
+			const history = new State.HistoryManager();
+			history.load(initialHistory);
+			const configManager = new State.ConfigManager(vfs);
 
-            this.state = { storage, vfs, history, configManager };
+			this.state = {
+				storage,
+				vfs,
+				history,
+				configManager
+			};
 
-            // 2. Initialize UI Components
-            const themeManager = new UI.ThemeManager(configManager);
-            const translator = new Cognitive.Translator();
+			const themeManager = new UI.ThemeManager(configManager);
+			const translator = new Cognitive.Translator();
 
-            this.components.chat = new Components.ChatPanel(translator);
-            this.components.explorer = new Components.Explorer(vfs);
-            this.components.editor = new Components.EditorModal();
-            this.components.preview = new Components.PreviewPane();
-            this.components.settings = new Components.SettingsModal(storage, configManager);
-            this.components.media = new Components.MediaViewer();
+			this.components.chat = new Components.ChatPanel(translator);
+			this.components.explorer = new Components.Explorer(vfs);
+			this.components.editor = new Components.EditorModal();
+			this.components.preview = new Components.PreviewPane();
+			this.components.settings = new Components.SettingsModal(storage, configManager);
+			this.components.media = new Components.MediaViewer();
 
-            // 3. Initialize Control Layer (The Brain)
-            const registry = new Control.ToolRegistry();
-            const toolContext = { 
-                vfs, 
-                config: configManager, 
-                ui: this 
-            };
+			const registry = new Control.ToolRegistry();
+			if (Control.Tools) {
+				Control.Tools.registerFSTools(registry);
+				Control.Tools.registerUITools(registry);
+				Control.Tools.registerSysTools(registry);
+				Control.Tools.registerSearchTools(registry);
+				Control.Tools.registerBasicTools(registry);
+			}
 
-            if (Control.Tools) {
-                Control.Tools.registerFSTools(registry);
-                Control.Tools.registerUITools(registry);
-                Control.Tools.registerSysTools(registry);
-                Control.Tools.registerSearchTools(registry);
-                Control.Tools.registerBasicTools(registry);
-            }
+			this._createLLM = () => {
+				const apiKey = localStorage.getItem('itera_api_key') || "";
+				const conf = configManager.get('llm');
+				const model = conf?.model || "gemini-3-pro-preview";
+				this._updateModelStatus(model);
+				return new Cognitive.GeminiAdapter(apiKey, model);
+			};
 
-            // LLM Factory (DRY)
-            this._createLLM = () => {
-                const apiKey = localStorage.getItem('itera_api_key') || "";
-                const conf = configManager.get('llm');
-                const model = conf?.model || "gemini-3-pro-preview";
-                this._updateModelStatus(model);
-                return new Cognitive.GeminiAdapter(apiKey, model);
-            };
+			const projector = new Cognitive.GeminiProjector(this.config.SYSTEM_PROMPT || "");
 
-            const projector = new Cognitive.GeminiProjector(this.config.SYSTEM_PROMPT || "");
+			this.engine = new Control.Engine({
+					history,
+					vfs,
+					configManager
+				},
+				projector,
+				this._createLLM(),
+				translator,
+				registry, {
+					ui: this
+				}
+			);
 
-            this.engine = new Control.Engine(
-                { history, vfs, configManager }, 
-                projector, 
-                this._createLLM(), 
-                translator, 
-                registry, 
-                { ui: this }
-            );
+			this.bridge = new Bridge.HostBridge();
+			this._setupBridgeHandlers();
 
-            // 4. Initialize Bridge
-            this.bridge = new Bridge.HostBridge();
-            this._setupBridgeHandlers();
+			this._bindEvents();
+			this._bindMobileUI();
 
-            // 5. Wire Everything
-            this._bindEvents();
-            this._bindMobileUI();
+			this.components.chat.renderHistory(history.get());
+			this._updateStorageUI(vfs.getUsage());
+			await this.refreshPreview();
 
-            // 6. Initial Render & Sync
-            this.components.chat.renderHistory(history.get());
-            this._updateStorageUI(vfs.getUsage());
-            await this.refreshPreview();
+			console.log("[Itera] System Ready.");
+		}
 
-            console.log("[Itera] System Ready.");
-        }
+		_initGenericElements() {
+			Object.entries(DOM_IDS).forEach(([key, id]) => {
+				this.els[key] = document.getElementById(id);
+			});
+		}
 
-        _initGenericElements() {
-            Object.entries(DOM_IDS).forEach(([key, id]) => {
-                this.els[key] = document.getElementById(id);
-            });
-        }
+		_bindEvents() {
+			const {
+				chat,
+				explorer,
+				editor,
+				media,
+				settings
+			} = this.components;
+			const {
+				vfs,
+				history,
+				storage
+			} = this.state;
 
-        // --- Event Wiring ---
+			// Chat Events
+			chat.on('send', async (text, attachments) => {
+				const content = [];
+				for (const file of attachments) {
+					const isText = file.type.startsWith('text/') || file.name.match(/\.(js|json|md|txt|html|css|xml|yml)$/);
+					const reader = new FileReader();
+					const data = await new Promise(r => {
+						reader.onload = () => r(reader.result);
+						if (isText) reader.readAsText(file);
+						else reader.readAsDataURL(file);
+					});
+					if (isText) {
+						content.push({
+							text: `<user_attachment name="${file.name}">\n${data}\n</user_attachment>`
+						});
+					} else {
+						content.push({
+							inlineData: {
+								mimeType: file.type || 'application/octet-stream',
+								data: data.split(',')[1]
+							}
+						});
+					}
+				}
+				if (text) content.push({
+					text
+				});
+				this._refreshEngineConfig();
+				chat.setProcessing(true);
+				await this.engine.injectUserTurn(content);
+			});
 
-        _bindEvents() {
-            const { chat, explorer, editor, media, settings } = this.components;
-            const { vfs, history, storage } = this.state;
+			chat.on('stop', () => this.engine.stop());
+			chat.on('clear', () => {
+				if (confirm("Clear chat history?")) {
+					history.clear();
+					chat.renderHistory([]);
+				}
+			});
+			chat.on('delete_turn', (id) => {
+				history.delete(id);
+				chat.renderHistory(history.get());
+			});
+			chat.on('preview_request', (name, src, mime) => media.open(name, src, mime));
 
-            // Chat Events
-            chat.on('send', async (text, attachments) => {
-                const content = [];
-                for (const file of attachments) {
-                    const isText = file.type.startsWith('text/') || file.name.match(/\.(js|json|md|txt|html|css|xml|yml)$/);
-                    const reader = new FileReader();
-                    const data = await new Promise(r => {
-                        reader.onload = () => r(reader.result);
-                        if (isText) reader.readAsText(file); else reader.readAsDataURL(file);
-                    });
+			// Explorer Events
+			explorer.on('open_file', (path, content) => {
+				const BINARY_EXTS = /\.(png|jpg|jpeg|gif|webp|svg|ico|pdf|zip|mp3|mp4|wav|ogg)$/i;
+				if (path.match(BINARY_EXTS)) media.open(path, content);
+				else editor.open(path, content);
+			});
+			explorer.on('history_event', (type, desc) => {
+				const lpml = `<event type="${type}">\n${desc}\n</event>`;
+				// イベントはSystemロールとして履歴に追加（画面上は更新が必要）
+				// appendするとHistoryManagerがchangeイベントを出すが、それはAutoSave用。
+				// ここでchat.appendTurnを手動で呼ぶ必要がある。
+				const turn = history.append(global.Itera.Role.SYSTEM, lpml, {
+					type: 'event_log'
+				});
+				chat.appendTurn(turn);
+			});
 
-                    if (isText) {
-                        content.push({ text: `<user_attachment name="${file.name}">\n${data}\n</user_attachment>` });
-                    } else {
-                        content.push({ inlineData: { 
-                            mimeType: file.type || 'application/octet-stream', 
-                            data: data.split(',')[1] 
-                        }});
-                    }
-                }
-                if (text) content.push({ text });
+			// Editor Events
+			editor.on('save', (path, content) => {
+				try {
+					vfs.writeFile(path, content);
+					this.refreshPreview();
+				} catch (e) {
+					alert(e.message);
+				}
+			});
 
-                this._refreshEngineConfig();
-                chat.setProcessing(true);
-                await this.engine.injectUserTurn(content);
-            });
+			// Settings Events
+			settings.on('factory_reset', async () => {
+				history.clear();
+				vfs.loadFiles(this.config.DEFAULT_FILES);
+				chat.renderHistory([]);
+				await this.refreshPreview();
+				alert("System Reset Complete.");
+			});
+			settings.on('create_snapshot', async (label) => await storage.createSnapshot(label, vfs.files, history.get()));
+			settings.on('restore_snapshot', async (id) => {
+				const snap = await storage.getSnapshot(id);
+				if (snap) {
+					vfs.loadFiles(snap.files);
+					history.load(snap.history);
+					chat.renderHistory(history.get());
+					await this.refreshPreview();
+				}
+			});
+			settings.on('api_key_updated', () => this._refreshEngineConfig());
 
-            chat.on('stop', () => this.engine.stop());
-            chat.on('clear', () => {
-                if (confirm("Clear chat history?")) {
-                    history.clear();
-                    chat.renderHistory([]);
-                }
-            });
-            chat.on('delete_turn', (id) => {
-                history.delete(id);
-                chat.renderHistory(history.get());
-            });
-            chat.on('preview_request', (name, src, mime) => media.open(name, src, mime));
+			// Engine Events
+			this.engine.on('turn_start', (data) => {
+				if (data.role === global.Itera.Role.MODEL) {
+					chat.setProcessing(true);
+					chat.startStreaming();
+				}
+			});
+			this.engine.on('stream_chunk', (chunk) => chat.updateStreaming(chunk));
 
-            // Explorer Events
-            explorer.on('open_file', (path, content) => {
-                const BINARY_EXTS = /\.(png|jpg|jpeg|gif|webp|svg|ico|pdf|zip|mp3|mp4|wav|ogg)$/i;
-                if (path.match(BINARY_EXTS)) {
-                    media.open(path, content); // content is raw string/dataURI from VFS
-                } else {
-                    editor.open(path, content);
-                }
-            });
-            explorer.on('history_event', (type, desc) => {
-                const lpml = `<event type="${type}">\n${desc}\n</event>`;
-                history.append(global.Itera.Role.SYSTEM, lpml, { type: 'event_log' });
-                chat.renderHistory(history.get());
-            });
+			// ★ Bugfix: turn_end Logic for Flash prevention
+			this.engine.on('turn_end', (data) => {
+				if (data.role === global.Itera.Role.MODEL) {
+					// Modelの場合はfinalizeのみ（既にストリーミングでDOMにある）
+					chat.finalizeStreaming();
+				} else {
+					// User/Systemの場合は末尾に追記（全再描画しない）
+					const turn = data.turn || history.getLast();
+					chat.appendTurn(turn);
+				}
 
-            // Editor Events
-            editor.on('save', (path, content) => {
-                try {
-                    vfs.writeFile(path, content);
-                    // Log edit event (optional, can be noisy)
-                    // const lpml = `<event type="file_change">\nUser edited file: ${path}\n</event>`;
-                    // history.append(global.Itera.Role.SYSTEM, lpml, { type: 'event_log' });
-                    // chat.renderHistory(history.get());
-                    this.refreshPreview(); // Auto refresh preview on save
-                } catch (e) {
-                    alert(e.message);
-                }
-            });
+				if (!this.engine.isRunning) chat.setProcessing(false);
+				this._triggerAutoSave();
+			});
 
-            // Settings Events
-            settings.on('factory_reset', async () => {
-                history.clear();
-                vfs.loadFiles(this.config.DEFAULT_FILES);
-                chat.renderHistory([]);
-                await this.refreshPreview();
-                alert("System Reset Complete.");
-            });
-            settings.on('create_snapshot', async (label) => {
-                await storage.createSnapshot(label, vfs.files, history.get());
-            });
-            settings.on('restore_snapshot', async (id) => {
-                const snap = await storage.getSnapshot(id);
-                if (snap) {
-                    vfs.loadFiles(snap.files);
-                    history.load(snap.history);
-                    chat.renderHistory(history.get());
-                    await this.refreshPreview();
-                }
-            });
-            settings.on('api_key_updated', () => this._refreshEngineConfig());
+			this.engine.on('loop_stop', () => {
+				if (chat.currentStreamEl) chat.finalizeStreaming();
+				chat.setProcessing(false);
+				// Loop停止時は念のため全同期（重複リスクより整合性優先）したいが、
+				// appendTurn方式で整合性が保たれていれば不要。
+				// 安全策として、履歴の整合性チェックや自動保存だけ走らせる
+				this._triggerAutoSave();
+			});
 
-            // Engine Events
-            this.engine.on('turn_start', (data) => {
-                if (data.role === global.Itera.Role.MODEL) {
-                    chat.setProcessing(true);
-                    chat.startStreaming();
-                }
-            });
-            this.engine.on('stream_chunk', (chunk) => chat.updateStreaming(chunk));
-            this.engine.on('turn_end', (data) => {
-                if (data.role === global.Itera.Role.MODEL) chat.finalizeStreaming();
-                else chat.renderHistory(history.get());
-                
-                if (!this.engine.isRunning) chat.setProcessing(false);
-                // VFS change handles auto-save, but history change should also trigger it
-                // Since HistoryManager notifies on change, we can rely on that listener?
-                // Wait, we didn't bind history listener to auto-save in init. Doing it here:
-                this._triggerAutoSave();
-            });
-            this.engine.on('loop_stop', () => {
-                if (chat.currentStreamEl) chat.finalizeStreaming();
-                chat.setProcessing(false);
-                chat.renderHistory(history.get());
-                this._triggerAutoSave();
-            });
+			// State Listeners
+			vfs.on('change', (payload) => {
+				this._updateStorageUI(payload.usage);
+				this._triggerAutoSave();
+			});
+			history.on('change', () => this._triggerAutoSave());
+		}
 
-            // State Listeners (Auto-Save & UI Sync)
-            vfs.on('change', (payload) => {
-                this._updateStorageUI(payload.usage);
-                this._triggerAutoSave();
-            });
-            
-            // Fix 2 utilized: Listen to history changes for auto-save
-            history.on('change', () => this._triggerAutoSave());
-        }
+		_setupBridgeHandlers() {
+			const {
+				vfs
+			} = this.state;
+			const bridge = this.bridge;
 
-        _setupBridgeHandlers() {
-            const { vfs } = this.state;
-            const bridge = this.bridge;
+			bridge.registerHandler('read_file', ({
+				path
+			}) => vfs.readFile(path));
+			bridge.registerHandler('save_file', ({
+				path,
+				content
+			}) => vfs.writeFile(path, content));
+			bridge.registerHandler('delete_file', ({
+				path
+			}) => vfs.deleteFile(path));
+			bridge.registerHandler('stat_file', ({
+				path
+			}) => vfs.stat(path));
+			bridge.registerHandler('list_files', ({
+				path,
+				options
+			}) => vfs.listFiles({
+				path,
+				...options
+			}));
+			bridge.registerHandler('rename_file', ({
+				oldPath,
+				newPath
+			}) => vfs.rename(oldPath, newPath));
 
-            bridge.registerHandler('read_file', ({ path }) => vfs.readFile(path));
-            bridge.registerHandler('save_file', ({ path, content }) => vfs.writeFile(path, content));
-            bridge.registerHandler('delete_file', ({ path }) => vfs.deleteFile(path));
-            bridge.registerHandler('stat_file', ({ path }) => vfs.stat(path));
-            bridge.registerHandler('list_files', ({ path, options }) => vfs.listFiles({ path, ...options }));
-            bridge.registerHandler('rename_file', ({ oldPath, newPath }) => vfs.rename(oldPath, newPath));
+			bridge.registerHandler('switch_view', async ({
+				path
+			}) => {
+				await this.refreshPreview(path);
+				this._closeMobileDrawers();
+			});
+			bridge.registerHandler('show_notification', ({
+				message,
+				title
+			}) => console.log(`[Notification] ${title}: ${message}`));
+			bridge.registerHandler('open_file', ({
+				path
+			}) => {
+				const content = vfs.readFile(path);
+				this.components.editor.open(path, content);
+				this._closeMobileDrawers();
+			});
 
-            bridge.registerHandler('switch_view', async ({ path }) => {
-                await this.refreshPreview(path);
-                this._closeMobileDrawers(); // Close drawers on nav
-            });
-            bridge.registerHandler('show_notification', ({ message, title }) => {
-                console.log(`[Notification] ${title}: ${message}`);
-            });
-            bridge.registerHandler('open_file', ({ path }) => {
-                const content = vfs.readFile(path);
-                this.components.editor.open(path, content);
-                this._closeMobileDrawers();
-            });
+			bridge.registerHandler('agent_trigger', async ({
+				instruction,
+				options
+			}) => {
+				if (this.engine.isRunning) throw new Error("Agent is busy.");
+				let text = `[INTERNAL AGENT TRIGGER]\n${instruction}`;
+				if (options?.context) text += `\n\nContext: ${JSON.stringify(options.context)}`;
+				this._refreshEngineConfig();
+				this.components.chat.setProcessing(true);
+				await this.engine.injectUserTurn([{
+					text
+				}], {
+					visible: !options?.silent
+				});
+			});
+			bridge.registerHandler('view_ready', () => {});
+		}
 
-            bridge.registerHandler('agent_trigger', async ({ instruction, options }) => {
-                if (this.engine.isRunning) throw new Error("Agent is busy.");
-                let text = `[INTERNAL AGENT TRIGGER]\n${instruction}`;
-                if (options?.context) text += `\n\nContext: ${JSON.stringify(options.context)}`;
-                
-                this._refreshEngineConfig();
-                this.components.chat.setProcessing(true);
-                await this.engine.injectUserTurn([{ text }], { visible: !options?.silent });
-            });
+		_bindMobileUI() {
+			const {
+				BTN_MOBILE_FILES,
+				BTN_MOBILE_CHAT,
+				BTN_MOBILE_VIEW,
+				MOBILE_OVERLAY,
+				SIDEBAR,
+				CHAT_PANEL
+			} = this.els;
+			if (!BTN_MOBILE_FILES) return;
+			const reset = () => {
+				if (SIDEBAR) {
+					SIDEBAR.classList.remove('translate-x-0');
+					SIDEBAR.classList.add('-translate-x-full');
+				}
+				if (CHAT_PANEL) {
+					CHAT_PANEL.classList.remove('translate-x-0');
+					CHAT_PANEL.classList.add('translate-x-full');
+				}
+				if (MOBILE_OVERLAY) MOBILE_OVERLAY.classList.add('hidden');
+				[BTN_MOBILE_FILES, BTN_MOBILE_CHAT, BTN_MOBILE_VIEW].forEach(b => {
+					b.classList.remove('text-blue-400', 'font-bold', 'bg-gray-700/50');
+					b.classList.add('text-gray-400');
+				});
+			};
+			const activate = (btn) => {
+				btn.classList.remove('text-gray-400');
+				btn.classList.add('text-blue-400', 'font-bold', 'bg-gray-700/50');
+			};
+			BTN_MOBILE_FILES.onclick = () => {
+				reset();
+				activate(BTN_MOBILE_FILES);
+				if (SIDEBAR) {
+					SIDEBAR.classList.remove('-translate-x-full');
+					SIDEBAR.classList.add('translate-x-0');
+				}
+				if (MOBILE_OVERLAY) MOBILE_OVERLAY.classList.remove('hidden');
+			};
+			BTN_MOBILE_CHAT.onclick = () => {
+				reset();
+				activate(BTN_MOBILE_CHAT);
+				if (CHAT_PANEL) {
+					CHAT_PANEL.classList.remove('translate-x-full');
+					CHAT_PANEL.classList.add('translate-x-0');
+				}
+				if (MOBILE_OVERLAY) MOBILE_OVERLAY.classList.remove('hidden');
+			};
+			BTN_MOBILE_VIEW.onclick = () => {
+				reset();
+				activate(BTN_MOBILE_VIEW);
+			};
+			if (MOBILE_OVERLAY) MOBILE_OVERLAY.onclick = () => {
+				reset();
+				activate(BTN_MOBILE_VIEW);
+			};
+		}
 
-            bridge.registerHandler('view_ready', () => {});
-        }
+		_closeMobileDrawers() {
+			const {
+				BTN_MOBILE_VIEW
+			} = this.els;
+			if (BTN_MOBILE_VIEW && BTN_MOBILE_VIEW.onclick) BTN_MOBILE_VIEW.onclick();
+		}
 
-        // --- UI Logic ---
+		_updateStorageUI(usage) {
+			if (!this.els.STORAGE_BAR || !this.els.STORAGE_TEXT) return;
+			const usedMB = (usage.used / 1024 / 1024).toFixed(1);
+			const maxMB = (usage.max / 1024 / 1024).toFixed(1);
+			this.els.STORAGE_TEXT.textContent = `${usedMB} / ${maxMB} MB`;
+			const percent = Math.min(100, usage.percent);
+			this.els.STORAGE_BAR.style.width = `${percent}%`;
+			this.els.STORAGE_BAR.className = 'absolute top-0 left-0 h-full transition-all duration-500 ease-out';
+			this.els.STORAGE_TEXT.className = 'font-mono text-gray-500';
+			if (percent > 95) {
+				this.els.STORAGE_BAR.classList.add('bg-red-500', 'animate-pulse');
+				this.els.STORAGE_TEXT.classList.add('text-red-400', 'font-bold');
+			} else if (percent > 80) {
+				this.els.STORAGE_BAR.classList.add('bg-yellow-500');
+			} else {
+				this.els.STORAGE_BAR.classList.add('bg-blue-500');
+			}
+		}
 
-        _bindMobileUI() {
-            const { BTN_MOBILE_FILES, BTN_MOBILE_CHAT, BTN_MOBILE_VIEW, MOBILE_OVERLAY, SIDEBAR, CHAT_PANEL } = this.els;
-            const btnFiles = BTN_MOBILE_FILES;
-            const btnChat = BTN_MOBILE_CHAT;
-            const btnView = BTN_MOBILE_VIEW;
-            
-            if (!btnFiles) return;
+		_updateModelStatus(modelName) {
+			if (this.els.MODEL_STATUS) this.els.MODEL_STATUS.textContent = modelName;
+		}
 
-            const reset = () => {
-                if (SIDEBAR) {
-                    SIDEBAR.classList.remove('translate-x-0');
-                    SIDEBAR.classList.add('-translate-x-full');
-                }
-                if (CHAT_PANEL) {
-                    CHAT_PANEL.classList.remove('translate-x-0');
-                    CHAT_PANEL.classList.add('translate-x-full');
-                }
-                if (MOBILE_OVERLAY) MOBILE_OVERLAY.classList.add('hidden');
-                
-                [btnFiles, btnChat, btnView].forEach(b => {
-                    b.classList.remove('text-blue-400', 'font-bold', 'bg-gray-700/50');
-                    b.classList.add('text-gray-400');
-                });
-            };
+		_refreshEngineConfig() {
+			if (this.engine) this.engine.llm = this._createLLM();
+		}
 
-            const activate = (btn) => {
-                btn.classList.remove('text-gray-400');
-                btn.classList.add('text-blue-400', 'font-bold', 'bg-gray-700/50');
-            };
+		_triggerAutoSave() {
+			if (this.saveTimer) clearTimeout(this.saveTimer);
+			if (this.els.SAVE_STATUS) {
+				this.els.SAVE_STATUS.classList.remove('opacity-0');
+				this.els.SAVE_STATUS.textContent = "Saving...";
+				this.els.SAVE_STATUS.className = 'text-[9px] text-yellow-500 italic transition opacity-100 scale-90 origin-left';
+			}
+			this.saveTimer = setTimeout(async () => {
+				const {
+					vfs,
+					history,
+					storage
+				} = this.state;
+				await storage.saveSystemState(vfs.files, history.get());
+				if (this.els.SAVE_STATUS) {
+					this.els.SAVE_STATUS.textContent = "Saved";
+					this.els.SAVE_STATUS.className = 'text-[9px] text-green-500 italic transition opacity-100 scale-90 origin-left';
+					setTimeout(() => this.els.SAVE_STATUS.classList.add('opacity-0'), 2000);
+				}
+			}, 1000);
+		}
 
-            btnFiles.onclick = () => {
-                reset();
-                activate(btnFiles);
-                if (SIDEBAR) {
-                    SIDEBAR.classList.remove('-translate-x-full');
-                    SIDEBAR.classList.add('translate-x-0');
-                }
-                if (MOBILE_OVERLAY) MOBILE_OVERLAY.classList.remove('hidden');
-            };
+		async refreshPreview(path) {
+			await this.components.preview.refresh(this.state.vfs, path);
+		}
 
-            btnChat.onclick = () => {
-                reset();
-                activate(btnChat);
-                if (CHAT_PANEL) {
-                    CHAT_PANEL.classList.remove('translate-x-full');
-                    CHAT_PANEL.classList.add('translate-x-0');
-                }
-                if (MOBILE_OVERLAY) MOBILE_OVERLAY.classList.remove('hidden');
-            };
+		async captureScreenshot() {
+			return await this.components.preview.captureScreenshot();
+		}
+	}
 
-            btnView.onclick = () => {
-                reset();
-                activate(btnView);
-            };
-
-            if (MOBILE_OVERLAY) {
-                MOBILE_OVERLAY.onclick = () => {
-                    reset();
-                    activate(btnView);
-                };
-            }
-        }
-
-        _closeMobileDrawers() {
-            // Helper to close drawers programmatically (e.g. file open)
-            const { BTN_MOBILE_VIEW } = this.els;
-            if (BTN_MOBILE_VIEW && BTN_MOBILE_VIEW.onclick) {
-                BTN_MOBILE_VIEW.onclick();
-            }
-        }
-
-        _updateStorageUI(usage) {
-            if (!this.els.STORAGE_BAR || !this.els.STORAGE_TEXT) return;
-            
-            const usedMB = (usage.used / 1024 / 1024).toFixed(1);
-            const maxMB = (usage.max / 1024 / 1024).toFixed(1);
-            this.els.STORAGE_TEXT.textContent = `${usedMB} / ${maxMB} MB`;
-            
-            const percent = Math.min(100, usage.percent);
-            this.els.STORAGE_BAR.style.width = `${percent}%`;
-            
-            // Color Logic
-            this.els.STORAGE_BAR.className = 'absolute top-0 left-0 h-full transition-all duration-500 ease-out';
-            this.els.STORAGE_TEXT.className = 'font-mono text-gray-500';
-            
-            if (percent > 95) {
-                this.els.STORAGE_BAR.classList.add('bg-red-500', 'animate-pulse');
-                this.els.STORAGE_TEXT.classList.add('text-red-400', 'font-bold');
-            } else if (percent > 80) {
-                this.els.STORAGE_BAR.classList.add('bg-yellow-500');
-            } else {
-                this.els.STORAGE_BAR.classList.add('bg-blue-500');
-            }
-        }
-
-        _updateModelStatus(modelName) {
-            if (this.els.MODEL_STATUS) {
-                this.els.MODEL_STATUS.textContent = modelName;
-            }
-        }
-
-        _refreshEngineConfig() {
-            if (this.engine) {
-                this.engine.llm = this._createLLM();
-            }
-        }
-
-        _triggerAutoSave() {
-            if (this.saveTimer) clearTimeout(this.saveTimer);
-            
-            if (this.els.SAVE_STATUS) {
-                this.els.SAVE_STATUS.classList.remove('opacity-0');
-                this.els.SAVE_STATUS.textContent = "Saving...";
-                this.els.SAVE_STATUS.className = 'text-[9px] text-yellow-500 italic transition opacity-100 scale-90 origin-left';
-            }
-
-            this.saveTimer = setTimeout(async () => {
-                const { vfs, history, storage } = this.state;
-                await storage.saveSystemState(vfs.files, history.get());
-                
-                if (this.els.SAVE_STATUS) {
-                    this.els.SAVE_STATUS.textContent = "Saved";
-                    this.els.SAVE_STATUS.className = 'text-[9px] text-green-500 italic transition opacity-100 scale-90 origin-left';
-                    setTimeout(() => this.els.SAVE_STATUS.classList.add('opacity-0'), 2000);
-                }
-            }, 1000);
-        }
-
-        // --- Public API for Tools ---
-
-        async refreshPreview(path) {
-            await this.components.preview.refresh(this.state.vfs, path);
-        }
-
-        async captureScreenshot() {
-            return await this.components.preview.captureScreenshot();
-        }
-    }
-
-    global.Itera.UI.MainController = MainController;
+	global.Itera.UI.MainController = MainController;
 
 })(window);

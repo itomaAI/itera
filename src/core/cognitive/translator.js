@@ -17,7 +17,16 @@
         static PATTERN_PROTECT = /(`[\s\S]*?`|<!--[\s\S]*?-->|<![\s\S]*?>)/g;
 
         constructor() {
-            this.excludeTags = []; 
+            this.excludeTags = [
+                'create_file', 
+                'edit_file', 
+                'thinking', 
+                'plan', 
+                'report', 
+                'ask', 
+                'user_input',
+                'user_attachment'
+            ]; 
         }
 
         /**
