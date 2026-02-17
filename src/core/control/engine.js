@@ -71,7 +71,7 @@
 
 			let currentSignal = Signal.CONTINUE;
 			let loopCount = 0;
-			const MAX_LOOPS = 20;
+			const MAX_LOOPS = 200;
 			let lastTurnHadError = false;
 
 			try {
