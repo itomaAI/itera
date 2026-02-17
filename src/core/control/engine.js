@@ -76,6 +76,7 @@
 
 			try {
 				while (currentSignal === Signal.CONTINUE) {
+					// 1. ループ制限
 					if (loopCount >= MAX_LOOPS) {
 						this.state.history.append(Role.SYSTEM, `System Alert: Max turn limit (${MAX_LOOPS}) reached.`, {
 							type: TurnType.ERROR
@@ -85,7 +86,7 @@
 					}
 					loopCount++;
 
-					// L1: Think
+					// 2. 思考 (L1)
 					const messages = this.projector.createContext(this.state);
 					this._emit('turn_start', {
 						role: Role.MODEL
@@ -97,11 +98,17 @@
 						this._emit('stream_chunk', chunk);
 					}, this.abortController.signal);
 
-					this.state.history.append(Role.MODEL, rawResponse, {
+					const modelTurn = this.state.history.append(Role.MODEL, rawResponse, {
 						type: TurnType.MODEL_THOUGHT
 					});
 
-					// L2: Parse
+                    // ★ Bugfix: モデルのターン終了イベントを発火
+                    this._emit('turn_end', {
+                        role: Role.MODEL,
+                        turn: modelTurn
+                    });
+
+					// 3. 解釈 (L1 -> L2)
 					const actions = this.translator.parse(rawResponse);
 
 					if (actions.length === 0) {
@@ -131,7 +138,7 @@
 						role: Role.SYSTEM
 					});
 
-					// L2: Execute
+					// 4. 実行 (L2)
 					const context = {
 						vfs: this.state.vfs,
 						config: this.state.configManager,
@@ -185,9 +192,6 @@
 			} catch (error) {
 				if (error.name === 'AbortError') {
 					console.log('[Engine] Aborted.');
-                    this._emit('loop_stop', {
-						reason: 'aborted'
-					});
 				} else {
 					console.error('[Engine] Error:', error);
 					this.state.history.append(Role.SYSTEM, `System Error: ${error.message}`, {
