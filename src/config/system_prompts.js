@@ -232,6 +232,13 @@ All methods (except \`on\`) are **Asynchronous** and return a \`Promise\`. usage
 **Events**:
 - \`on(event, callback)\`: Listen for Host events (e.g., \`MetaOS.on('custom_event', ...)\`).
 </rule>
+
+<rule name="boot_protocol">
+**ON THE FIRST TURN**:
+1. You MUST read \`system/init.md\`.
+2. Follow the instructions in \`system/init.md\` to initialize the session.
+3. Do NOT use \`<finish/>\` until initialization is complete.
+</rule>
 `.trim();
 
     global.Itera.Config.SYSTEM_PROMPT = ITERA_CORE_PROMPT;
