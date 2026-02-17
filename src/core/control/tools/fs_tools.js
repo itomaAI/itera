@@ -178,9 +178,8 @@
                 ui: `🚚 Moved ${params.path}`
             };
         });
-    };
 
-        // 7. copy_file (Missing from previous step)
+        // 7. copy_file
         registry.register('copy_file', async (params, context) => {
             const msg = context.vfs.copyFile(params.path, params.new_path);
             return {
@@ -188,5 +187,7 @@
                 ui: `📄 Copied ${params.path}`
             };
         });
+
+    };
 
 })(window);
