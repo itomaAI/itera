@@ -204,6 +204,13 @@
 				try {
 					vfs.writeFile(path, content);
 					this.refreshPreview();
+
+                    // --- ★ Modified: Log manual save to chat history ---
+                    const lpml = `<event type="file_edited">\nUser edited file manually: ${path}\n</event>`;
+                    const turn = history.append(global.Itera.Role.SYSTEM, lpml, { type: 'event_log' });
+                    chat.appendTurn(turn);
+                    // --------------------------------------------------
+
 				} catch (e) {
 					alert(e.message);
 				}
@@ -211,11 +218,23 @@
 
 			// Settings Events
 			settings.on('factory_reset', async () => {
+                // --- ★ Modified: Auto Backup before Reset ---
+                try {
+                    const timestamp = new Date().toLocaleString();
+                    const label = `Auto Backup (Pre-Reset) - ${timestamp}`;
+                    await storage.createSnapshot(label, vfs.files, history.get());
+                    console.log(`[System] Created safety snapshot: ${label}`);
+                } catch (e) {
+                    console.error("Auto backup failed:", e);
+                    if (!confirm("Automatic backup failed. Continue reset anyway?")) return;
+                }
+                // --------------------------------------------
+
 				history.clear();
 				vfs.loadFiles(this.config.DEFAULT_FILES);
 				chat.renderHistory([]);
 				await this.refreshPreview();
-				alert("System Reset Complete.");
+				alert("System Reset Complete. (Safety backup created)");
 			});
 			settings.on('create_snapshot', async (label) => await storage.createSnapshot(label, vfs.files, history.get()));
 			settings.on('restore_snapshot', async (id) => {
