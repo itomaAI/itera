@@ -52,6 +52,7 @@ window.addEventListener('message', async (e) => {
             this.els = {};
             this.events = {}; // Event handlers
             this.blobUrls = []; // メモリリーク防止用
+            this.currentPath = 'index.html'; // Default state
             this._initElements();
             this._bindEvents();
         }
@@ -77,24 +78,28 @@ window.addEventListener('message', async (e) => {
         /**
          * プレビューを更新する (Compiler Logic)
          * @param {VirtualFileSystem} vfs 
-         * @param {string} entryPath (default: index.html)
+         * @param {string} entryPath (optional)
          */
-        async refresh(vfs, entryPath = 'index.html') {
+        async refresh(vfs, entryPath) {
             if (!this.els.FRAME) return;
+
+            // Use provided path or fallback to current state
+            const targetPath = entryPath || this.currentPath;
+            this.currentPath = targetPath;
 
             // 1. Show Loader
             if (this.els.LOADER) this.els.LOADER.classList.remove('hidden');
 
             try {
                 // 2. Compile VFS to Blob URL
-                const url = await this._compile(vfs, entryPath);
+                const url = await this._compile(vfs, targetPath);
                 
                 // 3. Update Iframe
                 if (url) {
                     await this._loadIframe(url);
-                    this._updateAddressBar(entryPath);
+                    this._updateAddressBar(targetPath);
                 } else {
-                    this.els.FRAME.srcdoc = `<div style="color:#888; padding:20px; font-family:sans-serif;">No ${entryPath} found.</div>`;
+                    this.els.FRAME.srcdoc = `<div style="color:#888; padding:20px; font-family:sans-serif;">No ${targetPath} found.</div>`;
                 }
 
             } catch (e) {
@@ -121,11 +126,8 @@ window.addEventListener('message', async (e) => {
         }
 
         _updateAddressBar(path) {
-            // アドレスバーっぽい見た目の更新 (metaos://view/...)
-            // DOM要素があれば更新する
-            const bar = document.querySelector('.address-bar-text') || document.getElementById('address-bar'); // 仮
-            if (bar) {
-                bar.textContent = `metaos://view/${path}`;
+            if (this.els.ADDRESS_BAR) {
+                this.els.ADDRESS_BAR.textContent = `metaos://view/${path}`;
             }
         }
 

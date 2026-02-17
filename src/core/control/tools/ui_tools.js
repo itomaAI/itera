@@ -10,7 +10,7 @@
         // 1. preview (Refresh iframe)
         registry.register('preview', async (params, context) => {
             if (context.ui && context.ui.refreshPreview) {
-                await context.ui.refreshPreview();
+                await context.ui.refreshPreview(params.path); // Pass path if provided
                 return {
                     log: `[preview] Refreshed preview pane.`,
                     ui: `🔄 Preview Refreshed`
