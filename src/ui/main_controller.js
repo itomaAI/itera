@@ -129,7 +129,8 @@
 				explorer,
 				editor,
 				media,
-				settings
+				settings,
+				preview
 			} = this.components;
 			const {
 				vfs,
@@ -247,6 +248,9 @@
 				}
 			});
 			settings.on('api_key_updated', () => this._refreshEngineConfig());
+
+			// Preview Events
+			preview.on('refresh', () => this.refreshPreview());
 
 			// Engine Events
 			this.engine.on('turn_start', (data) => {

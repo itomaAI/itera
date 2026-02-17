@@ -50,9 +50,14 @@ window.addEventListener('message', async (e) => {
     class PreviewPane {
         constructor() {
             this.els = {};
+            this.events = {}; // Event handlers
             this.blobUrls = []; // メモリリーク防止用
             this._initElements();
             this._bindEvents();
+        }
+
+        on(event, callback) {
+            this.events[event] = callback;
         }
 
         _initElements() {
@@ -63,14 +68,8 @@ window.addEventListener('message', async (e) => {
 
         _bindEvents() {
             if (this.els.BTN_REFRESH) {
-                // MainController から refresh が呼ばれるはずだが、ボタン単体でも動くように
-                // ただし VFS インスタンスを持っていないため、イベントを発火する形にするか、
-                // あるいは MainController で bind されるのを待つ。
-                // ここでは「クリックされたら発火」だけ定義し、Controller側で購読する設計とする。
                 this.els.BTN_REFRESH.onclick = () => {
-                    // Simple callback hook pattern handled by controller usually,
-                    // but for self-containment, we leave it empty or emit custom event.
-                    // 今回はMainControllerがこのクラスのrefreshメソッドを直接呼ぶ想定。
+                    if (this.events['refresh']) this.events['refresh']();
                 };
             }
         }
