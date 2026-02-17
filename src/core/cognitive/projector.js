@@ -20,23 +20,41 @@
         }
 
         _buildSystemPrompt(state) {
-            let configPrompt = "";
-            try {
-                if (state.vfs && state.vfs.exists('system/config.json')) {
-                    const conf = JSON.parse(state.vfs.readFile('system/config.json'));
-                    const user = conf.username || "User";
-                    const agent = conf.agentName || "Itera";
-                    configPrompt = `\n\n<persona_config>\nYour Name: ${agent}\nUser Name: ${user}\n</persona_config>`;
+            let config = {};
+            
+            // 1. Configの取得 (ConfigManager推奨、なければVFSフォールバック)
+            if (state.configManager) {
+                config = state.configManager.get() || {};
+            } else {
+                try {
+                    if (state.vfs && state.vfs.exists('system/config.json')) {
+                        config = JSON.parse(state.vfs.readFile('system/config.json'));
+                    }
+                } catch (e) {
+                    // Config read error ignored
                 }
-            } catch (e) {
-                // Config read error ignored
             }
+
+            const user = config.username || "User";
+            const agent = config.agentName || "Itera";
+            const language = config.language || "English";
+
+            // 2. プロンプト内のプレースホルダー置換
+            // {{language}} を config.language に置き換える
+            let effectivePrompt = this.systemPrompt.replace(/{{language}}/g, language);
+            // {{agentName}} を config.agentName に置き換える
+            effectivePrompt = effectivePrompt.replace(/{{agentName}}/g, agent);
+            // {{username}} を config.username に置き換える
+            effectivePrompt = effectivePrompt.replace(/{{username}}/g, user);
+
+            // 3. 動的情報の追記
+            const configPrompt = `\n\n<persona_config>\nYour Name: ${agent}\nUser Name: ${user}\nLanguage Setting: ${language}\n</persona_config>`;
 
             const now = new Date();
             const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
             const timePrompt = `\n\n<system_info>\nCurrent Time: ${now.toLocaleString()} (${days[now.getDay()]})\nTimestamp: ${now.toISOString()}\n</system_info>`;
 
-            return this.systemPrompt + configPrompt + timePrompt;
+            return effectivePrompt + configPrompt + timePrompt;
         }
 
         _optimizeHistory(historyClone) {
@@ -66,8 +84,7 @@
      */
     class GeminiProjector extends BaseProjector {
         createContext(state) {
-            // ★ Fix: state.getHistory() -> state.history.get()
-            // MainControllerで渡している state = { history, vfs, ... } なので、historyプロパティ経由でアクセスする
+            // MainControllerで渡している state = { history, vfs, configManager }
             const historyData = state.history ? state.history.get() : [];
             const history = JSON.parse(JSON.stringify(historyData));
             
@@ -75,7 +92,7 @@
 
             const apiMessages = [];
 
-            // 2. System Prompt
+            // 2. System Prompt (Dynamic Construction)
             const dynamicPrompt = this._buildSystemPrompt(state);
             apiMessages.push({
                 role: 'user',

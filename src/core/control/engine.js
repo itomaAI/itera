@@ -11,7 +11,6 @@
 	};
 	const Signal = global.Itera.Control.Signal;
 
-	// TurnType定数
 	const TurnType = {
 		USER_INPUT: 'user_input',
 		MODEL_THOUGHT: 'model_thought',
@@ -21,21 +20,13 @@
 	global.Itera.TurnType = TurnType;
 
 	class Engine {
-		/**
-		 * @param {Object} state - State Layer (History, VFS, Config)
-		 * @param {Object} projector - Cognitive Layer
-		 * @param {Object} llm - Cognitive Layer
-		 * @param {Object} translator - Cognitive Layer
-		 * @param {Object} registry - Control Layer
-		 * @param {Object} extraContext - [Fix 3] Additional context for tools (e.g. { ui: ... })
-		 */
 		constructor(state, projector, llm, translator, registry, extraContext = {}) {
 			this.state = state;
 			this.projector = projector;
 			this.llm = llm;
 			this.translator = translator;
 			this.registry = registry;
-			this.extraContext = extraContext; // [Fix 3] Store extra context
+			this.extraContext = extraContext;
 
 			this.isRunning = false;
 			this.abortController = null;
@@ -85,7 +76,6 @@
 
 			try {
 				while (currentSignal === Signal.CONTINUE) {
-					// 1. ループ制限
 					if (loopCount >= MAX_LOOPS) {
 						this.state.history.append(Role.SYSTEM, `System Alert: Max turn limit (${MAX_LOOPS}) reached.`, {
 							type: TurnType.ERROR
@@ -95,7 +85,7 @@
 					}
 					loopCount++;
 
-					// 2. 思考 (L1)
+					// L1: Think
 					const messages = this.projector.createContext(this.state);
 					this._emit('turn_start', {
 						role: Role.MODEL
@@ -111,7 +101,7 @@
 						type: TurnType.MODEL_THOUGHT
 					});
 
-					// 3. 解釈 (L1 -> L2)
+					// L2: Parse
 					const actions = this.translator.parse(rawResponse);
 
 					if (actions.length === 0) {
@@ -141,8 +131,7 @@
 						role: Role.SYSTEM
 					});
 
-					// 4. 実行 (L2)
-					// [Fix 3] Merge extraContext (ui) into tool context
+					// L2: Execute
 					const context = {
 						vfs: this.state.vfs,
 						config: this.state.configManager,
@@ -196,6 +185,9 @@
 			} catch (error) {
 				if (error.name === 'AbortError') {
 					console.log('[Engine] Aborted.');
+                    this._emit('loop_stop', {
+						reason: 'aborted'
+					});
 				} else {
 					console.error('[Engine] Error:', error);
 					this.state.history.append(Role.SYSTEM, `System Error: ${error.message}`, {

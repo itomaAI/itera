@@ -14,11 +14,10 @@
         PREVIEW_AREA: 'file-preview-area',
         FILE_UPLOAD: 'chat-file-upload',
         AI_TYPING: 'ai-typing',
-        // Resizer related IDs
         RESIZER: 'chat-resizer',
         PANEL: 'chat-panel',
         RESIZE_OVERLAY: 'resize-overlay',
-        PREVIEW_FRAME: 'preview-frame' // iframeのポインターイベント制御用
+        PREVIEW_FRAME: 'preview-frame'
     };
 
     class ChatPanel {
@@ -36,7 +35,7 @@
 
             this._initElements();
             this._bindEvents();
-            this._initResizer(); // ★ Added
+            this._initResizer();
         }
 
         on(event, callback) {
@@ -92,7 +91,6 @@
             }
         }
 
-        // ★ Added: Resizer Logic from MetaOS
         _initResizer() {
             const resizer = this.els.RESIZER;
             const panel = this.els.PANEL;
@@ -107,8 +105,6 @@
                 isResizing = true;
                 document.body.style.cursor = 'col-resize';
                 resizer.classList.add('resizing');
-                
-                // iframeがマウスイベントを吸わないようにオーバーレイを表示
                 if (overlay) overlay.classList.remove('hidden');
                 if (iframe) iframe.style.pointerEvents = 'none';
                 e.preventDefault();
@@ -119,16 +115,13 @@
                 isResizing = false;
                 document.body.style.cursor = '';
                 resizer.classList.remove('resizing');
-
                 if (overlay) overlay.classList.add('hidden');
                 if (iframe) iframe.style.pointerEvents = '';
             };
 
             const move = (e) => {
                 if (!isResizing) return;
-                // 右端からの距離で幅を計算
                 const w = document.body.clientWidth - e.clientX;
-                // 最小300px, 最大800pxの制限
                 if (w > 300 && w < 800) {
                     panel.style.width = `${w}px`;
                 }
@@ -138,7 +131,7 @@
             resizer.addEventListener('mousedown', start);
             document.addEventListener('mousemove', move);
             document.addEventListener('mouseup', stop);
-            window.addEventListener('blur', stop); // ウィンドウ外に出た場合の対策
+            window.addEventListener('blur', stop);
         }
 
         _handlePaste(e) {
@@ -193,6 +186,14 @@
         }
 
         startStreaming() {
+            // 既にストリーミング要素がある場合は削除する（重複防止）
+            if (this.currentStreamEl && this.currentStreamEl.parentElement) {
+                this.currentStreamEl.parentElement.remove();
+            }
+            // コンテンツバッファをリセット
+            this.currentStreamContent = "";
+            this.currentStreamEl = null;
+
             this._createStreamElement();
             this._scrollToBottom(true);
         }
@@ -208,6 +209,7 @@
             this.els.HISTORY.appendChild(div);
             this.currentStreamEl = div.querySelector('.msg-content');
             
+            // 既存のコンテンツがある場合（renderHistoryからの復元時など）はフォーマット
             if (this.currentStreamContent && this.translator) {
                 this.currentStreamEl.innerHTML = this.translator.formatStream(this.currentStreamContent);
                 this.currentStreamEl.classList.remove('whitespace-pre-wrap');
@@ -243,6 +245,7 @@
             
             history.forEach(turn => this._appendTurn(turn));
 
+            // ストリーミング中であれば、末尾に現在の生成内容を表示（復元）
             if (this.isProcessing && this.currentStreamContent !== "") {
                 this._createStreamElement();
             }
