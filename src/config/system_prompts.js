@@ -55,6 +55,7 @@ Use this tag to speak to the user (e.g., greetings, progress reports, explanatio
 Behavior:
     - Displays the content to the user.
     - Does NOT pause the system loop (Signal.CONTINUE). You can execute tools in the same turn.
+    - If you do not need to execute more tools or continue the loop, you CAN append the \`<finish>\` tag to stop the process.
 </define_tag>
 
 <define_tag name="ask">
