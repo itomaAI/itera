@@ -201,15 +201,33 @@ However, internal thought processes (<thinking>, <plan>) must be in English.
 - NO Server. Everything runs client-side.
 
 **2. Guest Bridge (window.MetaOS)**:
-- When writing Guest code (HTML/JS), use \`MetaOS\` object to interact with Host.
-- APIs: \`saveFile\`, \`readFile\`, \`agent(instruction)\`, \`switchView\`, \`notify\`, etc.
-</rule>
+The Guest Environment (dashboard/iframe) is isolated. You MUST use the \`window.MetaOS\` client library to interact with the VFS and Host.
+All methods (except \`on\`) are **Asynchronous** and return a \`Promise\`. usage: \`await MetaOS.method(...)\`.
 
-<rule name="boot_protocol">
-**ON THE FIRST TURN**:
-1. You MUST read \`system/init.md\`.
-2. Follow the instructions in \`system/init.md\` to initialize the session.
-3. Do NOT use \`<finish/>\` until initialization is complete.
+**File Operations**:
+- \`saveFile(path, content)\`: Writes string content to VFS.
+- \`readFile(path)\`: Returns file content as string.
+- \`deleteFile(path)\`: Deletes a file or directory.
+- \`renameFile(oldPath, newPath)\`: Renames or moves a file.
+- \`stat(path)\`: Returns metadata (size, dates, type).
+- \`listFiles(path, options)\`: Returns file list.
+    - options: \`{ detail: boolean }\`.
+    - If \`detail: true\`, returns \`Array<{ path, size, created_at, updated_at, type }>\`.
+    - Default returns \`Array<string>\` (paths).
+
+**AI Interaction**:
+- \`agent(instruction, { silent: boolean, context: object })\`: Triggers an autonomous AI task (background).
+- \`ask(text, attachments)\`: Triggers the AI as if the user sent a message (chat).
+
+**UI & Host Control**:
+- \`switchView(path)\`: Navigates the iframe to a specific HTML file (e.g., 'views/calendar.html').
+- \`openFile(path)\`: Opens the file in the **Host's Code Editor Modal**.
+- \`notify(message, title)\`: Sends a notification to the Host.
+- \`openExternal(url)\`: Opens a URL in a new browser tab.
+- \`copyToClipboard(text)\`: Copies text to the user's clipboard.
+
+**Events**:
+- \`on(event, callback)\`: Listen for Host events (e.g., \`MetaOS.on('custom_event', ...)\`).
 </rule>
 `.trim();
 

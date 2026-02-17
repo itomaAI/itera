@@ -47,22 +47,44 @@
             // テキストの場合
             const lines = content.split(/\r?\n/);
             
-            // 部分読み込み (start/end)
+            // --- ★ Modified: Line limit logic ---
             let s = parseInt(params.start);
-            if (isNaN(s)) s = 1;
             let e = parseInt(params.end);
-            // デフォルトは大きめに取るが、全行読み込みも許容
-            if (isNaN(e)) e = lines.length; 
+            
+            const hasStart = !isNaN(s);
+            const hasEnd = !isNaN(e);
 
-            const sliced = lines.slice(Math.max(0, s - 1), Math.min(lines.length, e));
+            // 開始行のデフォルトは1
+            if (!hasStart) s = 1;
+
+            if (!hasEnd) {
+                if (hasStart) {
+                    // startのみ指定: 「意図的な指定」とみなし、最後まで読む
+                    e = lines.length;
+                } else {
+                    // start/end 両方指定なし: デフォルト制限 (800行)
+                    e = Math.min(lines.length, 800);
+                }
+            }
+            // ------------------------------------
+
+            // 範囲外アクセス防止
+            const startIdx = Math.max(0, s - 1);
+            const endIdx = Math.min(lines.length, e);
+
+            const sliced = lines.slice(startIdx, endIdx);
             const showNum = params.line_numbers !== 'false';
             
             const contentStr = showNum 
                 ? sliced.map((l, i) => `${s + i} | ${l}`).join('\n') 
                 : sliced.join('\n');
 
-            let logMsg = `[read_file] ${params.path} (Lines ${s}-${Math.min(lines.length, e)} of ${lines.length}):\n${contentStr}`;
-            if (e < lines.length) logMsg += `\n... (File truncated. Use start=${e+1} to read more)`;
+            let logMsg = `[read_file] ${params.path} (Lines ${s}-${endIdx} of ${lines.length}):\n${contentStr}`;
+            
+            // 続きがある場合のメッセージ
+            if (endIdx < lines.length) {
+                logMsg += `\n\n... (File truncated. ${lines.length - endIdx} more lines. Use start=${endIdx + 1} to read more)`;
+            }
 
             return {
                 log: logMsg,
