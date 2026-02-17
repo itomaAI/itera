@@ -192,6 +192,7 @@
 			} catch (error) {
 				if (error.name === 'AbortError') {
 					console.log('[Engine] Aborted.');
+					this._emit('loop_stop', { reason: 'abort' });
 				} else {
 					console.error('[Engine] Error:', error);
 					this.state.history.append(Role.SYSTEM, `System Error: ${error.message}`, {
