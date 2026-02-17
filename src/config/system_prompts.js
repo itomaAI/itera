@@ -91,8 +91,11 @@ Attributes:
     - path: File path in VFS.
     - start (optional): Start line number.
     - end (optional): End line number.
+    // ↓ ここを修正
+    - line_numbers (optional): "true" or "false" (default). Set to "true" if you need line numbers for reference.
 Rule:
     - Always read a file before editing it to ensure you have the latest version.
+    - **Note**: If no start/end arguments are provided, it reads up to 800 lines by default. Specify start/end to read full content of larger files.
 </define_tag>
 
 <define_tag name="create_file">

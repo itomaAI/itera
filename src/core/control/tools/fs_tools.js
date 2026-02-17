@@ -73,7 +73,7 @@
             const endIdx = Math.min(lines.length, e);
 
             const sliced = lines.slice(startIdx, endIdx);
-            const showNum = params.line_numbers !== 'false';
+            const showNum = params.line_numbers !== 'true';
             
             const contentStr = showNum 
                 ? sliced.map((l, i) => `${s + i} | ${l}`).join('\n') 
