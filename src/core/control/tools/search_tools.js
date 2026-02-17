@@ -20,16 +20,24 @@
             const rootPath = params.path || '';
             const extensions = params.include ? params.include.split(',').map(e => e.trim().toLowerCase().replace(/^\*/, '')) : [];
             const contextLines = parseInt(params.context || '2', 10);
-            const useRegex = params.regex === 'true';
+            
+            // --- ★ Modified: Enhanced Regex & Flags Logic ---
+            // 1. Regex判定を緩く (True/TRUE も許容)
+            const useRegex = params.regex && params.regex.toLowerCase() === 'true';
+            
+            // 2. Case Sensitive判定 (デフォルトは insensitive)
+            const isCaseSensitive = params.case_sensitive && params.case_sensitive.toLowerCase() === 'true';
+            const flags = isCaseSensitive ? 'm' : 'mi'; // m: multiline (though we search line-by-line, good habit)
 
             // 正規表現の準備
             let regex;
             try {
                 const pattern = useRegex ? query : query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-                regex = new RegExp(pattern, 'i'); // Case insensitive default
+                regex = new RegExp(pattern, flags);
             } catch (e) {
-                return { log: `Invalid Regex: ${e.message}`, error: true };
+                return { log: `Invalid Regex Pattern: "/${query}/" -> ${e.message}`, error: true };
             }
+            // -----------------------------------------------
 
             const allFiles = context.vfs.listFiles({ recursive: true });
             const results = [];
@@ -92,8 +100,9 @@
             }
 
             if (results.length === 0) {
+                const modeStr = useRegex ? `Regex: "${query}"` : `Text: "${query}"`;
                 return {
-                    log: `No matches found for "${query}" in path: "${rootPath}".`,
+                    log: `No matches found for ${modeStr} in path: "${rootPath}".`,
                     ui: `🔍 No matches found`
                 };
             }

@@ -21,13 +21,11 @@
             const content = vfs.readFile(params.path);
 
             if (isBinary) {
-                // バイナリの場合、DataURIからBase64部分とMimeTypeを抽出して返す
+                // バイナリ処理
                 let base64 = content;
                 let mimeType = 'application/octet-stream';
-
-                // 簡易MimeType判定
                 if (params.path.match(/\.pdf$/i)) mimeType = 'application/pdf';
-                else if (params.path.match(/\.(png|jpg|jpeg)$/i)) mimeType = 'image/png'; // 概略
+                else if (params.path.match(/\.(png|jpg|jpeg)$/i)) mimeType = 'image/png';
                 
                 if (content.startsWith('data:')) {
                     const parts = content.split(',');
@@ -35,45 +33,41 @@
                     const match = parts[0].match(/:(.*?);/);
                     if (match) mimeType = match[1];
                 }
-
                 return {
                     log: `[read_file] Read binary file: ${params.path} (${mimeType})`,
                     ui: `📦 Read Binary ${params.path}`,
-                    image: base64, // 画像として表示可能な場合、Projectorが拾う
+                    image: base64,
                     mimeType: mimeType
                 };
             }
 
-            // テキストの場合
+            // テキスト処理
             const lines = content.split(/\r?\n/);
             
-            // --- ★ Modified: Line limit logic ---
             let s = parseInt(params.start);
             let e = parseInt(params.end);
             
             const hasStart = !isNaN(s);
             const hasEnd = !isNaN(e);
 
-            // 開始行のデフォルトは1
             if (!hasStart) s = 1;
 
             if (!hasEnd) {
                 if (hasStart) {
-                    // startのみ指定: 「意図的な指定」とみなし、最後まで読む
                     e = lines.length;
                 } else {
                     // start/end 両方指定なし: デフォルト制限 (800行)
                     e = Math.min(lines.length, 800);
                 }
             }
-            // ------------------------------------
 
-            // 範囲外アクセス防止
             const startIdx = Math.max(0, s - 1);
             const endIdx = Math.min(lines.length, e);
 
             const sliced = lines.slice(startIdx, endIdx);
-            const showNum = params.line_numbers !== 'true';
+            
+            // デフォルトOFF ("true" の時だけ行番号表示)
+            const showNum = params.line_numbers === 'true';
             
             const contentStr = showNum 
                 ? sliced.map((l, i) => `${s + i} | ${l}`).join('\n') 
@@ -81,7 +75,6 @@
 
             let logMsg = `[read_file] ${params.path} (Lines ${s}-${endIdx} of ${lines.length}):\n${contentStr}`;
             
-            // 続きがある場合のメッセージ
             if (endIdx < lines.length) {
                 logMsg += `\n\n... (File truncated. ${lines.length - endIdx} more lines. Use start=${endIdx + 1} to read more)`;
             }
@@ -95,9 +88,7 @@
         // 2. create_file
         registry.register('create_file', async (params, context) => {
             let content = params.content || "";
-            // 先頭・末尾の改行トリムは任意だが、LLMの癖に合わせて実施
             content = content.replace(/^\r?\n/, '').replace(/\r?\n$/, '');
-            
             const msg = context.vfs.writeFile(params.path, content);
             return {
                 log: `[create_file] ${msg}`,
@@ -110,7 +101,6 @@
             const vfs = context.vfs;
             const content = params.content || "";
 
-            // A. 行編集モード (mode属性がある場合)
             if (params.mode) {
                 const msg = vfs.editLines(params.path, params.start, params.end, params.mode, content);
                 return {
@@ -119,7 +109,6 @@
                 };
             }
 
-            // B. 文字列置換モード (<<<<SEARCH マーカー使用)
             const MARKER_SEARCH = "<<<<SEARCH";
             const MARKER_DIVIDER = "====";
             const MARKER_END = ">>>>";
@@ -137,16 +126,13 @@
                 let patternStr = content.substring(searchStart, divStart);
                 let replaceStr = content.substring(divEnd, blockEnd);
 
-                // マーカー前後の改行を除去
                 if (patternStr.startsWith('\n')) patternStr = patternStr.substring(1);
                 if (patternStr.endsWith('\n')) patternStr = patternStr.substring(0, patternStr.length - 1);
                 if (replaceStr.startsWith('\n')) replaceStr = replaceStr.substring(1);
                 if (replaceStr.endsWith('\n')) replaceStr = replaceStr.substring(0, replaceStr.length - 1);
 
-                // Regexフラグ
                 const isRegex = params.regex === 'true';
                 if (!isRegex) {
-                    // Regexを使わない場合はエスケープして完全一致検索にする
                     patternStr = patternStr.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
                 }
 
@@ -156,7 +142,6 @@
                     ui: `✏️ Replaced content in ${params.path}`
                 };
             }
-
             throw new Error("Invalid <edit_file> content. Use strict markers (<<<<SEARCH) or specify 'mode' attribute.");
         });
 
@@ -164,21 +149,41 @@
         registry.register('list_files', async (params, context) => {
             const root = params.path || "";
             const recursive = params.recursive === 'true';
+            const detail = params.detail === 'true'; // パラメータ受け取り
             
-            // コンテキスト節約のため、詳細情報は出さないシンプルなリスト
-            const files = context.vfs.listFiles({ path: root, recursive: recursive });
+            const files = context.vfs.listFiles({ 
+                path: root, 
+                recursive: recursive, 
+                detail: detail // VFSに渡す
+            });
             
-            // 数が多い場合の省略表示
             const limit = 100;
             let displayFiles = files;
             let suffix = "";
+            
             if (files.length > limit) {
                 displayFiles = files.slice(0, limit);
                 suffix = `\n... (${files.length - limit} more files)`;
             }
 
+            // 出力フォーマット処理
+            const formatOutput = (fileList) => {
+                if (!detail) return fileList.join('\n'); // 文字列配列の場合
+                
+                // オブジェクト配列の場合の整形
+                return fileList.map(f => {
+                    const typeMark = f.type === 'folder' ? '[DIR] ' : '      ';
+                    const sizeStr = (f.size < 1024) ? `${f.size} B` : `${(f.size/1024).toFixed(1)} KB`;
+                    const dateStr = new Date(f.updated_at).toISOString().slice(0, 19).replace('T', ' ');
+                    // 例: [DIR]  src/             | 0 B       | 2026-02-18 10:00:00
+                    return `${typeMark} ${f.path.padEnd(40)} | ${sizeStr.padStart(10)} | ${dateStr}`;
+                }).join('\n');
+            };
+
+            const resultStr = formatOutput(displayFiles) + suffix;
+
             return {
-                log: `[list_files] path="${root}" recursive=${recursive}\n${displayFiles.join('\n')}${suffix}`,
+                log: `[list_files] path="${root}" recursive=${recursive} detail=${detail}\n${resultStr}`,
                 ui: `📂 Listed ${files.length} files`
             };
         });
