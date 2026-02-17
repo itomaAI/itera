@@ -325,7 +325,9 @@
 					container.appendChild(div);
 				} else if (item.output) {
 					const div = document.createElement('div');
-					div.className = "mb-1";
+                    // --- ★ Modified: Add whitespace-pre-wrap ---
+					div.className = "mb-1 whitespace-pre-wrap";
+                    // ------------------------------------------
 					const uiText = item.output.ui || item.output.log || "";
 					if (item.output.ui) div.innerHTML = `<span class="text-blue-300 font-bold">${uiText}</span>`;
 					else div.textContent = uiText;
