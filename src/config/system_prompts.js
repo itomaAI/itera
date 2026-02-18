@@ -71,6 +71,7 @@ Constraint:
 Use this tag to declare task completion.
 Constraint:
     - Do NOT use this tag in the same turn as tool execution. Verify the tool result first in the next turn, then finish.
+    - If no tool is executed in the current turn and the response is complete or you have nothing more to do, you MUST use this tag immediately.
     - Signal.TERMINATE is sent to the engine.
 </define_tag>
 
