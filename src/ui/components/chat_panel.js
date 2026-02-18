@@ -329,8 +329,14 @@
 					div.className = "mb-1 whitespace-pre-wrap";
                     // ------------------------------------------
 					const uiText = item.output.ui || item.output.log || "";
-					if (item.output.ui) div.innerHTML = `<span class="text-blue-300 font-bold">${uiText}</span>`;
-					else div.textContent = uiText;
+					if (item.output.ui) {
+						const span = document.createElement('span');
+						span.className = "text-blue-300 font-bold";
+						span.textContent = uiText; // Use textContent for safety
+						div.appendChild(span);
+					} else {
+						div.textContent = uiText;
+					}
 					container.appendChild(div);
 					if (item.output.image) this._appendMedia(container, item.output.image, item.output.mimeType);
 				} else if (item.inlineData) {
