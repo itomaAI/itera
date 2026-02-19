@@ -21,7 +21,6 @@
 	};
 
 	class ChatPanel {
-		// ★ 変更点: 引数を translator から renderer に変更
 		constructor(renderer) {
 			this.renderer = renderer;
 			this.els = {};
@@ -65,15 +64,15 @@
 				if (dropZone) {
 					dropZone.addEventListener('dragover', (e) => {
 						e.preventDefault();
-						dropZone.classList.add('ring-2', 'ring-blue-500');
+						dropZone.classList.add('ring-2', 'ring-primary');
 					});
 					dropZone.addEventListener('dragleave', (e) => {
 						e.preventDefault();
-						dropZone.classList.remove('ring-2', 'ring-blue-500');
+						dropZone.classList.remove('ring-2', 'ring-primary');
 					});
 					dropZone.addEventListener('drop', (e) => {
 						e.preventDefault();
-						dropZone.classList.remove('ring-2', 'ring-blue-500');
+						dropZone.classList.remove('ring-2', 'ring-primary');
 						if (e.dataTransfer.files.length > 0) this._addUploads(e.dataTransfer.files);
 					});
 				}
@@ -159,8 +158,8 @@
 			area.classList.remove('hidden');
 			this.pendingUploads.forEach((file, index) => {
 				const div = document.createElement('div');
-				div.className = "bg-gray-800 border border-gray-600 rounded pl-2 pr-1 py-1 text-xs flex items-center gap-2 text-gray-300 select-none";
-				div.innerHTML = `<span class="truncate max-w-[150px]" title="${file.name}">📎 ${file.name}</span><button class="text-gray-500 hover:text-red-400 w-5 h-5 flex items-center justify-center">×</button>`;
+				div.className = "bg-card border border-border-main rounded pl-2 pr-1 py-1 text-xs flex items-center gap-2 text-text-muted select-none";
+				div.innerHTML = `<span class="truncate max-w-[150px]" title="${file.name}">📎 ${file.name}</span><button class="text-text-muted hover:text-error w-5 h-5 flex items-center justify-center">×</button>`;
 				div.querySelector('button').onclick = () => {
 					this.pendingUploads.splice(index, 1);
 					this._renderUploadPreviews();
@@ -194,7 +193,7 @@
 		_createStreamElement() {
 			if (!this.els.HISTORY) return;
 			const div = document.createElement('div');
-			div.className = "relative group p-3 rounded-lg text-sm mb-2 border border-transparent bg-gray-700 text-gray-200 mr-4 transition";
+			div.className = "relative group p-3 rounded-lg text-sm mb-2 border border-border-main bg-card text-text-main mr-4 transition";
 			div.innerHTML = `
                 <div class="flex justify-between items-center mb-1 opacity-50 text-[10px] font-bold uppercase">MODEL (Generating...)</div>
                 <div class="msg-content whitespace-pre-wrap break-all font-mono">${this.currentStreamContent}</div>
@@ -202,7 +201,6 @@
 			this.els.HISTORY.appendChild(div);
 			this.currentStreamEl = div.querySelector('.msg-content');
 
-			// ★ 変更点: rendererを使用
 			if (this.currentStreamContent && this.renderer) {
 				this.currentStreamEl.innerHTML = this.renderer.formatStream(this.currentStreamContent);
 				this.currentStreamEl.classList.remove('whitespace-pre-wrap');
@@ -213,7 +211,6 @@
 			if (!this.currentStreamEl) return;
 			this.currentStreamContent += chunk;
 
-			// ★ 変更点: rendererを使用
 			if (this.renderer && this.renderer.formatStream) {
 				this.currentStreamEl.innerHTML = this.renderer.formatStream(this.currentStreamContent);
 				this.currentStreamEl.classList.remove('whitespace-pre-wrap');
@@ -267,14 +264,14 @@
 
 			const div = document.createElement('div');
 			const role = turn.role;
-			let baseClass = "relative group p-3 rounded-lg text-sm mb-2 border border-transparent transition";
+			let baseClass = "relative group p-3 rounded-lg text-sm mb-2 border transition";
 
 			if (role === 'user') {
-				div.className = `${baseClass} bg-blue-900 text-blue-100 ml-4`;
+				div.className = `${baseClass} bg-primary/10 text-text-main border-primary/20 ml-4`;
 			} else if (role === 'model') {
-				div.className = `${baseClass} bg-gray-700 text-gray-200 mr-4`;
+				div.className = `${baseClass} bg-card text-text-main border-border-main mr-4`;
 			} else {
-				div.className = `${baseClass} bg-gray-800 text-gray-400 text-xs mx-8 font-mono border-gray-600`;
+				div.className = `${baseClass} bg-panel text-text-muted text-xs mx-8 font-mono border-border-main`;
 			}
 
 			const header = document.createElement('div');
@@ -283,7 +280,7 @@
 			div.appendChild(header);
 
 			const btnDelete = document.createElement('button');
-			btnDelete.className = "absolute top-2 right-2 text-gray-400 hover:text-red-400 opacity-0 group-hover:opacity-100 p-1 transition";
+			btnDelete.className = "absolute top-2 right-2 text-text-muted hover:text-error opacity-0 group-hover:opacity-100 p-1 transition";
 			btnDelete.innerHTML = "×";
 			btnDelete.onclick = (e) => {
 				e.stopPropagation();
@@ -297,7 +294,6 @@
 			body.className = "break-all";
 
 			if (typeof turn.content === 'string') {
-				// ★ 変更点: rendererを使用
 				if (role === 'model' || (role === 'system' && turn.content.includes('<'))) {
 					if (this.renderer) body.innerHTML = this.renderer.formatStream(turn.content);
 					else body.textContent = turn.content;
@@ -317,7 +313,6 @@
 			contentArray.forEach(item => {
 				if (item.text) {
 					const div = document.createElement('div');
-					// ★ 変更点: rendererを使用
 					if ((role === 'model' || item.text.trim().startsWith('<')) && this.renderer) {
 						div.innerHTML = this.renderer.formatStream(item.text);
 					} else {
@@ -331,7 +326,8 @@
 					const uiText = item.output.ui || item.output.log || "";
 					if (item.output.ui) {
 						const span = document.createElement('span');
-						span.className = "text-blue-300 font-bold";
+						// ★ 変更点: text-primary -> text-system
+						span.className = "text-system font-bold";
 						span.textContent = uiText;
 						div.appendChild(span);
 					} else {
@@ -353,15 +349,15 @@
 				const img = document.createElement('img');
 				const src = base64.startsWith('data:') ? base64 : `data:${mime};base64,${base64}`;
 				img.src = src;
-				img.className = "h-24 rounded border border-gray-600 cursor-pointer hover:opacity-80 bg-gray-900 mt-2 object-contain";
+				img.className = "h-24 rounded border border-border-main cursor-pointer hover:opacity-80 bg-app mt-2 object-contain";
 				img.onclick = () => {
 					if (this.events['preview_request']) this.events['preview_request']('Image Preview', src, mime);
 				};
 				container.appendChild(img);
 			} else {
 				const div = document.createElement('div');
-				div.className = "flex items-center gap-3 p-3 mt-2 rounded border border-gray-600 bg-gray-800 max-w-xs hover:bg-gray-700 transition select-none cursor-pointer";
-				div.innerHTML = `<div class="text-2xl">📄</div><div class="flex flex-col overflow-hidden"><span class="text-xs text-gray-300 font-bold font-mono uppercase truncate">${mime}</span><span class="text-[10px] text-gray-500 truncate">BINARY DATA</span></div>`;
+				div.className = "flex items-center gap-3 p-3 mt-2 rounded border border-border-main bg-card max-w-xs hover:bg-hover transition select-none cursor-pointer";
+				div.innerHTML = `<div class="text-2xl">📄</div><div class="flex flex-col overflow-hidden"><span class="text-xs text-text-main font-bold font-mono uppercase truncate">${mime}</span><span class="text-[10px] text-text-muted truncate">BINARY DATA</span></div>`;
 				div.onclick = () => {
 					if (this.events['preview_request']) {
 						const src = base64.startsWith('data:') ? base64 : `data:${mime};base64,${base64}`;

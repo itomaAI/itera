@@ -29,11 +29,10 @@
             this.vfs = vfs;
             this.events = {};
             this.els = {};
-            this.currentContextUploadPath = ""; // 右クリックアップロード時のパス
+            this.currentContextUploadPath = "";
 
             this._initElements();
             
-            // Components
             this.treeView = new global.Itera.UI.Components.TreeView(
                 this.els.CONTAINER, 
                 this.els.CONTEXT_MENU
@@ -57,18 +56,15 @@
         }
 
         _bindVFS() {
-            // VFSの変更を検知して再描画
             this.vfs.on('change', () => {
                 this.treeView.render(this.vfs.getTree());
             });
-            // 初期描画
             this.treeView.render(this.vfs.getTree());
         }
 
         // --- TreeView Interactions ---
 
         _bindTreeEvents() {
-            // Open
             this.treeView.on('open', (path) => {
                 try {
                     const content = this.vfs.readFile(path);
@@ -78,7 +74,6 @@
                 }
             });
 
-            // Create
             this.treeView.on('create_file', (path) => {
                 try {
                     this.vfs.writeFile(path, "");
@@ -94,7 +89,6 @@
                 } catch (e) { alert(e.message); }
             });
 
-            // Duplicate
             this.treeView.on('duplicate', (path) => {
                 try {
                     const dotIndex = path.lastIndexOf('.');
@@ -111,7 +105,6 @@
                 } catch (e) { alert(e.message); }
             });
 
-            // Rename / Move (Internal)
             this.treeView.on('rename', (oldPath, newPath) => {
                 try {
                     this.vfs.rename(oldPath, newPath);
@@ -119,7 +112,6 @@
                 } catch (e) { alert(e.message); }
             });
 
-            // Move (Drag & Drop)
             this.treeView.on('move', (srcPath, destPath) => {
                 try {
                     this.vfs.rename(srcPath, destPath);
@@ -127,7 +119,6 @@
                 } catch (e) { alert(e.message); }
             });
 
-            // Delete
             this.treeView.on('delete', (path) => {
                 try {
                     this.vfs.deleteFile(path);
@@ -135,14 +126,12 @@
                 } catch (e) { alert(e.message); }
             });
 
-            // Download
             this.treeView.on('download', (path) => {
                 try {
                     this._downloadFile(path);
                 } catch (e) { alert(e.message); }
             });
 
-            // Upload Request (Context Menu)
             this.treeView.on('upload_request', (path) => {
                 this.currentContextUploadPath = path;
                 if (this.els.INPUT_CONTEXT) {
@@ -155,15 +144,12 @@
         // --- Upload & Backup Handling ---
 
         _bindUploads() {
-            // Folder Upload
             if (this.els.INPUT_FOLDER) {
                 this.els.INPUT_FOLDER.onchange = (e) => this._handleUploadAppend(e, true, "");
             }
-            // Multi-File Upload
             if (this.els.INPUT_FILES) {
                 this.els.INPUT_FILES.onchange = (e) => this._handleUploadAppend(e, false, "");
             }
-            // Context Upload (Right-click)
             if (this.els.INPUT_CONTEXT) {
                 this.els.INPUT_CONTEXT.onchange = (e) => {
                     this._handleUploadAppend(e, false, this.currentContextUploadPath);
@@ -171,7 +157,6 @@
                 };
             }
 
-            // Zip Restore (Import)
             if (this.els.BTN_IMPORT && this.els.INPUT_IMPORT) {
                 this.els.BTN_IMPORT.onclick = () => {
                     this.els.INPUT_IMPORT.value = "";
@@ -180,7 +165,6 @@
                 this.els.INPUT_IMPORT.onchange = async (e) => this._handleZipRestore(e);
             }
 
-            // Zip Export (Download)
             if (this.els.BTN_DOWNLOAD) {
                 this.els.BTN_DOWNLOAD.onclick = () => this._handleZipDownload();
             }
@@ -192,12 +176,11 @@
 
             const uploadedPaths = [];
             for (const file of files) {
-                // targetDirがある場合はそこへ、そうでなければwebkitRelativePath(フォルダ)かnameを使用
                 let relPath = targetDir 
                     ? `${targetDir}/${file.name}` 
                     : (isFolder && file.webkitRelativePath ? file.webkitRelativePath : file.name);
                 
-                relPath = relPath.replace(/^\/+/, ''); // Normalize
+                relPath = relPath.replace(/^\/+/, '');
 
                 try {
                     let content = await this._readFileContent(file);
@@ -231,11 +214,8 @@
 
             try {
                 const zip = await JSZip.loadAsync(file);
-                
-                // 復元用データオブジェクトを作成
                 const restoredFiles = {};
                 let count = 0;
-
                 const promises = [];
                 zip.forEach((relativePath, zipEntry) => {
                     if (zipEntry.dir) return;
@@ -252,18 +232,13 @@
                             content = await zipEntry.async("string");
                         }
                         const cleanPath = relativePath.replace(/^\/+/, '');
-                        
-                        // オブジェクトに蓄積
                         restoredFiles[cleanPath] = content;
                         count++;
                     })());
                 });
 
                 await Promise.all(promises);
-                
-                // VFSの一括ロード機能を使用して状態を更新
                 this.vfs.loadFiles(restoredFiles);
-                
                 this._emitHistory('project_imported', `Restored backup: ${file.name} (${count} files).`);
                 alert(`Restore Complete: ${count} files loaded.`);
 
@@ -283,22 +258,17 @@
             const zip = new JSZip();
             const files = this.vfs.files;
 
-            // VFS内のファイルをZIPに追加
             Object.keys(files).forEach(path => {
-                // 除外ファイル
                 if (path.startsWith('.sample/') || path.includes('/.git/')) return;
-
                 const fileData = files[path];
                 const content = fileData.content;
 
                 if (content.startsWith('data:')) {
-                    // Base64 Binary: data:image/png;base64,.....
                     const parts = content.split(',');
                     if (parts.length > 1) {
                         zip.file(path, parts[1], { base64: true });
                     }
                 } else {
-                    // Text
                     zip.file(path, content);
                 }
             });
@@ -308,23 +278,18 @@
                 const url = URL.createObjectURL(blob);
                 const a = document.createElement('a');
                 a.href = url;
-                
                 const timestamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-');
-                a.download = `itera_backup_${timestamp}.zip`; // or .bk
-                
+                a.download = `itera_backup_${timestamp}.zip`;
                 document.body.appendChild(a);
                 a.click();
                 document.body.removeChild(a);
                 setTimeout(() => URL.revokeObjectURL(url), 100);
-                
                 this._emitHistory('project_exported', `User downloaded system backup.`);
             } catch (e) {
                 console.error("Export failed:", e);
                 alert("Export Failed: " + e.message);
             }
         }
-
-        // --- Sidebar Drag & Drop (External) ---
 
         _bindSidebarDnD() {
             const sidebar = this.els.SIDEBAR;
@@ -338,21 +303,22 @@
             });
 
             sidebar.addEventListener('dragover', (e) => {
-                // アプリ内DnDでない場合のみ視覚効果
                 if (!e.dataTransfer.types.includes('application/itera-file')) {
                     e.dataTransfer.dropEffect = 'copy';
-                    sidebar.classList.add('bg-gray-700');
+                    // bg-gray-700 -> bg-hover
+                    sidebar.classList.add('bg-hover');
                 }
             });
 
             sidebar.addEventListener('dragleave', () => {
-                sidebar.classList.remove('bg-gray-700');
+                // bg-gray-700 -> bg-hover
+                sidebar.classList.remove('bg-hover');
             });
 
             sidebar.addEventListener('drop', async (e) => {
-                sidebar.classList.remove('bg-gray-700');
+                // bg-gray-700 -> bg-hover
+                sidebar.classList.remove('bg-hover');
                 
-                // アプリ内移動はTreeViewが処理するので無視
                 if (e.dataTransfer.types.includes('application/itera-file')) return;
 
                 const items = e.dataTransfer.items;
@@ -405,7 +371,6 @@
         async _batchWriteFiles(files) {
             const uploadedPaths = [];
             for (const file of files) {
-                // .git, .DS_Store 除外
                 let relPath = (file.fullPath || file.name).replace(/^\/+/, '');
                 if (relPath.startsWith('.git/') || relPath.includes('/.git/') || relPath.endsWith('.DS_Store')) continue;
 
@@ -422,8 +387,6 @@
                 this._emitHistory('file_created', `User dropped files: ${summary}`);
             }
         }
-
-        // --- Sidebar Resizer ---
 
         _initResizer() {
             const resizer = this.els.RESIZER;
@@ -456,7 +419,6 @@
             const move = (e) => {
                 if (!isResizing) return;
                 const newWidth = e.clientX;
-                // Min 150px, Max 600px
                 if (newWidth > 150 && newWidth < 600) {
                     sidebar.style.width = `${newWidth}px`;
                 }
@@ -469,16 +431,12 @@
             window.addEventListener('blur', stop);
         }
 
-        // --- Helpers ---
-
         _readFileContent(file) {
             return new Promise((resolve, reject) => {
                 const isBinary = this._isBinaryFilename(file.name) || file.type.startsWith('image/') || file.type === 'application/pdf';
                 const reader = new FileReader();
-                
                 reader.onload = () => resolve(reader.result);
                 reader.onerror = reject;
-
                 if (isBinary) reader.readAsDataURL(file);
                 else reader.readAsText(file);
             });
@@ -487,7 +445,6 @@
         _downloadFile(path) {
             const content = this.vfs.readFile(path);
             let blob;
-            
             if (content.startsWith('data:')) {
                 const parts = content.split(',');
                 const mime = parts[0].split(':')[1].split(';')[0];
@@ -499,7 +456,6 @@
             } else {
                 blob = new Blob([content], { type: 'text/plain' });
             }
-
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;

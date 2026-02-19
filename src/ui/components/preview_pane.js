@@ -9,7 +9,7 @@
         FRAME: 'preview-frame',
         LOADER: 'preview-loader',
         BTN_REFRESH: 'btn-refresh',
-        ADDRESS_BAR: 'preview-address-bar' // 仮: HTML側に対応する要素があれば
+        ADDRESS_BAR: 'preview-address-bar'
     };
 
     // スクリーンショット撮影用の注入スクリプト
@@ -19,7 +19,6 @@
 window.addEventListener('message', async (e) => {
     if (e.data.action === 'CAPTURE') {
         try {
-            // ライブラリロード待ち
             let attempts = 0;
             while (typeof htmlToImage === 'undefined' && attempts < 20) {
                 await new Promise(r => setTimeout(r, 100));
@@ -27,13 +26,11 @@ window.addEventListener('message', async (e) => {
             }
             if (typeof htmlToImage === 'undefined') throw new Error('html-to-image failed to load');
             
-            // 撮影実行 (フォント読み込み待ちなどで少しバッファを持たせる設定)
             const data = await htmlToImage.toPng(document.body, { 
                 backgroundColor: null, 
                 skipOnError: true, 
                 preferredFontFormat: 'woff2',
                 filter: (node) => {
-                    // 自分自身のiframeを含まないようにする等のフィルタ
                     if (node.tagName === 'IMG' && (!node.src || node.src === '' || node.src === window.location.href)) return false;
                     return true;
                 }
@@ -50,9 +47,9 @@ window.addEventListener('message', async (e) => {
     class PreviewPane {
         constructor() {
             this.els = {};
-            this.events = {}; // Event handlers
-            this.blobUrls = []; // メモリリーク防止用
-            this.currentPath = 'index.html'; // Default state
+            this.events = {}; 
+            this.blobUrls = []; 
+            this.currentPath = 'index.html'; 
             this._initElements();
             this._bindEvents();
         }
@@ -74,7 +71,7 @@ window.addEventListener('message', async (e) => {
                 };
             }
         }
-
+    
         /**
          * プレビューを更新する (Compiler Logic)
          * @param {VirtualFileSystem} vfs 
@@ -83,18 +80,14 @@ window.addEventListener('message', async (e) => {
         async refresh(vfs, entryPath) {
             if (!this.els.FRAME) return;
 
-            // Use provided path or fallback to current state
             const targetPath = entryPath || this.currentPath;
             this.currentPath = targetPath;
 
-            // 1. Show Loader
             if (this.els.LOADER) this.els.LOADER.classList.remove('hidden');
 
             try {
-                // 2. Compile VFS to Blob URL
                 const url = await this._compile(vfs, targetPath);
                 
-                // 3. Update Iframe
                 if (url) {
                     await this._loadIframe(url);
                     this._updateAddressBar(targetPath);
@@ -106,8 +99,6 @@ window.addEventListener('message', async (e) => {
                 console.error("Preview Compile Error:", e);
                 this.els.FRAME.srcdoc = `<div style="color:red; padding:20px;">Preview Error: ${e.message}</div>`;
             } finally {
-                // 4. Hide Loader
-                // 少し遅延させるとチラつきが減る
                 setTimeout(() => {
                     if (this.els.LOADER) this.els.LOADER.classList.add('hidden');
                 }, 200);
@@ -131,8 +122,6 @@ window.addEventListener('message', async (e) => {
             }
         }
 
-        // --- Screenshot Logic ---
-
         captureScreenshot() {
             return new Promise((resolve, reject) => {
                 const iframe = this.els.FRAME;
@@ -141,7 +130,6 @@ window.addEventListener('message', async (e) => {
                 const handler = (e) => {
                     if (e.data.type === 'SCREENSHOT_RESULT') {
                         window.removeEventListener('message', handler);
-                        // "data:image/png;base64,..." 形式
                         const parts = e.data.data.split(',');
                         resolve(parts.length > 1 ? parts[1] : parts[0]);
                     } else if (e.data.type === 'SCREENSHOT_ERROR') {
@@ -152,7 +140,6 @@ window.addEventListener('message', async (e) => {
 
                 window.addEventListener('message', handler);
 
-                // Timeout 15s
                 setTimeout(() => {
                     window.removeEventListener('message', handler);
                     reject(new Error("Screenshot timeout"));
@@ -162,24 +149,21 @@ window.addEventListener('message', async (e) => {
             });
         }
 
-        // --- Core Compiler Logic ---
-
         async _compile(vfs, entryPath) {
-            this._revokeAll(); // 古いURLを破棄
+            this._revokeAll();
 
             const filePaths = vfs.listFiles({ recursive: true });
             const urlMap = {};
 
-            // A. Create Blobs for Assets (non-HTML)
+            // 1. Assets (Blob作成)
             for (const path of filePaths) {
                 if (path.endsWith('.html')) continue;
-                if (path.startsWith('.sample/') || path.startsWith('src/')) continue; // 除外ディレクトリ
+                if (path.startsWith('.sample/') || path.startsWith('src/')) continue; 
 
                 const content = vfs.readFile(path);
                 const mimeType = this._getMimeType(path);
                 let blob;
 
-                // Base64 Data URI -> Blob
                 if (mimeType.startsWith('image/') && content.startsWith('data:')) {
                     const res = await fetch(content);
                     blob = await res.blob();
@@ -194,24 +178,30 @@ window.addEventListener('message', async (e) => {
 
             let entryPointUrl = null;
 
-            // B. Process HTML Files (Inject Scripts & Replace Paths)
+            // ★ テーマ変数の取得
+            const themeStyleTag = this._generateThemeInjection();
+
+            // 2. HTML (スクリプト/スタイル注入)
             for (const path of filePaths) {
                 if (!path.endsWith('.html')) continue;
                 if (path.startsWith('.sample/') || path.startsWith('src/')) continue;
 
                 let htmlContent = vfs.readFile(path);
                 
-                // 1. Resolve Relative Paths
                 htmlContent = this._processHtmlReferences(htmlContent, urlMap, path);
                 
-                // 2. Inject MetaOS Bridge (Guest Code)
-                // Phase 3-1 で定義した global.Itera.Bridge.GuestCode を使用
                 if (global.Itera.Bridge && global.Itera.Bridge.GuestCode) {
                     const bridgeScript = `<script>${global.Itera.Bridge.GuestCode}</script>`;
                     htmlContent = htmlContent.replace('<head>', '<head>' + bridgeScript);
                 }
 
-                // 3. Inject Screenshot Helper
+                // ★ テーマスタイルの注入 (headの末尾に追加して優先度を上げる)
+                if (htmlContent.includes('</head>')) {
+                    htmlContent = htmlContent.replace('</head>', themeStyleTag + '\n</head>');
+                } else {
+                    htmlContent = themeStyleTag + htmlContent;
+                }
+
                 htmlContent = htmlContent.replace('</body>', SCREENSHOT_HELPER_CODE + '</body>');
 
                 const blob = new Blob([htmlContent], { type: 'text/html' });
@@ -225,10 +215,8 @@ window.addEventListener('message', async (e) => {
                 }
             }
 
-            // Fallback if entry not found
             if (!entryPointUrl) {
                 if (urlMap['index.html']) return urlMap['index.html'];
-                // Find first html
                 const firstHtml = Object.keys(urlMap).find(p => p.endsWith('.html'));
                 if (firstHtml) return urlMap[firstHtml];
             }
@@ -236,17 +224,39 @@ window.addEventListener('message', async (e) => {
             return entryPointUrl;
         }
 
+        // ホストのCSS変数を読み取り、ゲスト用の<style>タグを生成
+        _generateThemeInjection() {
+            const root = document.documentElement;
+            const styles = getComputedStyle(root);
+            const vars = [
+                '--c-bg-app', '--c-bg-panel', '--c-bg-card', '--c-bg-hover', '--c-bg-overlay',
+                '--c-border-main', '--c-border-highlight',
+                '--c-text-main', '--c-text-muted', '--c-text-inverted', 
+                '--c-text-system', '--c-text-tag-attr', '--c-text-tag-content',
+                '--c-accent-primary', '--c-accent-success', '--c-accent-warning', '--c-accent-error',
+                '--c-tag-thinking', '--c-tag-plan', '--c-tag-report', '--c-tag-error'
+            ];
+            
+            let css = ':root {\n';
+            vars.forEach(v => {
+                const val = styles.getPropertyValue(v).trim();
+                // 値が取得できた場合のみ出力
+                if (val) css += `  ${v}: ${val};\n`;
+            });
+            css += '}';
+            
+            return `<style id="itera-guest-theme">${css}</style>`;
+        }
+
         _processHtmlReferences(html, urlMap, currentFilePath) {
             const parser = new DOMParser();
             const doc = parser.parseFromString(html, 'text/html');
             const currentDir = currentFilePath.includes('/') ? currentFilePath.substring(0, currentFilePath.lastIndexOf('/')) : '';
 
-            // Path Resolver Helper
             const resolvePath = (relPath) => {
-                if (relPath.startsWith('/')) return relPath.substring(1); // Absolute in VFS
-                if (relPath.match(/^https?:\/\//) || relPath.startsWith('data:')) return null; // External/DataURI
+                if (relPath.startsWith('/')) return relPath.substring(1); 
+                if (relPath.match(/^https?:\/\//) || relPath.startsWith('data:')) return null; 
 
-                // Resolve relative ".." and "."
                 const stack = currentDir ? currentDir.split('/') : [];
                 const parts = relPath.split('/');
                 for (const part of parts) {
@@ -260,19 +270,14 @@ window.addEventListener('message', async (e) => {
                 return stack.join('/');
             };
 
-            // Replace attributes
             const replaceAttr = (selector, attr) => {
                 doc.querySelectorAll(selector).forEach(el => {
                     const val = el.getAttribute(attr);
                     if (!val) return;
-                    
-                    // Direct match?
                     if (urlMap[val]) {
                         el.setAttribute(attr, urlMap[val]);
                         return;
                     }
-
-                    // Resolved match?
                     const resolved = resolvePath(val);
                     if (resolved && urlMap[resolved]) {
                         el.setAttribute(attr, urlMap[resolved]);

@@ -47,9 +47,8 @@
             if (this.els.FILENAME) this.els.FILENAME.textContent = path;
             if (!this.els.OVERLAY) return;
 
-            this._closeResource(); // Cleanup previous Blob URL
+            this._closeResource();
 
-            // Determine MIME type
             let mime = mimeType;
             if (!mime) {
                 const match = base64.match(/^data:(.*?);base64,/);
@@ -61,14 +60,12 @@
                 }
             }
 
-            // Reset UI
             if (this.els.IMAGE) {
                 this.els.IMAGE.classList.add('hidden');
                 this.els.IMAGE.src = '';
             }
             this.els.OVERLAY.querySelectorAll('.dynamic-content').forEach(el => el.remove());
 
-            // Display Logic
             if (mime === 'application/pdf') {
                 this._renderPdf(base64, mime);
             } else if (mime.startsWith('image/')) {
@@ -105,7 +102,9 @@
             
             const iframe = document.createElement('iframe');
             iframe.src = this.currentObjectUrl;
-            iframe.className = "dynamic-content w-[90%] h-[80%] rounded shadow-lg border border-gray-700 bg-white";
+            // border-gray-700 -> border-border-main
+            // bg-white -> bg-card (テーマ追従させるが、PDFの中身はブラウザ依存)
+            iframe.className = "dynamic-content w-[90%] h-[80%] rounded shadow-lg border border-border-main bg-card";
             this.els.OVERLAY.appendChild(iframe);
         }
 
@@ -122,15 +121,22 @@
 
         _renderFallback(path, base64, mime) {
             const div = document.createElement('div');
-            div.className = "dynamic-content bg-gray-800 p-8 rounded-lg border border-gray-600 flex flex-col items-center text-center shadow-xl";
+            // bg-gray-800 -> bg-card
+            // border-gray-600 -> border-border-main
+            div.className = "dynamic-content bg-card p-8 rounded-lg border border-border-main flex flex-col items-center text-center shadow-xl";
+            
+            // text-gray-200 -> text-text-main
+            // text-gray-400 -> text-text-muted
             div.innerHTML = `
                 <div class="text-4xl mb-4">📦</div>
-                <div class="text-lg font-bold text-gray-200 mb-2">Preview Not Available</div>
-                <div class="text-sm text-gray-400 mb-6 font-mono">${mime || 'Unknown Type'}</div>
+                <div class="text-lg font-bold text-text-main mb-2">Preview Not Available</div>
+                <div class="text-sm text-text-muted mb-6 font-mono">${mime || 'Unknown Type'}</div>
             `;
             
             const btn = document.createElement('button');
-            btn.className = "bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded text-sm transition flex items-center gap-2";
+            // bg-blue-600 -> bg-primary
+            // hover:bg-blue-500 -> hover:bg-primary/80
+            btn.className = "bg-primary hover:bg-primary/80 text-white px-4 py-2 rounded text-sm transition flex items-center gap-2";
             btn.innerHTML = "Download File";
             btn.onclick = () => {
                 const link = document.createElement('a');

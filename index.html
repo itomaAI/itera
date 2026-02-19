@@ -1,5 +1,4 @@
 <!-- index.html -->
-
 <!DOCTYPE html>
 <html lang="en" class="dark">
 <head>
@@ -22,6 +21,46 @@
             theme: {
                 extend: {
                     colors: {
+                        // Semantic Tokens (mapped to CSS Variables)
+                        
+                        // Backgrounds
+                        app: 'rgb(var(--c-bg-app) / <alpha-value>)',
+                        panel: 'rgb(var(--c-bg-panel) / <alpha-value>)',
+                        card: 'rgb(var(--c-bg-card) / <alpha-value>)',
+                        hover: 'rgb(var(--c-bg-hover) / <alpha-value>)',
+                        overlay: 'rgb(var(--c-bg-overlay) / <alpha-value>)', // ★ New: 背景オーバーレイ
+                        
+                        // Borders
+                        border: {
+                            main: 'rgb(var(--c-border-main) / <alpha-value>)',
+                            highlight: 'rgb(var(--c-border-highlight) / <alpha-value>)',
+                        },
+                        
+                        // Text
+                        text: {
+                            main: 'rgb(var(--c-text-main) / <alpha-value>)',
+                            muted: 'rgb(var(--c-text-muted) / <alpha-value>)',
+                            inverted: 'rgb(var(--c-text-inverted) / <alpha-value>)',
+                            system: 'rgb(var(--c-text-system) / <alpha-value>)',           // ★ New: システムメッセージ
+                            'tag-attr': 'rgb(var(--c-text-tag-attr) / <alpha-value>)',      // ★ New: タグ属性
+                            'tag-content': 'rgb(var(--c-text-tag-content) / <alpha-value>)' // ★ New: タグ本文
+                        },
+                        
+                        // Accents
+                        primary: 'rgb(var(--c-accent-primary) / <alpha-value>)',
+                        success: 'rgb(var(--c-accent-success) / <alpha-value>)',
+                        warning: 'rgb(var(--c-accent-warning) / <alpha-value>)',
+                        error: 'rgb(var(--c-accent-error) / <alpha-value>)',
+
+                        // Tags (Backgrounds & Borders)
+                        tag: {
+                            thinking: 'rgb(var(--c-tag-thinking) / <alpha-value>)',
+                            plan: 'rgb(var(--c-tag-plan) / <alpha-value>)',
+                            report: 'rgb(var(--c-tag-report) / <alpha-value>)',
+                            error: 'rgb(var(--c-tag-error) / <alpha-value>)',
+                        },
+
+                        // Legacy / Utils
                         gray: { 750: '#2d3748', 850: '#1a202c', 950: '#0d1117' }
                     },
                     animation: {
@@ -39,39 +78,69 @@
         body { height: 100vh; height: 100dvh; overflow: hidden; }
         ::-webkit-scrollbar { width: 6px; height: 6px; }
         ::-webkit-scrollbar-track { background: transparent; }
-        ::-webkit-scrollbar-thumb { background: #4b5563; border-radius: 3px; }
-        ::-webkit-scrollbar-thumb:hover { background: #6b7280; }
+        ::-webkit-scrollbar-thumb { background: rgb(var(--c-bg-hover)); border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: rgb(var(--c-text-muted)); }
+        
         .resizer {
-            width: 4px; background: #1f2937; cursor: col-resize; flex-shrink: 0; z-index: 50;
-            border-left: 1px solid #374151; transition: background 0.2s;
+            width: 4px; background: rgb(var(--c-bg-panel)); cursor: col-resize; flex-shrink: 0; z-index: 50;
+            border-left: 1px solid rgb(var(--c-border-main)); transition: background 0.2s;
         }
-        .resizer:hover, .resizer.resizing { background: #3b82f6; }
+        .resizer:hover, .resizer.resizing { background: rgb(var(--c-accent-primary)); }
+        
         .loader {
-            border: 3px solid #f3f3f3; border-top: 3px solid #3498db; border-radius: 50%;
+            border: 3px solid rgb(var(--c-bg-card)); border-top: 3px solid rgb(var(--c-accent-primary)); border-radius: 50%;
             width: 24px; height: 24px; animation: spin 1s linear infinite;
         }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
         .pb-safe { padding-bottom: env(safe-area-inset-bottom); }
+
+        /* Fallback for FOUC prevention */
+        :root {
+            /* Backgrounds */
+            --c-bg-app: 17 24 39;
+            --c-bg-panel: 31 41 55;
+            --c-bg-card: 55 65 81;
+            --c-bg-hover: 75 85 99;
+            --c-bg-overlay: 0 0 0; /* ★ New */
+
+            /* Borders */
+            --c-border-main: 55 65 81;
+            --c-border-highlight: 59 130 246;
+
+            /* Text */
+            --c-text-main: 243 244 246;
+            --c-text-muted: 156 163 175;
+            --c-text-inverted: 17 24 39;
+            --c-text-system: 96 165 250;       /* ★ New (#60a5fa) */
+            --c-text-tag-attr: 156 163 175;    /* ★ New (#9ca3af) */
+            --c-text-tag-content: 209 213 219; /* ★ New (#d1d5db) */
+
+            /* Accents */
+            --c-accent-primary: 37 99 235;
+            --c-accent-success: 5 150 105;
+            --c-accent-warning: 217 119 6;
+            --c-accent-error: 220 38 38;
+        }
     </style>
 </head>
-<body class="bg-gray-900 text-gray-200 flex flex-col font-sans antialiased selection:bg-blue-500/30">
+<body class="bg-app text-text-main flex flex-col font-sans antialiased selection:bg-primary/30">
 
     <!-- Boot Loader -->
-    <div id="boot-loader" class="fixed inset-0 z-[9999] bg-gray-900 flex flex-col items-center justify-center">
-        <div class="loader mb-4 w-10 h-10 border-4 border-t-blue-500"></div>
-        <div class="text-sm text-gray-400 font-mono animate-pulse">Initializing Itera OS...</div>
+    <div id="boot-loader" class="fixed inset-0 z-[9999] bg-app flex flex-col items-center justify-center">
+        <div class="loader mb-4 w-10 h-10 border-4 border-t-primary"></div>
+        <div class="text-sm text-text-muted font-mono animate-pulse">Initializing Itera OS...</div>
     </div>
 
     <!-- Header -->
-    <header class="h-12 bg-gray-800 border-b border-gray-700 flex items-center justify-between px-4 shrink-0 z-20 shadow-sm relative">
+    <header class="h-12 bg-panel border-b border-border-main flex items-center justify-between px-4 shrink-0 z-20 shadow-sm relative">
         <div class="flex items-center gap-2">
-            <img src="assets/icon.svg" class="w-6 h-6 rounded shadow-lg shadow-blue-900/50" alt="Logo">
-            <h1 class="font-bold text-gray-100 tracking-wide text-sm">Itera <span class="text-[10px] font-normal text-gray-400 ml-1 hidden sm:inline">REAL Architecture</span></h1>
+            <img src="assets/icon.svg" class="w-6 h-6 rounded shadow-lg shadow-black/20" alt="Logo">
+            <h1 class="font-bold text-text-main tracking-wide text-sm">Itera <span class="text-[10px] font-normal text-text-muted ml-1 hidden sm:inline">REAL Architecture</span></h1>
         </div>
         <div class="flex items-center gap-3">
             <input type="password" id="api-key" placeholder="Gemini API Key" 
-                   class="bg-gray-900 border border-gray-600 rounded px-2 py-1 text-xs w-24 sm:w-48 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 text-white placeholder-gray-500 transition-all">
-            <button id="btn-save-key" class="text-xs bg-gray-700 hover:bg-gray-600 px-3 py-1 rounded transition border border-gray-600 hover:text-white">Save</button>
+                   class="bg-card border border-border-main rounded px-2 py-1 text-xs w-24 sm:w-48 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary text-text-main placeholder-text-muted transition-all">
+            <button id="btn-save-key" class="text-xs bg-card hover:bg-hover px-3 py-1 rounded transition border border-border-main hover:text-text-main text-text-muted">Save</button>
         </div>
     </header>
 
@@ -82,40 +151,40 @@
         <div id="mobile-overlay" class="fixed inset-0 bg-black/60 z-30 hidden md:hidden backdrop-blur-[2px] transition-opacity"></div>
 
         <!-- 1. LEFT SIDEBAR -->
-        <div id="sidebar" class="bg-gray-800 flex flex-col shrink-0 md:relative fixed inset-y-0 left-0 z-40 w-[260px] transition-transform duration-300 -translate-x-full md:translate-x-0 border-r border-gray-700 shadow-2xl md:shadow-none h-full pt-12 md:pt-0">
+        <div id="sidebar" class="bg-panel flex flex-col shrink-0 md:relative fixed inset-y-0 left-0 z-40 w-[260px] transition-transform duration-300 -translate-x-full md:translate-x-0 border-r border-border-main shadow-2xl md:shadow-none h-full pt-12 md:pt-0">
             <!-- Controls -->
-            <div class="h-10 bg-gray-900 border-b border-gray-700 flex items-center justify-between px-3 shrink-0">
+            <div class="h-10 bg-app border-b border-border-main flex items-center justify-between px-3 shrink-0">
                 <div class="flex items-center gap-2">
-                    <div class="w-2 h-2 rounded-full bg-green-500 animate-pulse shadow-[0_0_4px_rgba(34,197,94,0.5)]"></div>
-                    <span class="text-xs font-bold text-gray-200 tracking-wide">System</span>
+                    <div class="w-2 h-2 rounded-full bg-success animate-pulse shadow-[0_0_4px_rgba(var(--c-accent-success),0.5)]"></div>
+                    <span class="text-xs font-bold text-text-main tracking-wide">System</span>
                 </div>
                 <div class="flex items-center gap-1">
-                    <button id="btn-history" title="Settings / Time Machine" class="p-1.5 text-gray-400 hover:text-white hover:bg-gray-700 rounded transition">
+                    <button id="btn-history" title="Settings / Time Machine" class="p-1.5 text-text-muted hover:text-text-main hover:bg-hover rounded transition">
                         <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
                     </button>
-                    <div class="w-px h-4 bg-gray-700 mx-1"></div>
-                    <button id="btn-reset" title="Factory Reset" class="p-1.5 text-red-500 hover:text-white hover:bg-red-600 rounded transition">
+                    <div class="w-px h-4 bg-border-main mx-1"></div>
+                    <button id="btn-reset" title="Factory Reset" class="p-1.5 text-error hover:text-text-main hover:bg-error rounded transition">
                         <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
                     </button>
                 </div>
             </div>
             <!-- Storage -->
-            <div class="py-3 px-4 border-b border-gray-700 bg-gray-800/50 flex flex-col gap-1.5">
+            <div class="py-3 px-4 border-b border-border-main bg-panel/50 flex flex-col gap-1.5">
                 <div class="flex justify-between items-baseline text-[10px]">
-                    <span class="font-bold text-gray-400 uppercase tracking-wider">Storage</span>
-                    <span id="storage-usage-text" class="font-mono text-gray-500">0.0 / 256.0 MB</span>
+                    <span class="font-bold text-text-muted uppercase tracking-wider">Storage</span>
+                    <span id="storage-usage-text" class="font-mono text-text-muted">0.0 / 256.0 MB</span>
                 </div>
-                <div class="relative w-full h-1 bg-gray-700 rounded-full overflow-hidden">
-                    <div id="storage-usage-bar" class="absolute top-0 left-0 h-full bg-blue-500 w-0" style="transition: width 0.5s ease;"></div>
+                <div class="relative w-full h-1 bg-card rounded-full overflow-hidden">
+                    <div id="storage-usage-bar" class="absolute top-0 left-0 h-full bg-primary w-0" style="transition: width 0.5s ease;"></div>
                 </div>
                 <div class="flex justify-between items-center h-4 mt-0.5">
-                    <span id="save-status" class="text-[9px] text-green-500 italic opacity-0">Saved</span>
-                    <div class="flex gap-3 text-gray-500">
+                    <span id="save-status" class="text-[9px] text-success italic opacity-0">Saved</span>
+                    <div class="flex gap-3 text-text-muted">
                         <input type="file" id="import-backup-input" class="hidden" accept=".zip,.bk">
-                        <button id="btn-import-backup" title="Restore Zip" class="hover:text-white transition hover:scale-105">
+                        <button id="btn-import-backup" title="Restore Zip" class="hover:text-text-main transition hover:scale-105">
                             <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path></svg>
                         </button>
-                        <button id="btn-download" title="Export Zip" class="hover:text-white transition hover:scale-105">
+                        <button id="btn-download" title="Export Zip" class="hover:text-text-main transition hover:scale-105">
                             <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
                         </button>
                     </div>
@@ -124,13 +193,13 @@
             <!-- Tree -->
             <div class="flex-1 overflow-y-auto p-0" id="file-explorer"></div>
             <!-- Upload -->
-            <div class="p-3 border-t border-gray-700 space-y-2 bg-gray-800 pb-20 md:pb-3">
+            <div class="p-3 border-t border-border-main space-y-2 bg-panel pb-20 md:pb-3">
                 <div class="grid grid-cols-2 gap-2">
-                    <label class="block text-center cursor-pointer bg-gray-700/50 hover:bg-gray-700 py-1.5 rounded text-[10px] text-gray-300 transition border border-gray-600 border-dashed hover:border-gray-500">
+                    <label class="block text-center cursor-pointer bg-card hover:bg-hover py-1.5 rounded text-[10px] text-text-muted hover:text-text-main transition border border-border-main border-dashed hover:border-text-muted">
                         Folder
                         <input type="file" id="folder-upload" class="hidden" webkitdirectory directory multiple>
                     </label>
-                    <label class="block text-center cursor-pointer bg-gray-700/50 hover:bg-gray-700 py-1.5 rounded text-[10px] text-gray-300 transition border border-gray-600 border-dashed hover:border-gray-500">
+                    <label class="block text-center cursor-pointer bg-card hover:bg-hover py-1.5 rounded text-[10px] text-text-muted hover:text-text-main transition border border-border-main border-dashed hover:border-text-muted">
                         Files
                         <input type="file" id="files-upload" class="hidden" multiple>
                     </label>
@@ -143,58 +212,58 @@
         <div id="explorer-resizer" class="resizer hidden md:block"></div>
 
         <!-- 2. CENTER -->
-        <div class="flex-1 flex flex-col bg-gray-900 min-w-0 relative h-full pb-14 md:pb-0">
+        <div class="flex-1 flex flex-col bg-app min-w-0 relative h-full pb-14 md:pb-0">
             <!-- Toolbar -->
-            <div class="h-10 bg-gray-800 border-b border-gray-700 flex items-center px-4 gap-2 shrink-0 z-10">
-                <button id="btn-refresh" class="text-gray-400 hover:text-white p-1 rounded hover:bg-gray-700 transition" title="Reload">
+            <div class="h-10 bg-panel border-b border-border-main flex items-center px-4 gap-2 shrink-0 z-10">
+                <button id="btn-refresh" class="text-text-muted hover:text-text-main p-1 rounded hover:bg-hover transition" title="Reload">
                     <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
                 </button>
-                <div class="flex-1 bg-gray-900 rounded px-3 py-1 text-[11px] text-gray-500 font-mono truncate border border-gray-700 flex items-center shadow-inner">
-                    <span class="text-green-500 mr-2 text-[10px]">🔒</span> 
+                <div class="flex-1 bg-app rounded px-3 py-1 text-[11px] text-text-muted font-mono truncate border border-border-main flex items-center shadow-inner">
+                    <span class="text-success mr-2 text-[10px]">🔒</span> 
                     <span id="preview-address-bar">metaos://view</span>
                 </div>
             </div>
             <!-- Preview -->
-            <div class="flex-1 relative bg-gray-900 overflow-hidden group">
+            <div class="flex-1 relative bg-app overflow-hidden group">
                 <iframe id="preview-frame" class="w-full h-full border-none bg-white" sandbox="allow-scripts allow-forms allow-modals allow-popups allow-same-origin"></iframe>
-                <div id="preview-loader" class="absolute inset-0 bg-gray-900/80 flex items-center justify-center hidden z-20 backdrop-blur-sm">
+                <div id="preview-loader" class="absolute inset-0 bg-app/80 flex items-center justify-center hidden z-20 backdrop-blur-sm">
                     <div class="text-center">
                         <div class="loader mx-auto mb-3"></div>
-                        <span class="text-xs text-gray-300 font-medium tracking-wide">Compiling...</span>
+                        <span class="text-xs text-text-muted font-medium tracking-wide">Compiling...</span>
                     </div>
                 </div>
                 <!-- Editor Overlay -->
-                <div id="editor-overlay" class="absolute inset-0 bg-gray-900 hidden z-30 flex flex-col pt-12 md:pt-0">
-                    <div class="h-9 bg-gray-800 flex justify-between items-center px-4 border-b border-gray-700 shrink-0">
+                <div id="editor-overlay" class="absolute inset-0 bg-app hidden z-30 flex flex-col pt-12 md:pt-0">
+                    <div class="h-9 bg-panel flex justify-between items-center px-4 border-b border-border-main shrink-0">
                         <div class="flex items-center gap-2 overflow-hidden">
-                            <svg class="w-4 h-4 text-blue-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"></path></svg>
-                            <span id="editor-filename" class="text-xs font-mono text-gray-200 truncate">filename.js</span>
+                            <svg class="w-4 h-4 text-primary shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"></path></svg>
+                            <span id="editor-filename" class="text-xs font-mono text-text-main truncate">filename.js</span>
                         </div>
                         <div class="flex gap-2 shrink-0">
-                            <button id="btn-save-editor" class="text-[10px] font-bold bg-blue-700 hover:bg-blue-600 px-3 py-1 rounded text-white transition shadow-sm border border-blue-600">Save</button>
-                            <button id="btn-close-editor" class="text-gray-400 hover:text-white hover:bg-gray-700 rounded w-6 h-6 flex items-center justify-center transition">✕</button>
+                            <button id="btn-save-editor" class="text-[10px] font-bold bg-primary hover:bg-primary/80 px-3 py-1 rounded text-white transition shadow-sm border border-primary/50">Save</button>
+                            <button id="btn-close-editor" class="text-text-muted hover:text-text-main hover:bg-hover rounded w-6 h-6 flex items-center justify-center transition">✕</button>
                         </div>
                     </div>
-                    <div id="code-editor" class="flex-1 bg-gray-900 overflow-hidden pb-14 md:pb-0"></div>
+                    <div id="code-editor" class="flex-1 bg-app overflow-hidden pb-14 md:pb-0"></div>
                 </div>
                 <!-- Media Overlay -->
-                <div id="media-overlay" class="absolute inset-0 bg-gray-900/95 hidden z-40 flex flex-col items-center justify-center backdrop-blur-sm pt-12 md:pt-0">
-                    <div class="absolute top-0 left-0 right-0 h-10 bg-gray-800/80 flex justify-between items-center px-4 border-b border-gray-700 pt-12 md:pt-0">
-                        <span id="media-filename" class="text-xs font-mono text-gray-300">file</span>
-                        <button id="btn-close-media" class="text-gray-400 hover:text-white text-lg leading-none p-2">✕</button>
+                <div id="media-overlay" class="absolute inset-0 bg-app/95 hidden z-40 flex flex-col items-center justify-center backdrop-blur-sm pt-12 md:pt-0">
+                    <div class="absolute top-0 left-0 right-0 h-10 bg-panel/80 flex justify-between items-center px-4 border-b border-border-main pt-12 md:pt-0">
+                        <span id="media-filename" class="text-xs font-mono text-text-muted">file</span>
+                        <button id="btn-close-media" class="text-text-muted hover:text-text-main text-lg leading-none p-2">✕</button>
                     </div>
-                    <img id="media-image" class="max-w-[90%] max-h-[80%] rounded shadow-2xl border border-gray-700 bg-gray-800 object-contain hidden">
+                    <img id="media-image" class="max-w-[90%] max-h-[80%] rounded shadow-2xl border border-border-main bg-panel object-contain hidden">
                 </div>
             </div>
-            <div class="h-6 bg-gray-800 border-t border-gray-700 flex items-center justify-between px-3 shrink-0 select-none z-10 hidden md:flex">
+            <div class="h-6 bg-panel border-t border-border-main flex items-center justify-between px-3 shrink-0 select-none z-10 hidden md:flex">
                 <div class="flex items-center gap-4">
-                    <span class="flex items-center gap-1.5 text-[10px] text-gray-400 font-mono">
-                        <span class="block w-1.5 h-1.5 rounded-full bg-green-500/50 shadow-[0_0_4px_rgba(34,197,94,0.5)]"></span>
+                    <span class="flex items-center gap-1.5 text-[10px] text-text-muted font-mono">
+                        <span class="block w-1.5 h-1.5 rounded-full bg-success/50 shadow-[0_0_4px_rgba(var(--c-accent-success),0.5)]"></span>
                         Ready
                     </span>
-                    <span class="hidden sm:inline-block text-[10px] text-gray-600 border-l border-gray-700 pl-3">Itera Runtime</span>
+                    <span class="hidden sm:inline-block text-[10px] text-text-muted border-l border-border-main pl-3">Itera Runtime</span>
                 </div>
-                <div class="text-[10px] text-gray-600 font-mono">v1.0.0</div>
+                <div class="text-[10px] text-text-muted font-mono">v1.0.0</div>
             </div>
         </div>
 
@@ -202,36 +271,36 @@
         <div id="chat-resizer" class="resizer hidden md:block"></div>
 
         <!-- 3. RIGHT SIDEBAR (Chat) -->
-        <div id="chat-panel" class="bg-gray-800 flex flex-col shrink-0 md:relative fixed inset-y-0 right-0 z-40 w-full sm:w-96 md:w-[400px] transition-transform duration-300 translate-x-full md:translate-x-0 border-l border-gray-700 shadow-2xl md:shadow-none h-full pt-12 md:pt-0">
-             <div class="h-10 border-b border-gray-700 flex items-center justify-between px-3 bg-gray-800 shrink-0">
+        <div id="chat-panel" class="bg-panel flex flex-col shrink-0 md:relative fixed inset-y-0 right-0 z-40 w-full sm:w-96 md:w-[400px] transition-transform duration-300 translate-x-full md:translate-x-0 border-l border-border-main shadow-2xl md:shadow-none h-full pt-12 md:pt-0">
+             <div class="h-10 border-b border-border-main flex items-center justify-between px-3 bg-panel shrink-0">
                 <div class="flex items-center gap-2">
-                    <span class="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Itera Agent</span>
-                    <span id="model-status" class="text-[9px] px-1.5 py-0.5 rounded bg-blue-900/50 text-blue-300 border border-blue-900/50">Loading...</span>
+                    <span class="text-[10px] font-bold text-text-muted uppercase tracking-wider">Itera Agent</span>
+                    <span id="model-status" class="text-[9px] px-1.5 py-0.5 rounded bg-primary/10 text-primary border border-primary/20">Loading...</span>
                 </div>
-                <button id="btn-clear-chat" title="Clear History" class="text-gray-500 hover:text-red-400 p-1 rounded hover:bg-gray-700 transition">
+                <button id="btn-clear-chat" title="Clear History" class="text-text-muted hover:text-error p-1 rounded hover:bg-hover transition">
                     <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
                 </button>
             </div>
-            <div id="chat-history" class="flex-1 overflow-y-auto p-4 space-y-4 bg-gray-900/50 scroll-smooth"></div>
-            <div class="p-3 bg-gray-800 border-t border-gray-700 pb-20 md:pb-3">
+            <div id="chat-history" class="flex-1 overflow-y-auto p-4 space-y-4 bg-app/50 scroll-smooth"></div>
+            <div class="p-3 bg-panel border-t border-border-main pb-20 md:pb-3">
                 <div id="file-preview-area" class="mb-2 hidden flex flex-wrap gap-2"></div>
-                <div id="ai-typing" class="text-xs text-blue-400 mb-2 hidden flex items-center gap-1">
+                <div id="ai-typing" class="text-xs text-primary mb-2 hidden flex items-center gap-1">
                     <span class="animate-pulse">●</span> Thinking...
                 </div>
-                <div class="relative bg-gray-900 border border-gray-600 rounded-lg focus-within:border-blue-500 transition shadow-inner">
+                <div class="relative bg-app border border-border-main rounded-lg focus-within:border-primary transition shadow-inner">
                     <textarea id="chat-input" rows="3" 
-                        class="w-full bg-transparent border-none text-sm text-gray-200 focus:ring-0 p-3 pb-10 resize-none"
+                        class="w-full bg-transparent border-none text-sm text-text-main focus:ring-0 p-3 pb-10 resize-none"
                         placeholder="Instructions... (Ctrl+Enter)"></textarea>
                     <div class="absolute bottom-2 left-2 right-2 flex justify-between items-center">
-                        <label class="cursor-pointer text-gray-400 hover:text-white p-1.5 rounded hover:bg-gray-700 transition" title="Attach file">
+                        <label class="cursor-pointer text-text-muted hover:text-text-main p-1.5 rounded hover:bg-hover transition" title="Attach file">
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"></path></svg>
                             <input type="file" id="chat-file-upload" class="hidden" multiple>
                         </label>
                         <div>
-                            <button id="btn-send" class="p-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded transition disabled:opacity-50 disabled:cursor-not-allowed shadow-sm">
+                            <button id="btn-send" class="p-1.5 bg-primary hover:bg-primary/80 text-white rounded transition disabled:opacity-50 disabled:cursor-not-allowed shadow-sm">
                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"></path></svg>
                             </button>
-                            <button id="btn-stop" class="p-1.5 bg-red-600 hover:bg-red-500 text-white rounded transition hidden shadow-sm">
+                            <button id="btn-stop" class="p-1.5 bg-error hover:bg-error/80 text-white rounded transition hidden shadow-sm">
                                 <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8 7a1 1 0 00-1 1v4a1 1 0 001 1h4a1 1 0 001-1V8a1 1 0 00-1-1H8z" clip-rule="evenodd"></path></svg>
                             </button>
                         </div>
@@ -242,16 +311,16 @@
     </div>
 
     <!-- Mobile Navigation -->
-    <nav class="md:hidden fixed bottom-0 left-0 right-0 h-14 bg-gray-800 border-t border-gray-700 flex items-center justify-around z-50 shadow-up pb-safe">
-        <button id="mobile-nav-files" class="flex flex-col items-center justify-center w-full h-full text-gray-400 hover:text-white hover:bg-gray-700/50 transition">
+    <nav class="md:hidden fixed bottom-0 left-0 right-0 h-14 bg-panel border-t border-border-main flex items-center justify-around z-50 shadow-up pb-safe">
+        <button id="mobile-nav-files" class="flex flex-col items-center justify-center w-full h-full text-text-muted hover:text-text-main hover:bg-hover transition">
             <svg class="w-5 h-5 mb-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"></path></svg>
             <span class="text-[10px]">Files</span>
         </button>
-        <button id="mobile-nav-view" class="flex flex-col items-center justify-center w-full h-full text-blue-400 font-bold bg-gray-700/50">
+        <button id="mobile-nav-view" class="flex flex-col items-center justify-center w-full h-full text-primary font-bold bg-hover">
             <svg class="w-5 h-5 mb-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path></svg>
             <span class="text-[10px]">View</span>
         </button>
-        <button id="mobile-nav-chat" class="flex flex-col items-center justify-center w-full h-full text-gray-400 hover:text-white hover:bg-gray-700/50 transition">
+        <button id="mobile-nav-chat" class="flex flex-col items-center justify-center w-full h-full text-text-muted hover:text-text-main hover:bg-hover transition">
             <svg class="w-5 h-5 mb-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"></path></svg>
             <span class="text-[10px]">Chat</span>
         </button>
@@ -259,24 +328,24 @@
 
     <!-- Global Modals -->
     <div id="resize-overlay" class="fixed inset-0 z-[9999] hidden cursor-col-resize"></div>
-    <div id="context-menu" class="fixed hidden z-[100] bg-gray-800 border border-gray-600 rounded shadow-xl py-1 min-w-[140px]"></div>
+    <div id="context-menu" class="fixed hidden z-[100] bg-panel border border-border-main rounded shadow-xl py-1 min-w-[140px]"></div>
 
     <!-- Settings Modal -->
     <div id="history-modal" class="fixed inset-0 bg-black/80 z-50 hidden flex items-center justify-center modal backdrop-blur-sm transition-opacity">
-        <div class="bg-gray-800 rounded-lg shadow-2xl w-full max-w-md border border-gray-600 flex flex-col max-h-[80vh]">
-            <div class="p-4 border-b border-gray-700 flex justify-between items-center bg-gray-800 rounded-t-lg">
-                <h3 class="font-bold text-gray-200 flex items-center gap-2">
-                    <svg class="w-4 h-4 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+        <div class="bg-panel rounded-lg shadow-2xl w-full max-w-md border border-border-main flex flex-col max-h-[80vh]">
+            <div class="p-4 border-b border-border-main flex justify-between items-center bg-panel rounded-t-lg">
+                <h3 class="font-bold text-text-main flex items-center gap-2">
+                    <svg class="w-4 h-4 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
                     Time Machine & Settings
                 </h3>
                 <div class="flex items-center gap-2">
-                    <button id="btn-delete-all-snapshots" class="text-[10px] text-red-400 hover:text-white bg-red-900/30 hover:bg-red-700 px-2 py-1 rounded border border-red-900/50 transition">Delete All</button>
-                    <button id="btn-close-modal" class="text-gray-400 hover:text-white transition w-6 h-6 flex items-center justify-center rounded hover:bg-gray-700">✕</button>
+                    <button id="btn-delete-all-snapshots" class="text-[10px] text-error hover:text-white bg-error/20 hover:bg-error px-2 py-1 rounded border border-error/30 transition">Delete All</button>
+                    <button id="btn-close-modal" class="text-text-muted hover:text-text-main transition w-6 h-6 flex items-center justify-center rounded hover:bg-hover">✕</button>
                 </div>
             </div>
             <div class="flex-1 overflow-y-auto p-4 space-y-2" id="snapshot-list"></div>
-            <div class="p-4 border-t border-gray-700 bg-gray-900 rounded-b-lg">
-                <button id="btn-create-snapshot" class="w-full bg-blue-600 hover:bg-blue-500 text-white py-2 rounded text-sm font-bold transition shadow-lg">
+            <div class="p-4 border-t border-border-main bg-app rounded-b-lg">
+                <button id="btn-create-snapshot" class="w-full bg-primary hover:bg-primary/80 text-white py-2 rounded text-sm font-bold transition shadow-lg">
                     Create Snapshot Now
                 </button>
             </div>
@@ -288,12 +357,12 @@
     <script src="src/core/state/store.js"></script>
     <script src="src/core/state/config_manager.js"></script>
     <script src="src/core/state/history.js"></script>
-
+    
     <!-- Cognitive -->
     <script src="src/core/cognitive/llm_adapter.js"></script>
     <script src="src/core/cognitive/translator.js"></script>
     <script src="src/core/cognitive/projector.js"></script>
-
+    
     <!-- Control -->
     <script src="src/core/control/tool_registry.js"></script>
     <script src="src/core/control/tools/fs_tools.js"></script>
@@ -302,11 +371,11 @@
     <script src="src/core/control/tools/search_tools.js"></script>
     <script src="src/core/control/tools/basic_tools.js"></script>
     <script src="src/core/control/engine.js"></script>
-
+    
     <!-- Bridge -->
     <script src="src/bridge/guest_bridge.js"></script>
     <script src="src/bridge/host_bridge.js"></script>
-
+    
     <!-- UI -->
     <script src="src/ui/services/lpml_renderer.js"></script>
     <script src="src/ui/theme_manager.js"></script>
@@ -318,7 +387,7 @@
     <script src="src/ui/components/media_viewer.js"></script>
     <script src="src/ui/components/settings_modal.js"></script>
     <script src="src/ui/main_controller.js"></script>
-
+    
     <!-- Config & Entry -->
     <script src="src/config/constants.js"></script>
     <script src="src/config/system_prompts.js"></script>

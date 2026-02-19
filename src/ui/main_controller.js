@@ -13,7 +13,7 @@
 	} = global.Itera;
 	const {
 		Components,
-		Services // ★ 追加: Services (LPMLRenderer) を参照できるようにする
+        Services
 	} = UI;
 
 	const DOM_IDS = {
@@ -65,18 +65,14 @@
 
 			const themeManager = new UI.ThemeManager(configManager);
 			const translator = new Cognitive.Translator();
+            
+            const renderer = (Services && Services.LPMLRenderer) 
+                ? new Services.LPMLRenderer() 
+                : null;
 
-			// ★ 追加: レンダラーのインスタンス化
-			// (Services.LPMLRenderer が存在するかチェックしてから生成)
-			const renderer = (Services && Services.LPMLRenderer) ?
-				new Services.LPMLRenderer() :
-				null;
+            if (!renderer) console.warn("[Itera] LPMLRenderer not found. Chat formatting will be disabled.");
 
-			if (!renderer) console.warn("[Itera] LPMLRenderer not found. Chat formatting will be disabled.");
-
-			// ★ 変更: ChatPanel に renderer を渡す (translator ではない)
 			this.components.chat = new Components.ChatPanel(renderer);
-
 			this.components.explorer = new Components.Explorer(vfs);
 			this.components.editor = new Components.EditorModal();
 			this.components.preview = new Components.PreviewPane();
@@ -109,7 +105,7 @@
 				},
 				projector,
 				this._createLLM(),
-				translator, // Engineはパース用に引き続きTranslatorを使用
+				translator,
 				registry, {
 					ui: this
 				}
@@ -214,11 +210,9 @@
 					vfs.writeFile(path, content);
 					this.refreshPreview();
 
-					const lpml = `<event type="file_edited">\nUser edited file manually: ${path}\n</event>`;
-					const turn = history.append(global.Itera.Role.SYSTEM, lpml, {
-						type: 'event_log'
-					});
-					chat.appendTurn(turn);
+                    const lpml = `<event type="file_edited">\nUser edited file manually: ${path}\n</event>`;
+                    const turn = history.append(global.Itera.Role.SYSTEM, lpml, { type: 'event_log' });
+                    chat.appendTurn(turn);
 
 				} catch (e) {
 					alert(e.message);
@@ -227,15 +221,15 @@
 
 			// Settings Events
 			settings.on('factory_reset', async () => {
-				try {
-					const timestamp = new Date().toLocaleString();
-					const label = `Auto Backup (Pre-Reset) - ${timestamp}`;
-					await storage.createSnapshot(label, vfs.files, history.get());
-					console.log(`[System] Created safety snapshot: ${label}`);
-				} catch (e) {
-					console.error("Auto backup failed:", e);
-					if (!confirm("Automatic backup failed. Continue reset anyway?")) return;
-				}
+                try {
+                    const timestamp = new Date().toLocaleString();
+                    const label = `Auto Backup (Pre-Reset) - ${timestamp}`;
+                    await storage.createSnapshot(label, vfs.files, history.get());
+                    console.log(`[System] Created safety snapshot: ${label}`);
+                } catch (e) {
+                    console.error("Auto backup failed:", e);
+                    if (!confirm("Automatic backup failed. Continue reset anyway?")) return;
+                }
 
 				history.clear();
 				vfs.loadFiles(this.config.DEFAULT_FILES);
@@ -381,13 +375,13 @@
 				}
 				if (MOBILE_OVERLAY) MOBILE_OVERLAY.classList.add('hidden');
 				[BTN_MOBILE_FILES, BTN_MOBILE_CHAT, BTN_MOBILE_VIEW].forEach(b => {
-					b.classList.remove('text-blue-400', 'font-bold', 'bg-gray-700/50');
-					b.classList.add('text-gray-400');
+					b.classList.remove('text-primary', 'font-bold', 'bg-hover');
+					b.classList.add('text-text-muted');
 				});
 			};
 			const activate = (btn) => {
-				btn.classList.remove('text-gray-400');
-				btn.classList.add('text-blue-400', 'font-bold', 'bg-gray-700/50');
+				btn.classList.remove('text-text-muted');
+				btn.classList.add('text-primary', 'font-bold', 'bg-hover');
 			};
 			BTN_MOBILE_FILES.onclick = () => {
 				reset();
@@ -429,17 +423,24 @@
 			const usedMB = (usage.used / 1024 / 1024).toFixed(1);
 			const maxMB = (usage.max / 1024 / 1024).toFixed(1);
 			this.els.STORAGE_TEXT.textContent = `${usedMB} / ${maxMB} MB`;
+			
 			const percent = Math.min(100, usage.percent);
 			this.els.STORAGE_BAR.style.width = `${percent}%`;
 			this.els.STORAGE_BAR.className = 'absolute top-0 left-0 h-full transition-all duration-500 ease-out';
-			this.els.STORAGE_TEXT.className = 'font-mono text-gray-500';
+            // font-mono text-gray-500 -> text-text-muted
+			this.els.STORAGE_TEXT.className = 'font-mono text-text-muted';
+			
 			if (percent > 95) {
-				this.els.STORAGE_BAR.classList.add('bg-red-500', 'animate-pulse');
-				this.els.STORAGE_TEXT.classList.add('text-red-400', 'font-bold');
+                // bg-red-500 -> bg-error
+                // text-red-400 -> text-error
+				this.els.STORAGE_BAR.classList.add('bg-error', 'animate-pulse');
+				this.els.STORAGE_TEXT.classList.add('text-error', 'font-bold');
 			} else if (percent > 80) {
-				this.els.STORAGE_BAR.classList.add('bg-yellow-500');
+                // bg-yellow-500 -> bg-warning
+				this.els.STORAGE_BAR.classList.add('bg-warning');
 			} else {
-				this.els.STORAGE_BAR.classList.add('bg-blue-500');
+                // bg-blue-500 -> bg-primary
+				this.els.STORAGE_BAR.classList.add('bg-primary');
 			}
 		}
 
@@ -456,7 +457,7 @@
 			if (this.els.SAVE_STATUS) {
 				this.els.SAVE_STATUS.classList.remove('opacity-0');
 				this.els.SAVE_STATUS.textContent = "Saving...";
-				this.els.SAVE_STATUS.className = 'text-[9px] text-yellow-500 italic transition opacity-100 scale-90 origin-left';
+				this.els.SAVE_STATUS.className = 'text-[9px] text-warning italic transition opacity-100 scale-90 origin-left';
 			}
 			this.saveTimer = setTimeout(async () => {
 				const {
@@ -467,7 +468,7 @@
 				await storage.saveSystemState(vfs.files, history.get());
 				if (this.els.SAVE_STATUS) {
 					this.els.SAVE_STATUS.textContent = "Saved";
-					this.els.SAVE_STATUS.className = 'text-[9px] text-green-500 italic transition opacity-100 scale-90 origin-left';
+					this.els.SAVE_STATUS.className = 'text-[9px] text-success italic transition opacity-100 scale-90 origin-left';
 					setTimeout(() => this.els.SAVE_STATUS.classList.add('opacity-0'), 2000);
 				}
 			}, 1000);

@@ -43,10 +43,9 @@
             if (this.els.BTN_SAVE) {
                 this.els.BTN_SAVE.onclick = () => this._save();
             }
-            // Note: Keydown events are handled by Monaco itself once loaded
         }
 
-        /**
+                /**
          * エディタを開く
          * @param {string} path 
          * @param {string} content 
@@ -78,10 +77,6 @@
             }
         }
 
-        /**
-         * テーマを変更する (ThemeManagerから呼ばれる)
-         * @param {string} theme 'dark' | 'light'
-         */
         setTheme(theme) {
             this.currentTheme = (theme === 'dark') ? 'vs-dark' : 'vs';
             if (this.editorInstance && window.monaco) {
@@ -139,7 +134,6 @@
                 this.editorInstance.setValue(content);
             }
             
-            // コンテナが表示された直後にレイアウト崩れを防ぐ
             setTimeout(() => {
                 this.editorInstance.layout();
                 this.editorInstance.focus();
@@ -159,13 +153,15 @@
             if (this.els.BTN_SAVE) {
                 const originalText = this.els.BTN_SAVE.textContent;
                 this.els.BTN_SAVE.textContent = "Saved!";
-                this.els.BTN_SAVE.classList.remove('bg-blue-700');
-                this.els.BTN_SAVE.classList.add('bg-green-600');
+                // bg-blue-700 -> bg-primary
+                this.els.BTN_SAVE.classList.remove('bg-primary');
+                // bg-green-600 -> bg-success
+                this.els.BTN_SAVE.classList.add('bg-success');
                 
                 setTimeout(() => {
                     this.els.BTN_SAVE.textContent = originalText;
-                    this.els.BTN_SAVE.classList.remove('bg-green-600');
-                    this.els.BTN_SAVE.classList.add('bg-blue-700');
+                    this.els.BTN_SAVE.classList.remove('bg-success');
+                    this.els.BTN_SAVE.classList.add('bg-primary');
                 }, 1000);
             }
         }
