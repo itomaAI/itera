@@ -280,7 +280,7 @@
 			div.appendChild(header);
 
 			const btnDelete = document.createElement('button');
-			btnDelete.className = "absolute top-2 right-2 text-text-muted hover:text-error opacity-0 group-hover:opacity-100 p-1 transition";
+			btnDelete.className = "absolute top-2 right-2 text-text-muted hover:text-error opacity-100 md:opacity-0 group-hover:opacity-100 p-1 transition";
 			btnDelete.innerHTML = "×";
 			btnDelete.onclick = (e) => {
 				e.stopPropagation();

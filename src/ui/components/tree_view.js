@@ -79,7 +79,7 @@
                 div.innerHTML = `
                     <span class="mr-2 opacity-80 text-xs pointer-events-none flex-shrink-0">${icon}</span>
                     <span class="truncate pointer-events-none flex-1">${node.name}</span>
-                    <button class="menu-btn w-6 h-6 flex items-center justify-center text-text-muted hover:text-text-main hover:bg-hover rounded ml-1 transition flex-shrink-0 md:hidden opacity-0 group-hover:opacity-100">
+                    <button class="menu-btn w-6 h-6 flex items-center justify-center text-text-muted hover:text-text-main hover:bg-hover rounded ml-1 transition flex-shrink-0 opacity-100 md:opacity-0 group-hover:opacity-100">
                         ⋮
                     </button>
                 `;
