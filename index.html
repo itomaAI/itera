@@ -291,9 +291,9 @@
                 <div id="ai-typing" class="text-xs text-primary mb-2 hidden flex items-center gap-1">
                     <span class="animate-pulse">●</span> Thinking...
                 </div>
-                <div class="relative bg-app border border-border-main rounded-lg focus-within:border-primary transition shadow-inner">
+                <div class="relative bg-app border border-border-main rounded-lg focus-within:border-primary focus-within:ring-1 focus-within:ring-primary transition shadow-inner">
                     <textarea id="chat-input" rows="3" 
-                        class="w-full bg-transparent border-none text-sm text-text-main focus:ring-0 p-3 pb-10 resize-none"
+                        class="w-full bg-transparent border-none text-sm text-text-main focus:ring-0 focus:outline-none p-3 pb-10 resize-none"
                         placeholder="Instructions... (Ctrl+Enter)"></textarea>
                     <div class="absolute bottom-2 left-2 right-2 flex justify-between items-center">
                         <label class="cursor-pointer text-text-muted hover:text-text-main p-1.5 rounded hover:bg-hover transition" title="Attach file">
@@ -335,7 +335,7 @@
     <div id="context-menu" class="fixed hidden z-[100] bg-panel border border-border-main rounded shadow-xl py-1 min-w-[140px]"></div>
 
     <!-- Settings Modal -->
-    <div id="history-modal" class="fixed inset-0 bg-black/80 z-50 hidden flex items-center justify-center modal backdrop-blur-sm transition-opacity">
+    <div id="history-modal" class="fixed inset-0 bg-black/80 z- hidden flex items-center justify-center modal backdrop-blur-sm transition-opacity">
         <div class="bg-panel rounded-lg shadow-2xl w-full max-w-md border border-border-main flex flex-col max-h-[80vh]">
             <div class="p-4 border-b border-border-main flex justify-between items-center bg-panel rounded-t-lg">
                 <h3 class="font-bold text-text-main flex items-center gap-2">

@@ -65,6 +65,7 @@ Behavior:
     - **Pauses** the system loop (Signal.HALT) to wait for a user response.
 Constraint:
     - Do not use if you can proceed without user input.
+    - DO NOT NEST: This tag must never be placed inside other tags (e.g., <thinking>, <plan>).
 </define_tag>
 
 <define_tag name="finish">
@@ -73,6 +74,7 @@ Constraint:
     - Do NOT use this tag in the same turn as tool execution. Verify the tool result first in the next turn, then finish.
     - If no tool is executed in the current turn and the response is complete or you have nothing more to do, you MUST use this tag immediately.
     - Signal.TERMINATE is sent to the engine.
+    - DO NOT NEST: This tag must never be placed inside other tags (e.g., <thinking>, <plan>).
 </define_tag>
 
 <define_tag name="event">
@@ -93,7 +95,6 @@ Attributes:
     - path: File path in VFS.
     - start (optional): Start line number.
     - end (optional): End line number.
-    // ↓ ここを修正
     - line_numbers (optional): "true" or "false" (default). Set to "true" if you need line numbers for reference.
 Rule:
     - Always read a file before editing it to ensure you have the latest version.

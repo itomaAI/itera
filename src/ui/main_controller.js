@@ -188,13 +188,18 @@
 				history.delete(id);
 				chat.renderHistory(history.get());
 			});
-			chat.on('preview_request', (name, src, mime) => media.open(name, src, mime));
+			chat.on('preview_request', (name, src, mime) => {
+				media.open(name, src, mime);
+				this._closeMobileDrawers(); // モバイル時は自動でパネルを閉じる
+			});
 
 			// Explorer Events
 			explorer.on('open_file', (path, content) => {
 				const BINARY_EXTS = /\.(png|jpg|jpeg|gif|webp|svg|ico|pdf|zip|mp3|mp4|wav|ogg)$/i;
 				if (path.match(BINARY_EXTS)) media.open(path, content);
 				else editor.open(path, content);
+	
+				this._closeMobileDrawers(); // モバイル時は自動でパネルを閉じる
 			});
 			explorer.on('history_event', (type, desc) => {
 				const lpml = `<event type="${type}">\n${desc}\n</event>`;
