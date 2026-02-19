@@ -1,3 +1,5 @@
+<!-- index.html -->
+
 <!DOCTYPE html>
 <html lang="en" class="dark">
 <head>
@@ -54,7 +56,7 @@
 </head>
 <body class="bg-gray-900 text-gray-200 flex flex-col font-sans antialiased selection:bg-blue-500/30">
 
-    <!-- ★ Added: Boot Loader -->
+    <!-- Boot Loader -->
     <div id="boot-loader" class="fixed inset-0 z-[9999] bg-gray-900 flex flex-col items-center justify-center">
         <div class="loader mb-4 w-10 h-10 border-4 border-t-blue-500"></div>
         <div class="text-sm text-gray-400 font-mono animate-pulse">Initializing Itera OS...</div>
@@ -216,7 +218,7 @@
                 <div id="ai-typing" class="text-xs text-blue-400 mb-2 hidden flex items-center gap-1">
                     <span class="animate-pulse">●</span> Thinking...
                 </div>
-                <div class="relative bg-gray-900 border border-gray-600 rounded-lg shadow-inner">
+                <div class="relative bg-gray-900 border border-gray-600 rounded-lg focus-within:border-blue-500 transition shadow-inner">
                     <textarea id="chat-input" rows="3" 
                         class="w-full bg-transparent border-none text-sm text-gray-200 focus:ring-0 p-3 pb-10 resize-none"
                         placeholder="Instructions... (Ctrl+Enter)"></textarea>
@@ -286,12 +288,12 @@
     <script src="src/core/state/store.js"></script>
     <script src="src/core/state/config_manager.js"></script>
     <script src="src/core/state/history.js"></script>
-    
+
     <!-- Cognitive -->
     <script src="src/core/cognitive/llm_adapter.js"></script>
     <script src="src/core/cognitive/translator.js"></script>
     <script src="src/core/cognitive/projector.js"></script>
-    
+
     <!-- Control -->
     <script src="src/core/control/tool_registry.js"></script>
     <script src="src/core/control/tools/fs_tools.js"></script>
@@ -300,12 +302,13 @@
     <script src="src/core/control/tools/search_tools.js"></script>
     <script src="src/core/control/tools/basic_tools.js"></script>
     <script src="src/core/control/engine.js"></script>
-    
+
     <!-- Bridge -->
     <script src="src/bridge/guest_bridge.js"></script>
     <script src="src/bridge/host_bridge.js"></script>
-    
+
     <!-- UI -->
+    <script src="src/ui/services/lpml_renderer.js"></script>
     <script src="src/ui/theme_manager.js"></script>
     <script src="src/ui/components/chat_panel.js"></script>
     <script src="src/ui/components/tree_view.js"></script>
@@ -315,7 +318,7 @@
     <script src="src/ui/components/media_viewer.js"></script>
     <script src="src/ui/components/settings_modal.js"></script>
     <script src="src/ui/main_controller.js"></script>
-    
+
     <!-- Config & Entry -->
     <script src="src/config/constants.js"></script>
     <script src="src/config/system_prompts.js"></script>

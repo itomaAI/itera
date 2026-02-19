@@ -12,7 +12,8 @@
 		UI
 	} = global.Itera;
 	const {
-		Components
+		Components,
+		Services // ★ 追加: Services (LPMLRenderer) を参照できるようにする
 	} = UI;
 
 	const DOM_IDS = {
@@ -65,7 +66,17 @@
 			const themeManager = new UI.ThemeManager(configManager);
 			const translator = new Cognitive.Translator();
 
-			this.components.chat = new Components.ChatPanel(translator);
+			// ★ 追加: レンダラーのインスタンス化
+			// (Services.LPMLRenderer が存在するかチェックしてから生成)
+			const renderer = (Services && Services.LPMLRenderer) ?
+				new Services.LPMLRenderer() :
+				null;
+
+			if (!renderer) console.warn("[Itera] LPMLRenderer not found. Chat formatting will be disabled.");
+
+			// ★ 変更: ChatPanel に renderer を渡す (translator ではない)
+			this.components.chat = new Components.ChatPanel(renderer);
+
 			this.components.explorer = new Components.Explorer(vfs);
 			this.components.editor = new Components.EditorModal();
 			this.components.preview = new Components.PreviewPane();
@@ -98,7 +109,7 @@
 				},
 				projector,
 				this._createLLM(),
-				translator,
+				translator, // Engineはパース用に引き続きTranslatorを使用
 				registry, {
 					ui: this
 				}
@@ -191,9 +202,6 @@
 			});
 			explorer.on('history_event', (type, desc) => {
 				const lpml = `<event type="${type}">\n${desc}\n</event>`;
-				// イベントはSystemロールとして履歴に追加（画面上は更新が必要）
-				// appendするとHistoryManagerがchangeイベントを出すが、それはAutoSave用。
-				// ここでchat.appendTurnを手動で呼ぶ必要がある。
 				const turn = history.append(global.Itera.Role.SYSTEM, lpml, {
 					type: 'event_log'
 				});
@@ -206,11 +214,11 @@
 					vfs.writeFile(path, content);
 					this.refreshPreview();
 
-                    // --- ★ Modified: Log manual save to chat history ---
-                    const lpml = `<event type="file_edited">\nUser edited file manually: ${path}\n</event>`;
-                    const turn = history.append(global.Itera.Role.SYSTEM, lpml, { type: 'event_log' });
-                    chat.appendTurn(turn);
-                    // --------------------------------------------------
+					const lpml = `<event type="file_edited">\nUser edited file manually: ${path}\n</event>`;
+					const turn = history.append(global.Itera.Role.SYSTEM, lpml, {
+						type: 'event_log'
+					});
+					chat.appendTurn(turn);
 
 				} catch (e) {
 					alert(e.message);
@@ -219,17 +227,15 @@
 
 			// Settings Events
 			settings.on('factory_reset', async () => {
-                // --- ★ Modified: Auto Backup before Reset ---
-                try {
-                    const timestamp = new Date().toLocaleString();
-                    const label = `Auto Backup (Pre-Reset) - ${timestamp}`;
-                    await storage.createSnapshot(label, vfs.files, history.get());
-                    console.log(`[System] Created safety snapshot: ${label}`);
-                } catch (e) {
-                    console.error("Auto backup failed:", e);
-                    if (!confirm("Automatic backup failed. Continue reset anyway?")) return;
-                }
-                // --------------------------------------------
+				try {
+					const timestamp = new Date().toLocaleString();
+					const label = `Auto Backup (Pre-Reset) - ${timestamp}`;
+					await storage.createSnapshot(label, vfs.files, history.get());
+					console.log(`[System] Created safety snapshot: ${label}`);
+				} catch (e) {
+					console.error("Auto backup failed:", e);
+					if (!confirm("Automatic backup failed. Continue reset anyway?")) return;
+				}
 
 				history.clear();
 				vfs.loadFiles(this.config.DEFAULT_FILES);
@@ -261,13 +267,10 @@
 			});
 			this.engine.on('stream_chunk', (chunk) => chat.updateStreaming(chunk));
 
-			// ★ Bugfix: turn_end Logic for Flash prevention
 			this.engine.on('turn_end', (data) => {
 				if (data.role === global.Itera.Role.MODEL) {
-					// Modelの場合はfinalizeのみ（既にストリーミングでDOMにある）
 					chat.finalizeStreaming();
 				} else {
-					// User/Systemの場合は末尾に追記（全再描画しない）
 					const turn = data.turn || history.getLast();
 					chat.appendTurn(turn);
 				}
@@ -279,9 +282,6 @@
 			this.engine.on('loop_stop', () => {
 				if (chat.currentStreamEl) chat.finalizeStreaming();
 				chat.setProcessing(false);
-				// Loop停止時は念のため全同期（重複リスクより整合性優先）したいが、
-				// appendTurn方式で整合性が保たれていれば不要。
-				// 安全策として、履歴の整合性チェックや自動保存だけ走らせる
 				this._triggerAutoSave();
 			});
 

@@ -21,8 +21,9 @@
 	};
 
 	class ChatPanel {
-		constructor(translator) {
-			this.translator = translator;
+		// ★ 変更点: 引数を translator から renderer に変更
+		constructor(renderer) {
+			this.renderer = renderer;
 			this.els = {};
 			this.events = {};
 			this.pendingUploads = [];
@@ -180,7 +181,6 @@
 		}
 
 		startStreaming() {
-			// ★ Bugfix: クリーンアップ処理を追加
 			if (this.currentStreamEl && this.currentStreamEl.parentElement) {
 				this.currentStreamEl.parentElement.remove();
 			}
@@ -202,8 +202,9 @@
 			this.els.HISTORY.appendChild(div);
 			this.currentStreamEl = div.querySelector('.msg-content');
 
-			if (this.currentStreamContent && this.translator) {
-				this.currentStreamEl.innerHTML = this.translator.formatStream(this.currentStreamContent);
+			// ★ 変更点: rendererを使用
+			if (this.currentStreamContent && this.renderer) {
+				this.currentStreamEl.innerHTML = this.renderer.formatStream(this.currentStreamContent);
 				this.currentStreamEl.classList.remove('whitespace-pre-wrap');
 			}
 		}
@@ -212,8 +213,9 @@
 			if (!this.currentStreamEl) return;
 			this.currentStreamContent += chunk;
 
-			if (this.translator && this.translator.formatStream) {
-				this.currentStreamEl.innerHTML = this.translator.formatStream(this.currentStreamContent);
+			// ★ 変更点: rendererを使用
+			if (this.renderer && this.renderer.formatStream) {
+				this.currentStreamEl.innerHTML = this.renderer.formatStream(this.currentStreamContent);
 				this.currentStreamEl.classList.remove('whitespace-pre-wrap');
 			} else {
 				this.currentStreamEl.textContent = this.currentStreamContent;
@@ -231,7 +233,6 @@
 			this._scrollToBottom(true);
 		}
 
-		// ★ New Method: 単一ターンを追加 (renderHistoryによる全書き換え回避用)
 		appendTurn(turn) {
 			if (!turn) return;
 			this._appendTurn(turn);
@@ -244,7 +245,6 @@
 
 			history.forEach(turn => this._appendTurn(turn));
 
-			// ストリーミング中なら復元
 			if (this.isProcessing && this.currentStreamContent !== "") {
 				this._createStreamElement();
 			}
@@ -297,8 +297,9 @@
 			body.className = "break-all";
 
 			if (typeof turn.content === 'string') {
+				// ★ 変更点: rendererを使用
 				if (role === 'model' || (role === 'system' && turn.content.includes('<'))) {
-					if (this.translator) body.innerHTML = this.translator.formatStream(turn.content);
+					if (this.renderer) body.innerHTML = this.renderer.formatStream(turn.content);
 					else body.textContent = turn.content;
 				} else {
 					body.className += " whitespace-pre-wrap";
@@ -316,8 +317,9 @@
 			contentArray.forEach(item => {
 				if (item.text) {
 					const div = document.createElement('div');
-					if ((role === 'model' || item.text.trim().startsWith('<')) && this.translator) {
-						div.innerHTML = this.translator.formatStream(item.text);
+					// ★ 変更点: rendererを使用
+					if ((role === 'model' || item.text.trim().startsWith('<')) && this.renderer) {
+						div.innerHTML = this.renderer.formatStream(item.text);
 					} else {
 						div.className = "whitespace-pre-wrap";
 						div.textContent = item.text;
@@ -325,14 +327,12 @@
 					container.appendChild(div);
 				} else if (item.output) {
 					const div = document.createElement('div');
-                    // --- ★ Modified: Add whitespace-pre-wrap ---
 					div.className = "mb-1 whitespace-pre-wrap";
-                    // ------------------------------------------
 					const uiText = item.output.ui || item.output.log || "";
 					if (item.output.ui) {
 						const span = document.createElement('span');
 						span.className = "text-blue-300 font-bold";
-						span.textContent = uiText; // Use textContent for safety
+						span.textContent = uiText;
 						div.appendChild(span);
 					} else {
 						div.textContent = uiText;
