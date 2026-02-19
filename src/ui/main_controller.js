@@ -251,6 +251,7 @@
 
 			// Preview Events
 			preview.on('refresh', () => this.refreshPreview());
+			preview.on('home', () => this.refreshPreview('index.html'));
 
 			// Engine Events
 			this.engine.on('turn_start', (data) => {

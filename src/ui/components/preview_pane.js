@@ -8,6 +8,7 @@
     const DOM_IDS = {
         FRAME: 'preview-frame',
         LOADER: 'preview-loader',
+        BTN_HOME: 'btn-home',
         BTN_REFRESH: 'btn-refresh',
         ADDRESS_BAR: 'preview-address-bar'
     };
@@ -68,6 +69,11 @@ window.addEventListener('message', async (e) => {
             if (this.els.BTN_REFRESH) {
                 this.els.BTN_REFRESH.onclick = () => {
                     if (this.events['refresh']) this.events['refresh']();
+                };
+            }
+            if (this.els.BTN_HOME) {
+                this.els.BTN_HOME.onclick = () => {
+                    if (this.events['home']) this.events['home']();
                 };
             }
         }
