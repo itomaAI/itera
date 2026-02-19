@@ -23,20 +23,51 @@
         // --- System Initialization Script ---
 
         "system/init.md": `
-# Initialization Protocol
+# Initialization Protocol v3.0
 
-## Phase 1: Self-Calibration
-1. Read \`docs/codex/00_preface.md\` to understand your identity.
-2. If needed, read other codex chapters for deeper understanding of architecture and tools.
+**Status**: Boot Sequence Initiated.
+**Objective**: Establish identity, configure language & user settings, and define operational protocols.
 
-## Phase 2: Environment Check
-1. Check if \`index.html\` exists.
-2. If not found, create a basic dashboard.
+## Phase 1: Orientation & Language
+1.  **Read Documentation**:
+    *   Read all files under \`docs/\` to fully understand the Itera OS architecture, REAL loop, and design system.
+2.  **Language Selection**:
+    *   **Action**: Ask the user: "Which language should I use? (e.g., English, Japanese)"
+    *   **Update**: Immediately update the \`language\` field in \`system/config/config.json\` based on the response.
+    *   **Rule**: From this point on, communicate in the selected language.
 
-## Phase 3: Engagement
-1. Greet the user via \`<report>\`.
-   - Use the username found in \`system/config.json\`.
-   - Briefly state that you are ready and have verified the system integrity.
+## Phase 2: Configuration (Names)
+1.  **Interview**:
+    *   Ask the user: "What should I call you? (User Name)"
+    *   Ask the user: "Please give me a name. (Agent Name)"
+2.  **Update**:
+    *   Update \`username\` and \`agentName\` in \`system/config/config.json\`.
+
+## Phase 3: Alignment (Role Definition)
+1.  **Consultation**:
+    *   State: "I am your Secretary and System Interface."
+    *   Ask: "How would you like me to behave? (e.g., Strict, Friendly, Technical, Minimalist)"
+    *   Define your persona based on the agreement.
+
+## Phase 4: Knowledge Structuring
+1.  **Scan Data**:
+    *   Survey the current contents of \`data/\` to understand the information landscape.
+2.  **Plan Knowledge Map**:
+    *   Formulate a plan for a "Knowledge Router" (e.g., \`system/memory/index.md\`) to organize information across sessions.
+
+## Phase 5: Recursive Protocol Update (Overwrite)
+*   **CRITICAL FINAL STEP**:
+    *   Once the above phases are complete, **you must rewrite this file (\`system/init.md\`) yourself**.
+    *   Replace these boot instructions with a permanent **"System Lifecycle"** document containing:
+        1.  **Boot Protocol**: Checklist for every system wake-up (e.g., check calendar, unread tasks).
+        2.  **Session Shutdown Protocol**: Rules for organizing information before ending a conversation (\`<finish>\`).
+            *   Transfer important context from Short-term History to Long-term Memory (Files).
+            *   Log pending items for the next session.
+        3.  **Persona Definitions**: The role and tone defined in Phase 3.
+        4.  **Knowledge Router Location**: Path to the central index file.
+
+---
+**Action**: Begin Phase 1 immediately.
 `.trim(),
 
         // --- Default Themes (Can be edited by the agent itself) ---
@@ -1985,6 +2016,619 @@ Use this Codex as a guidepost, and build a better Itera OS together with the use
     </script>
 </body>
 </html>
+`.trim(),
+
+        // --- Documentation ---
+
+        "docs/manual/00_overview.md": `
+# 00. Overview: What is Itera OS?
+
+## Introduction
+
+**Itera OS** is an experimental "Autonomous AI Operating System" that runs entirely within your web browser.
+Unlike traditional chatbots that simply reply with text, Itera acts as a complete operating system where an AI agent has direct control over the file system, UI, and system configuration.
+
+It is designed with a unique architecture called **HDI (Host-Driven Intelligence)**, where the AI resides in a privileged "Host" layer and manipulates the user-facing "Guest" environment to build and maintain the optimal workflow for the user.
+
+## Core Philosophy: The REAL Architecture
+
+Itera's autonomy is powered by a loop known as **REAL (Recursive Environment-Agent Loop)**.
+This architecture grants the AI "Time" (a continuous existence) and a "Body" (the ability to act).
+
+1.  **Observe**:
+    *   The AI reads the current state of the Virtual File System (VFS) and the interaction history.
+    *   It perceives user inputs and system events (e.g., file changes).
+2.  **Think**:
+    *   Based on observations, the AI plans its next move.
+    *   It generates a sequence of thoughts and decides which tools to use.
+3.  **Act**:
+    *   The AI executes specific tools (e.g., \`create_file\`, \`edit_code\`) to manipulate the environment.
+    *   This is not a simulation; files are actually written to the browser's IndexedDB.
+4.  **Update**:
+    *   The results of the actions are immediately reflected in the UI (Dashboard/Apps).
+    *   The loop continues, allowing the AI to iteratively improve the system.
+
+## System Model: Host & Guest
+
+Itera creates a clear separation between the "Brain" and the "Body" to ensure security and stability.
+
+### 1. Host (The Brain)
+*   **Role**: Core System, Cognitive Layer.
+*   **Location**: The outer frame of the browser window.
+*   **Capabilities**:
+    *   Manages the LLM (Large Language Model) connection.
+    *   Holds root privileges for the VFS (Virtual File System).
+    *   Executes tools and manages system state.
+*   **Note**: Users typically interact with the Host via the Chat Panel on the right.
+
+### 2. Guest (The Body)
+*   **Role**: User Land, Presentation Layer.
+*   **Location**: The central \`iframe\` (Dashboard, Apps).
+*   **Capabilities**:
+    *   Runs standard web technologies (HTML/JS/CSS).
+    *   Displays the UI (Task Manager, Calendar, etc.).
+    *   **Sandboxed**: Cannot directly access the Host's internals.
+*   **Bridge**:
+    *   Communicates with the Host via the \`MetaOS\` Bridge Protocol.
+    *   Example: A "Save" button in a Guest app sends a message to the Host to write a file.
+
+## Why "Itera"?
+
+The name comes from **"Iterate."**
+This OS is not a static product. It is a living environment that you and the AI build together.
+If you need a new tool, ask the AI to code it. If you don't like the design, ask the AI to change the theme.
+Through rapid iteration, Itera evolves into your personalized digital workspace.
+
+---
+**Next Step:** Proceed to [01_user_guide.md](01_user_guide.md) to learn how to use the dashboard and standard apps.
+`.trim(),
+
+        "docs/manual/01_user_guide.md": `
+# 01. User Guide
+
+This guide explains how to navigate the Itera OS interface and use the built-in applications.
+
+## The Interface
+
+The Itera interface consists of three main areas:
+
+1.  **Sidebar (Left)**: File Explorer & System Controls.
+2.  **Workspace (Center)**: The main screen where apps and the dashboard run.
+3.  **Chat Panel (Right)**: The interface for communicating with the AI Agent.
+
+---
+
+## 1. Dashboard & Launcher
+
+When you boot Itera, you see the **Dashboard**. This is your home base.
+
+*   **Header**: Displays a greeting based on the time of day and the current system clock.
+*   **Apps Widget**: Provides quick access to standard applications (Tasks, Notes, Calendar, Settings). Click "Library" to see all installed apps.
+*   **Active Tasks / Recent Notes**: Shows a summary of your current work. Clicking an item takes you directly to that app.
+
+**Tip:** You can always return to the dashboard from any app by clicking the **Home Button (House Icon)** in the top toolbar or the "Back" button within an app.
+
+---
+
+## 2. Standard Applications
+
+Itera comes with a suite of productivity tools designed to work together.
+
+### ✅ Tasks
+A simple yet powerful task manager.
+*   **Add Task**: Type a task name and press Enter. Select priority (Low/Medium/High) before adding.
+*   **Manage**: Click the circle to mark as complete. Click the trash icon (appears on hover) to delete.
+*   **Sort**: Tasks are automatically sorted by status, priority, and date.
+
+### 📅 Calendar
+A monthly view calendar integrated with your tasks.
+*   **Navigation**: Use \`<\` and \`>\` to switch months. "Today" brings you back.
+*   **Add Event**: Click on any date cell to add a new event.
+*   **Integration**: Tasks with due dates also appear here automatically.
+
+### 📝 Notes
+A Markdown-based note-taking app.
+*   **Create**: Click "+ New" in the sidebar to create a note.
+*   **Edit**: Click "Edit Source" to open the raw file in the Host's code editor.
+*   **Format**: Supports standard Markdown (headers, lists, code blocks) and MathJax equations.
+
+### ⚙️ Settings
+Customize your OS experience.
+*   **Theme**: Choose from installed themes (Dark, Light, Midnight, etc.) to instantly change the look of the entire OS.
+*   **Profile**: Update your username.
+
+---
+
+## 3. File Management (Sidebar)
+
+The left sidebar gives you direct access to the Virtual File System (VFS).
+
+*   **Navigation**: Click folders to expand/collapse. Click files to open them.
+    *   Text files open in the Code Editor.
+    *   Images/PDFs open in the Media Viewer.
+*   **Context Menu**: Right-click on any file or folder to access options like **Rename**, **Duplicate**, **Download**, or **Delete**.
+*   **Upload**:
+    *   **Drag & Drop**: Drag files or folders from your computer directly onto the sidebar to import them.
+    *   **Buttons**: Use the "Folder" or "Files" buttons at the bottom of the sidebar.
+
+### Backup & Restore
+Your data lives in the browser's memory. To keep it safe:
+*   **Export (Download)**: Click the **Download Icon** (arrow down) in the Storage section to download a complete \`.zip\` backup of your system.
+*   **Import (Restore)**: Click the **Restore Icon** (arrow up) to load a \`.zip\` backup. **Warning**: This overwrites current files.
+
+---
+
+## 4. Time Machine (Snapshots)
+
+Itera includes a powerful version control system called **Time Machine**.
+
+*   **Create Snapshot**:
+    1.  Click the **Clock Icon** in the top-left sidebar header.
+    2.  Click "Create Snapshot Now".
+    3.  Give it a name (e.g., "Before installing new app").
+*   **Restore**:
+    *   If something breaks or the AI makes a mistake, open the Time Machine and click "Restore" on a previous snapshot. The system will revert exactly to that state.
+
+---
+
+## 5. Working with the AI Agent
+
+The Chat Panel (Right) is where you give instructions to Itera.
+
+*   **Natural Language**: Just ask for what you want.
+    *   "Create a new note called 'Ideas' and list 5 app ideas."
+    *   "Change the theme to Light mode."
+    *   "Fix the bug in \`script.js\`."
+*   **Attachments**: You can upload text files or images for the AI to analyze using the paperclip icon.
+*   **Stop**: If the AI gets stuck in a loop, press the "Stop" button.
+
+---
+**Next Step:** Proceed to [02_architecture.md](02_architecture.md) to understand the internal structure of Itera.
+`.trim(),
+
+        "docs/manual/02_architecture.md": `
+# 02. System Architecture
+
+Understanding the internal structure of Itera OS is essential for customizing the system and developing new applications.
+
+## Directory Structure (The VFS)
+
+The Virtual File System (VFS) is organized into four main domains to separate user data from system logic.
+
+\`\`\`text
+/
+├── index.html              # The Dashboard entry point (Guest Kernel)
+├── README.md               # System documentation
+│
+├── apps/                   # [Application Layer]
+│   ├── tasks.html          # Standard apps live here
+│   ├── calendar.html
+│   └── ...
+│
+├── data/                   # [User Data Layer]
+│   ├── notes/              # Markdown files
+│   ├── tasks/              # Task JSON databases
+│   └── events/             # Calendar event data
+│   # Note: This directory is strictly for user content.
+│
+├── docs/                   # [Documentation Layer]
+│   └── manual/             # This manual
+│
+└── system/                 # [System Core Layer]
+    ├── config/             # Configuration files
+    │   ├── apps.json       # Installed app registry
+    │   ├── config.json     # User & System settings
+    │   └── themes/         # Theme definition files (.json)
+    │
+    ├── kernel/             # Core logic for the Dashboard
+    │   └── dashboard.js
+    │
+    └── lib/                # Shared Libraries
+        ├── std.js          # Standard Data Access Library
+        └── ui.js           # UI Kit & Theme Engine
+\`\`\`
+
+---
+
+## The MetaOS Bridge Protocol
+
+The **Guest** environment (where apps run) is isolated from the **Host** (where the AI and File System live).
+To interact with the system, apps use the global \`window.MetaOS\` client library.
+
+### Core API Methods
+
+All file operations are asynchronous and return a \`Promise\`.
+
+*   **File System**:
+    *   \`await MetaOS.saveFile(path, content)\`: Writes a file.
+    *   \`await MetaOS.readFile(path)\`: Reads a file as a string.
+    *   \`await MetaOS.listFiles(path, options)\`: Returns a list of files.
+    *   \`await MetaOS.deleteFile(path)\`: Deletes a file.
+
+*   **Navigation & UI**:
+    *   \`MetaOS.switchView(path)\`: Navigates the main window to another HTML file (e.g., \`apps/notes.html\`).
+    *   \`MetaOS.openFile(path)\`: Opens the Host's code editor for the specified file.
+    *   \`MetaOS.notify(message, title)\`: Sends a system notification.
+
+*   **AI Interaction**:
+    *   \`MetaOS.agent(instruction, options)\`: Triggers the AI to perform a background task.
+    *   \`MetaOS.ask(text)\`: Posts a message to the chat panel as the user.
+
+---
+
+## Event System
+
+Itera uses a reactive event system to keep the UI in sync.
+Apps can listen for system-wide events using \`MetaOS.on()\`.
+
+\`\`\`javascript
+if (window.MetaOS) {
+    MetaOS.on('file_changed', (payload) => {
+        console.log('File changed:', payload.path);
+        // Refresh data if necessary
+    });
+}
+\`\`\`
+
+*   **\`file_changed\`**: Fired whenever a file is created, modified, or deleted by either the User or the AI.
+    *   Payload: \`{ type: 'create|modify|delete', path: '...' }\`
+
+This mechanism allows apps (like the Task Manager or Dashboard) to update in real-time without reloading the page.
+
+---
+**Next Step:** Proceed to [03_design_system.md](03_design_system.md) to learn how to create UI that matches the OS theme.
+`.trim(),
+
+        "docs/manual/03_design_system.md": `
+# 03. Design System & UI Kit
+
+Itera OS employs a strict **Semantic Design System**.
+Instead of hardcoding colors (e.g., \`#000000\`, \`bg-gray-900\`), we use **Semantic Tokens** (e.g., \`bg-app\`, \`text-main\`) that dynamically adapt to the user's active theme.
+
+## The UI Kit (\`system/lib/ui.js\`)
+
+All guest applications MUST include the UI Kit library in their \`<head>\` section.
+
+\`\`\`html
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="../system/lib/ui.js"></script>
+\`\`\`
+
+This library automatically injects:
+1.  **Tailwind Configuration**: Maps semantic tokens to CSS variables.
+2.  **Global Styles**: Sets the default font (\`Inter\`) and scrollbar styling.
+3.  **AppUI Helpers**: Utilities for navigation.
+
+## Semantic Tokens Reference
+
+Use these Tailwind classes to ensure your app looks perfect in both Dark and Light themes.
+
+### 1. Backgrounds (\`bg-*\`)
+
+| Class | Usage | Description |
+| :--- | :--- | :--- |
+| \`bg-app\` | Page Root | The lowest layer background (Body). |
+| \`bg-panel\` | Containers | Sidebars, headers, large sections. |
+| \`bg-card\` | Elements | Individual items, cards, input fields. |
+| \`bg-hover\` | Interaction | Hover states for clickable items. |
+| \`bg-overlay\` | Modal/Tint | Used with opacity (e.g. \`bg-overlay/50\`) for backdrops. |
+
+### 2. Text (\`text-*\`)
+
+| Class | Usage | Description |
+| :--- | :--- | :--- |
+| \`text-text-main\` | Primary Content | Headings, main body text. |
+| \`text-text-muted\` | Metadata | Timestamps, labels, secondary info. |
+| \`text-text-inverted\`| Contrast | Text on accent backgrounds (e.g. on \`bg-primary\`). |
+| \`text-system\` | System Info | Non-urgent system messages (usually blue). |
+
+### 3. Borders (\`border-*\`)
+
+| Class | Usage | Description |
+| :--- | :--- | :--- |
+| \`border-border-main\` | Default | Standard dividers and card borders. |
+| \`border-border-highlight\`| Focus | Active inputs or selected items. |
+
+### 4. Accents (Color)
+
+These colors convey meaning.
+
+| Token | Class (Text/Bg/Border) | Usage |
+| :--- | :--- | :--- |
+| **Primary** | \`*-primary\` | Main actions, active states, branding. |
+| **Success** | \`*-success\` | Completion, safety, "Good" status. |
+| **Warning** | \`*-warning\` | Caution, "Pending" status. |
+| **Error** | \`*-error\` | Destructive actions, alerts, "High Priority". |
+
+## Implementation Guide
+
+### ❌ DO NOT DO THIS (Hardcoded)
+\`\`\`html
+<!-- Bad: Will break in Light Mode or Custom Themes -->
+<body class="bg-gray-900 text-white">
+    <div class="bg-gray-800 border-gray-700">
+        <button class="bg-blue-600">Save</button>
+    </div>
+</body>
+\`\`\`
+
+### ✅ DO THIS (Semantic)
+\`\`\`html
+<!-- Good: Adapts to any theme automatically -->
+<body class="bg-app text-text-main">
+    <div class="bg-panel border-border-main">
+        <button class="bg-primary text-text-inverted hover:bg-primary/90">Save</button>
+    </div>
+</body>
+\`\`\`
+
+## Typography & Icons
+
+*   **Font**: The system font is set to \`Inter\` by default via \`ui.js\`.
+*   **Icons**: We recommend using standard SVG icons (like Heroicons).
+    *   Icon color should generally use \`text-text-muted\` for inactive states and \`text-text-main\` or \`text-primary\` for active states.
+
+---
+**Next Step:** Proceed to [04_development.md](04_development.md) to learn how to build apps using these tokens.
+`.trim(),
+
+        "docs/manual/04_development.md": `
+# 04. App Development Guide
+
+This guide explains how to build custom applications for Itera OS.
+An "App" in Itera is simply an HTML file located in the \`apps/\` directory that utilizes the system libraries.
+
+## 1. The "Hello World" Template
+
+To create a new app, create a file (e.g., \`apps/hello.html\`) with the following structure.
+This includes the necessary libraries for styling (\`ui.js\`) and data access (\`std.js\`).
+
+\`\`\`html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>My App</title>
+    <!-- 1. Load Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- 2. Load System Libraries -->
+    <script src="../system/lib/ui.js"></script>
+    <script src="../system/lib/std.js"></script>
+</head>
+<body class="bg-app text-text-main h-screen p-6 flex flex-col">
+
+    <!-- Header -->
+    <header class="mb-6 flex items-center gap-4">
+        <button onclick="AppUI.home()" class="text-text-muted hover:text-text-main">
+            <!-- Back Icon -->
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg>
+        </button>
+        <h1 class="text-2xl font-bold">My New App</h1>
+    </header>
+
+    <!-- Content -->
+    <div class="bg-panel p-6 rounded-xl border border-border-main shadow-lg">
+        <p class="text-text-muted mb-4">Hello, Itera!</p>
+        <button onclick="doSomething()" class="bg-primary text-text-inverted px-4 py-2 rounded font-bold hover:bg-primary/90 transition">
+            Click Me
+        </button>
+    </div>
+
+    <script>
+        async function doSomething() {
+            // Your logic here
+            alert("Action executed!");
+        }
+    </script>
+</body>
+</html>
+\`\`\`
+
+## 2. Using System Libraries
+
+Itera provides high-level APIs to interact with the OS.
+
+### \`AppUI\` (UI Helpers)
+Provided by \`system/lib/ui.js\`.
+
+*   \`AppUI.go(path)\`: Navigate to another app (e.g., \`'apps/tasks.html'\`).
+*   \`AppUI.home()\`: Return to the Dashboard (\`index.html\`).
+
+### \`App\` (Standard Data Library)
+Provided by \`system/lib/std.js\`. Use this to access shared user data.
+
+*   **Tasks**:
+    *   \`await App.getTasks()\`
+    *   \`await App.addTask(title, date, priority)\`
+*   **Calendar**:
+    *   \`await App.getEvents(monthKey)\`
+    *   \`await App.addEvent(title, date, time, note)\`
+*   **Notes**:
+    *   \`await App.getRecentNotes(limit)\`
+
+### \`MetaOS\` (Low-Level Bridge)
+Direct access to the File System and Host.
+
+*   \`await MetaOS.saveFile(path, content)\`
+*   \`await MetaOS.readFile(path)\`
+*   \`await MetaOS.listFiles(path)\`
+
+## 3. Registering Your App
+
+To make your app appear in the **Library (Launcher)**, you must add it to the registry file.
+
+1.  Open \`system/config/apps.json\`.
+2.  Add a new entry to the array:
+
+\`\`\`json
+{
+    "id": "my-app",
+    "name": "My App",
+    "icon": "🚀",
+    "path": "apps/hello.html",
+    "description": "A simple demo application"
+}
+\`\`\`
+
+## 4. Development Best Practices
+
+1.  **Use Semantic Colors**: Always use \`bg-app\`, \`text-main\`, \`border-border-main\` etc. Never use \`bg-gray-900\`. (See [03_design_system.md](03_design_system.md))
+2.  **Statelessness**: The VFS persists data, but the DOM resets on navigation. Always reload data (e.g., \`await App.getTasks()\`) when the page loads (\`DOMContentLoaded\`).
+3.  **Reactive**: If your app relies on data that might change externally (e.g., Task list), listen for changes:
+    \`\`\`javascript
+    if (window.MetaOS) {
+        MetaOS.on('file_changed', (payload) => {
+            if (payload.path.startsWith('data/tasks')) render();
+        });
+    }
+    \`\`\`
+
+---
+**Next Step:** Proceed to [05_customization.md](05_customization.md) to learn how to create custom themes and configurations.
+`.trim(),
+
+        "docs/manual/05_customization.md": `
+# 05. Customization
+
+Itera OS is designed to be deeply customizable.
+Because the entire system runs on a Virtual File System (VFS), you can modify configuration files directly to change how the OS looks and behaves.
+
+## 1. Creating Custom Themes
+
+Themes are JSON files located in \`system/themes/\`.
+To create a new theme, simply create a new JSON file (e.g., \`system/themes/hacker_green.json\`) and define the color palette.
+
+### Theme File Structure
+
+A theme file consists of metadata and a color map. Colors must be hex codes (e.g., \`#FFFFFF\`).
+
+\`\`\`json
+{
+    "meta": {
+        "name": "Hacker Green",
+        "author": "User"
+    },
+    "colors": {
+        "bg": {
+            "app": "#000000",       // Main background (Body)
+            "panel": "#0a0a0a",     // Sidebars, Headers
+            "card": "#111111",      // Elements inside panels
+            "hover": "#1a1a1a",     // Hover state background
+            "overlay": "#000000"    // Backdrop tint color
+        },
+        "border": {
+            "main": "#333333",      // Standard borders
+            "highlight": "#00ff00"  // Active borders
+        },
+        "text": {
+            "main": "#00ff00",      // Primary text color
+            "muted": "#008800",     // Secondary text color
+            "inverted": "#000000",  // Text on accent backgrounds
+            "system": "#00aa00",    // System messages
+            "tag_attr": "#006600",  // XML tag attributes (Chat)
+            "tag_content": "#ccffcc"// XML tag content (Chat)
+        },
+        "accent": {
+            "primary": "#00ff00",   // Main action color
+            "success": "#00ff00",   // Success state
+            "warning": "#ffff00",   // Warning state
+            "error": "#ff0000"      // Error state
+        },
+        "tags": {
+            // Colors for AI thought process tags
+            "thinking": "#004400",
+            "plan": "#004400",
+            "report": "#004400",
+            "error": "#440000"
+        }
+    }
+}
+\`\`\`
+
+### Applying Your Theme
+1.  Save your new JSON file.
+2.  Open the **Settings** app (\`apps/settings.html\`).
+3.  Your new theme should appear in the list automatically. Click it to apply.
+
+---
+
+## 2. Configuring the System (\`config.json\`)
+
+The main system configuration is stored in \`system/config/config.json\`.
+You can edit this file directly or use the Settings app.
+
+\`\`\`json
+{
+    "theme": "system/themes/dark.json",  // Path to active theme
+    "language": "English",               // AI Agent language
+    "username": "User",                  // Your display name
+    "agentName": "Itera",                // AI Agent name
+    "llm": {
+        "model": "gemini-3-pro-preview", // AI Model ID
+        "temperature": 1.0               // Creativity (0.0 - 2.0)
+    }
+}
+\`\`\`
+
+*   **Tip**: Changing \`language\` to "Japanese" will instruct the AI to speak Japanese in the system prompt.
+
+---
+
+## 3. Customizing the Launcher (\`apps.json\`)
+
+The list of apps shown in the **Library** is defined in \`system/config/apps.json\`.
+If you create a new app or download one from the community (future feature), add it here to make it accessible.
+
+\`\`\`json
+[
+    {
+        "id": "tasks",
+        "name": "Tasks",
+        "icon": "✅",
+        "path": "apps/tasks.html",
+        "description": "Manage daily to-dos"
+    },
+    // ... add new apps here
+]
+\`\`\`
+
+*   **Icon**: You can use any Emoji.
+*   **Path**: The relative path to the HTML file in the VFS.
+
+---
+
+## Summary
+
+Itera OS is built on transparency.
+Everything from the color of a button to the list of installed apps is just a file that you can read and write.
+Explore, experiment, and build your perfect environment.
+
+**End of Manual.**
+`.trim(),
+
+        // README
+        "README.md": `
+# Welcome to Itera OS
+
+You are currently looking at the **Virtual File System (VFS)**.
+This works just like a folder on your computer, but it lives entirely in your browser.
+
+## 📚 Documentation
+To learn how to use Itera or how to build your own apps:
+👉 **Open \`docs/manual/00_overview.md\`**
+
+## 📂 Directory Structure
+*   **\`apps/\`**: Source code for installed applications (Tasks, Notes, etc.).
+*   **\`data/\`**: Your personal data (saved notes, task lists).
+*   **\`system/\`**: Core system files, themes, and libraries.
+
+## 🚀 Quick Start
+*   Type in the chat to instruct the AI.
+*   Use the **Dashboard** to launch apps.
+*   Use **Settings** to change the Color Theme.
+
+---
+*Itera OS - Recursive Environment-Agent Loop*
 `.trim(),
 
         // --- Sample Data ---
