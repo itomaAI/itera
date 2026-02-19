@@ -9,6 +9,6 @@
     global.Itera.Config.VFS_CAPACITY_MB = 256;
     
     // LLM Defaults
-    global.Itera.Config.DEFAULT_MODEL = "gemini-3-pro-preview";
+    global.Itera.Config.DEFAULT_MODEL = "gemini-3.1-pro-preview";
     
 })(window);

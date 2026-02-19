@@ -27,7 +27,7 @@
      * Google Gemini API Implementation
      */
     class GeminiAdapter extends BaseLLMAdapter {
-        constructor(apiKey, modelName = "gemini-3-pro-preview", config = {}) {
+        constructor(apiKey, modelName = "gemini-3.1-pro-preview", config = {}) {
             super(config);
             this.apiKey = apiKey;
             this.modelName = modelName;

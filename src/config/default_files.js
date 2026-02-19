@@ -15,7 +15,7 @@
             "username": "User",
             "agentName": "Itera",
             "llm": {
-                "model": "gemini-3-pro-preview",
+                "model": "gemini-3.1-pro-preview",
                 "temperature": 1.0
             }
         }, null, 4),
@@ -2564,7 +2564,7 @@ You can edit this file directly or use the Settings app.
     "username": "User",                  // Your display name
     "agentName": "Itera",                // AI Agent name
     "llm": {
-        "model": "gemini-3-pro-preview", // AI Model ID
+        "model": "gemini-3.1-pro-preview", // AI Model ID
         "temperature": 1.0               // Creativity (0.0 - 2.0)
     }
 }
