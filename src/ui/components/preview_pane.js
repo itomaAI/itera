@@ -196,16 +196,26 @@ window.addEventListener('message', async (e) => {
                 
                 htmlContent = this._processHtmlReferences(htmlContent, urlMap, path);
                 
-                if (global.Itera.Bridge && global.Itera.Bridge.GuestCode) {
-                    const bridgeScript = `<script>${global.Itera.Bridge.GuestCode}</script>`;
-                    htmlContent = htmlContent.replace('<head>', '<head>' + bridgeScript);
+                // 1. DOCTYPEの保証 (Quirks Mode 回避)
+                if (!/<!DOCTYPE\s+html>/i.test(htmlContent)) {
+                    htmlContent = "<!DOCTYPE html>\n" + htmlContent;
                 }
 
-                // ★ テーマスタイルの注入 (headの末尾に追加して優先度を上げる)
+                // 2. Bridgeの注入
+                if (global.Itera.Bridge && global.Itera.Bridge.GuestCode) {
+                    const bridgeScript = `<script>${global.Itera.Bridge.GuestCode}</script>\n`;
+                    if (htmlContent.includes('<head>')) {
+                        htmlContent = htmlContent.replace('<head>', '<head>\n' + bridgeScript);
+                    } else {
+                        htmlContent = htmlContent.replace(/(<!DOCTYPE\s+html>)/i, `$1\n${bridgeScript}`);
+                    }
+                }
+
+                // 3. テーマスタイルの注入
                 if (htmlContent.includes('</head>')) {
                     htmlContent = htmlContent.replace('</head>', themeStyleTag + '\n</head>');
                 } else {
-                    htmlContent = themeStyleTag + htmlContent;
+                    htmlContent = htmlContent.replace(/(<!DOCTYPE\s+html>)/i, `$1\n${themeStyleTag}`);
                 }
 
                 htmlContent = htmlContent.replace('</body>', SCREENSHOT_HELPER_CODE + '</body>');
