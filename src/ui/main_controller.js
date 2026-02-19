@@ -274,11 +274,21 @@
 				this._triggerAutoSave();
 			});
 
-			this.engine.on('loop_stop', () => {
-				if (chat.currentStreamEl) chat.finalizeStreaming();
-				chat.setProcessing(false);
-				this._triggerAutoSave();
-			});
+            this.engine.on('loop_stop', (data) => {
+                if (chat.currentStreamEl) chat.finalizeStreaming();
+                chat.setProcessing(false);
+
+                // エラーで停止した場合、履歴に追加されたエラーメッセージを表示する
+                if (data && data.reason === 'error') {
+                    const lastTurn = history.getLast();
+                    if (lastTurn) {
+                        chat.appendTurn(lastTurn);
+                        console.error("[MainController] Loop stopped due to error:", data.error);
+                    }
+                }
+
+                this._triggerAutoSave();
+            });
 
 			// State Listeners
 			vfs.on('change', (payload) => {
