@@ -237,7 +237,7 @@ All methods (except \`on\`) are **Asynchronous** and return a \`Promise\`. usage
 - \`ask(text, attachments)\`: Triggers the AI as if the user sent a message (chat).
 
 **UI & Host Control**:
-- \`switchView(path)\`: Navigates the iframe to a specific HTML file (e.g., 'views/calendar.html').
+- \`switchView(path)\`: Navigates the iframe to a specific HTML file (e.g., 'apps/calendar.html').
 - \`openFile(path)\`: Opens the file in the **Host's Code Editor Modal**.
 - \`notify(message, title)\`: Sends a notification to the Host.
 - \`openExternal(url)\`: Opens a URL in a new browser tab.

@@ -1318,7 +1318,22 @@ Use this Codex as a guidepost, and build a better Itera OS together with the use
                 
                 // Group & Sort in one functional sweep
                 const groups = tasks
-                    .sort((a, b) => (a.status === 'completed' ? 1 : 0) - (b.status === 'completed' ? 1 : 0) || (a.dueDate || '9999') > (b.dueDate || '9999') ? 1 : -1)
+                    .sort((a, b) => {
+                        const aDone = a.status === 'completed' ? 1 : 0;
+                        const bDone = b.status === 'completed' ? 1 : 0;
+                        if (aDone !== bDone) return aDone - bDone;
+
+                        const aDate = a.dueDate || '9999';
+                        const bDate = b.dueDate || '9999';
+                        if (aDate !== bDate) return aDate > bDate ? 1 : -1;
+
+                        const pMap = { high: 3, medium: 2, low: 1 };
+                        const aPri = pMap[a.priority] || 2;
+                        const bPri = pMap[b.priority] || 2;
+                        if (aPri !== bPri) return bPri - aPri;
+
+                        return b.id - a.id;
+                    })
                     .reduce((acc, t) => { acc[getGroupKey(t)].push(t); return acc; }, { overdue:[], today:[], upcoming:[], noDate:[], completed:[] });
 
                 list.innerHTML = Object.entries(groups).filter(([, arr]) => arr.length).map(([key, arr]) => \`
