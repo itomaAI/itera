@@ -1055,115 +1055,103 @@ Use this Codex as a guidepost, and build a better Itera OS together with the use
         "system/kernel/dashboard.js": `
 /**
  * Itera Dashboard Kernel
- * Controls the main dashboard widgets and data fetching.
+ * Refactored for elegance and pure functionality.
  */
+(() => {
+    const State = { userName: 'User', tasks: [] };
+    const DOM = id => document.getElementById(id);
 
-(function() {
-    
-    // --- Clock & Greeting ---
-    
-    function updateClock() {
+    // --- Time & Greeting ---
+    const updateClock = () => {
         const now = new Date();
-        const timeStr = now.toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit' });
-        const dateStr = now.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
+        const h = now.getHours();
+        const greet = h < 12 ? 'Good Morning' : h < 18 ? 'Good Afternoon' : 'Good Evening';
         
-        document.getElementById('clock-display').textContent = timeStr;
-        document.getElementById('date-display').textContent = dateStr;
+        DOM('clock-display').textContent = now.toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit' });
+        DOM('date-display').textContent  = now.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
+        DOM('greeting').textContent      = \`\${greet}\${State.userName !== 'User' ? ', ' + State.userName : '.'}\`;
+    };
 
-        // Dynamic Greeting
-        const hour = now.getHours();
-        let greet = "Hello";
-        if (hour < 12) greet = "Good Morning";
-        else if (hour < 18) greet = "Good Afternoon";
-        else greet = "Good Evening";
-        
-        // Try to get username from config (if accessible), else default
-        // For simplicity, we just use the greeting + "User" or just Greeting.
-        document.getElementById('greeting').textContent = \`\${greet}, User.\`;
-    }
+    // --- Weather ---
+    const fetchWeather = async () => {
+        const el = DOM('weather-display');
+        if (!el) return;
+        try {
+            const { current_weather: cw } = await fetch('https://api.open-meteo.com/v1/forecast?latitude=35.6895&longitude=139.6917&current_weather=true&timezone=Asia%2FTokyo').then(r => r.json());
+            const wMap = [[0,'☀️','Clear'],[3,'⛅','Partly Cloudy'],[48,'🌫️','Fog'],[67,'🌧️','Rain'],[77,'❄️','Snow'],[82,'🌦️','Showers'],[99,'⛈️','Thunderstorm']];
+            const [, icon, text] = wMap.find(([maxCode]) => cw.weathercode <= maxCode) || wMap[0];
+            
+            el.innerHTML = \`<div class="flex flex-col items-end"><div class="flex items-center gap-2"><span class="text-xl">\${icon}</span><span class="text-xl font-bold tracking-tight">\${Math.round(cw.temperature)}°C</span></div><span class="text-[10px] text-text-muted uppercase tracking-wider font-bold">Tokyo • \${text}</span></div>\`;
+        } catch { el.innerHTML = '<span class="text-xs text-text-muted">Weather unavailable</span>'; }
+    };
 
-    // --- Data Widgets ---
-
-    async function refreshWidgets() {
+    // --- Widgets ---
+    const refreshWidgets = async () => {
         if (!window.App) return;
 
-        // 1. Active Tasks
+        // Tasks Widget
+        State.tasks = await App.getTasks().catch(() => []);
+        const pOrder = { high: 0, medium: 1, low: 2 };
+        const pending = State.tasks.filter(t => t.status !== 'completed')
+                                   .sort((a, b) => (pOrder[a.priority] ?? 1) - (pOrder[b.priority] ?? 1))
+                                   .slice(0, 5);
+        
+        DOM('widget-tasks').innerHTML = pending.length ? pending.map(t => \`
+            <div class="flex items-center gap-3 p-2 rounded hover:bg-hover transition group">
+                <button onclick="DashTask.toggle('\${t.id}')" class="shrink-0 w-3.5 h-3.5 rounded-full border-2 border-text-muted hover:border-primary flex items-center justify-center transition hover:scale-110 group-hover:border-primary/50"></button>
+                <div class="flex-1 min-w-0 cursor-pointer" onclick="DashTask.edit('\${t.id}')">
+                    <span class="text-sm truncate block \${t.priority === 'high' ? 'text-error font-medium' : 'text-text-main'}">\${t.title}</span>
+                    \${t.dueDate ? \`<span class="text-[10px] text-text-muted font-mono opacity-70 mt-0.5 block">\${t.dueDate.slice(5)}</span>\` : ''}
+                </div>
+            </div>\`).join('') : '<div class="text-text-muted text-xs italic py-2">No active tasks.</div>';
+
+        // Notes Widget
+        const notes = await App.getRecentNotes(5).catch(() => []);
+        DOM('widget-notes').innerHTML = notes.length ? notes.map(path => \`
+            <div class="flex items-center gap-2 p-2 rounded hover:bg-hover transition cursor-pointer group" onclick="localStorage.setItem('metaos_open_note', '\${path}'); AppUI.go('apps/notes.html')">
+                <svg class="w-4 h-4 text-text-muted group-hover:text-primary transition" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                <span class="text-sm text-text-main truncate font-mono opacity-90">\${path.split('/').pop().replace('.md', '')}</span>
+            </div>\`).join('') : '<div class="text-text-muted text-xs italic py-2">No notes found.</div>';
+    };
+
+    // --- Task Actions API ---
+    window.DashTask = {
+        edit: id => {
+            const t = State.tasks.find(x => x.id === id);
+            if (!t) return;
+            ['id','title','priority','date','desc'].forEach(k => DOM(\`edit-\${k}\`).value = t[k === 'date' ? 'dueDate' : k === 'desc' ? 'description' : k] || '');
+            DOM('edit-priority').value = t.priority || 'medium';
+            DOM('edit-modal').classList.remove('hidden');
+        },
+        close: ()  => DOM('edit-modal').classList.add('hidden'),
+        save:  async () => {
+            const [id, title, priority, dueDate, description] = ['id','title','priority','date','desc'].map(k => DOM(\`edit-\${k}\`).value);
+            if (title.trim()) { await App.updateTask(id, { title, priority, dueDate, description }); DashTask.close(); refreshWidgets(); }
+        },
+        del:   async () => { if (confirm('Delete permanently?')) { await App.deleteTask(DOM('edit-id').value); DashTask.close(); refreshWidgets(); } },
+        toggle: async id => { await App.toggleTask(id); refreshWidgets(); }
+    };
+
+    // Backwards compatibility for index.html inline handlers
+    Object.assign(window, { openDashboardTaskModal: DashTask.edit, closeDashboardTaskModal: DashTask.close, saveDashboardTaskChanges: DashTask.save, deleteDashboardTask: DashTask.del, toggleDashboardTask: DashTask.toggle });
+
+    // --- Boot Sequence ---
+    const boot = async () => {
         try {
-            const tasks = await App.getTasks();
-            const pendingTasks = tasks.filter(t => t.status !== 'completed');
-            
-            // Sort: Priority > Date
-            pendingTasks.sort((a, b) => {
-                const pOrder = { high: 0, medium: 1, low: 2 };
-                return (pOrder[a.priority] || 1) - (pOrder[b.priority] || 1);
-            });
+            const conf = JSON.parse(await MetaOS.readFile('system/config/config.json'));
+            State.userName = conf.username?.split(" ")[0] === "Ryutaro" ? "Ryutaro" : (conf.username || "User");
+        } catch {}
 
-            const taskContainer = document.getElementById('widget-tasks');
-            if (pendingTasks.length === 0) {
-                taskContainer.innerHTML = '<div class="text-text-muted text-xs italic py-2">No active tasks.</div>';
-            } else {
-                taskContainer.innerHTML = pendingTasks.slice(0, 5).map(t => {
-                    const priorityColor = t.priority === 'high' ? 'text-error' : 'text-text-main';
-                    return \`
-                        <div class="flex items-center gap-3 p-2 rounded hover:bg-hover transition cursor-pointer group" onclick="AppUI.go('apps/tasks.html')">
-                            <div class="w-2 h-2 rounded-full border border-text-muted group-hover:bg-primary group-hover:border-primary transition"></div>
-                            <span class="text-sm truncate flex-1 \${priorityColor}">\${t.title}</span>
-                            \${t.dueDate ? \`<span class="text-[10px] text-text-muted font-mono opacity-70">\${t.dueDate.slice(5)}</span>\` : ''}
-                        </div>
-                    \`;
-                }).join('');
-            }
-        } catch (e) {
-            console.error("Task Widget Error", e);
-        }
-
-        // 2. Recent Notes
-        try {
-            const notes = await App.getRecentNotes(5);
-            const noteContainer = document.getElementById('widget-notes');
-            
-            if (notes.length === 0) {
-                noteContainer.innerHTML = '<div class="text-text-muted text-xs italic py-2">No notes found.</div>';
-            } else {
-                noteContainer.innerHTML = notes.map(path => {
-                    const filename = path.split('/').pop().replace('.md', '');
-                    return \`
-                        <div class="flex items-center gap-2 p-2 rounded hover:bg-hover transition cursor-pointer group" onclick="localStorage.setItem('metaos_open_note', '\${path}'); AppUI.go('apps/notes.html')">
-                            <svg class="w-4 h-4 text-text-muted group-hover:text-primary transition" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
-                            <span class="text-sm text-text-main truncate font-mono opacity-90">\${filename}</span>
-                        </div>
-                    \`;
-                }).join('');
-            }
-        } catch (e) {
-            console.error("Note Widget Error", e);
-        }
-    }
-
-    // --- Init ---
-
-    function init() {
+        fetchWeather();
         updateClock();
-        setInterval(updateClock, 1000);
         refreshWidgets();
 
-        // Listen for VFS changes to auto-refresh
-        if (window.MetaOS && MetaOS.on) {
-            MetaOS.on('file_changed', (payload) => {
-                if (payload.path.startsWith('data/')) {
-                    refreshWidgets();
-                }
-            });
-        }
-    }
+        setInterval(updateClock, 1000);
+        setInterval(fetchWeather, 18e5); // 30 mins
+        window.MetaOS?.on('file_changed', p => p.path.startsWith('data/') && refreshWidgets());
+    };
 
-    // Boot
-    if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', init);
-    } else {
-        init();
-    }
-
+    document.readyState === 'loading' ? document.addEventListener('DOMContentLoaded', boot) : boot();
 })();
 `.trim(),
 
@@ -1196,86 +1184,245 @@ Use this Codex as a guidepost, and build a better Itera OS together with the use
     </header>
 
     <!-- Input Area -->
-    <div class="mb-6 shrink-0">
-        <div class="bg-panel border border-border-main rounded-xl p-2 flex gap-2 shadow-sm focus-within:ring-2 focus-within:ring-primary/50 transition-all">
-            <input type="text" id="task-input" placeholder="New task..." class="bg-transparent px-3 py-2 flex-1 focus:outline-none text-text-main placeholder-text-muted" onkeydown="if(event.key==='Enter') addTask()">
-            <select id="task-priority" class="bg-card border-none text-xs rounded px-2 text-text-muted focus:outline-none cursor-pointer hover:text-text-main">
+    <div class="mb-6 shrink-0 bg-panel border border-border-main rounded-xl p-3 shadow-sm">
+        <input type="text" id="task-input" placeholder="New task..." class="w-full bg-transparent border-b border-border-main/50 pb-2 mb-3 focus:outline-none focus:border-primary text-text-main placeholder-text-muted text-lg font-medium transition" onkeydown="if(event.key==='Enter') addTask()">
+        
+        <div class="flex items-center gap-2 justify-end">
+            <!-- Date Input -->
+            <input type="date" id="task-date" class="bg-card border border-border-main rounded px-2 py-1.5 text-xs text-text-muted focus:outline-none focus:border-primary focus:text-text-main">
+            
+            <!-- Priority -->
+            <select id="task-priority" class="bg-card border border-border-main text-xs rounded px-2 py-1.5 text-text-muted focus:outline-none cursor-pointer hover:text-text-main hover:border-primary transition">
                 <option value="low">Low</option>
                 <option value="medium" selected>Medium</option>
                 <option value="high">High</option>
             </select>
-            <button onclick="addTask()" class="bg-primary hover:bg-primary/90 text-white px-4 rounded-lg font-bold text-sm transition">Add</button>
+            
+            <!-- Add Button -->
+            <button onclick="addTask()" class="bg-primary hover:bg-primary/90 text-text-inverted px-4 py-1.5 rounded-lg font-bold text-xs transition flex items-center gap-1 shadow-md hover:shadow-lg">
+                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M12 4v16m8-8H4"></path></svg>
+                Add
+            </button>
         </div>
     </div>
 
+    <!-- Filters -->
+    <div class="flex gap-1 mb-4 border-b border-border-main/50 px-2 shrink-0">
+        <button onclick="setFilter('all')" id="filter-all" class="px-4 py-2 text-sm font-medium border-b-2 border-primary text-primary transition-all">All</button>
+        <button onclick="setFilter('pending')" id="filter-pending" class="px-4 py-2 text-sm font-medium border-b-2 border-transparent text-text-muted hover:text-text-main transition-all">Pending</button>
+        <button onclick="setFilter('completed')" id="filter-completed" class="px-4 py-2 text-sm font-medium border-b-2 border-transparent text-text-muted hover:text-text-main transition-all">Completed</button>
+    </div>
+
     <!-- Task List -->
-    <div class="flex-1 overflow-y-auto -mx-2 px-2" id="task-list">
-        <!-- Injected via JS -->
+    <div class="flex-1 overflow-y-auto -mx-2 px-2 pb-10" id="task-list">
         <div class="text-center text-text-muted text-sm py-10 opacity-50">Loading...</div>
     </div>
 
-    <script>
-        async function render() {
-            const list = document.getElementById('task-list');
-            try {
-                const tasks = await App.getTasks();
+    <!-- Edit Modal -->
+    <div id="edit-modal" class="hidden fixed inset-0 bg-black/50 z-50 flex items-center justify-center backdrop-blur-sm">
+        <div class="bg-panel w-full max-w-md mx-4 rounded-xl shadow-2xl border border-border-main flex flex-col max-h-[90vh]">
+            <div class="p-4 border-b border-border-main flex justify-between items-center">
+                <h3 class="font-bold text-lg">Edit Task</h3>
+                <button onclick="closeTaskModal()" class="text-text-muted hover:text-text-main">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                </button>
+            </div>
+            
+            <div class="p-4 space-y-4 overflow-y-auto">
+                <input type="hidden" id="edit-id">
                 
-                if (tasks.length === 0) {
-                    list.innerHTML = \`<div class="text-center text-text-muted text-sm py-10 italic">No tasks found.<br>Get things done!</div>\`;
-                    return;
-                }
+                <div>
+                    <label class="block text-xs font-bold text-text-muted uppercase mb-1">Task Title</label>
+                    <input type="text" id="edit-title" class="w-full bg-card border border-border-main rounded p-2 focus:border-primary focus:outline-none text-text-main">
+                </div>
 
-                // Sort: Incomplete first, then Priority (High->Low), then Date
-                tasks.sort((a, b) => {
-                    if (a.status !== b.status) return a.status === 'completed' ? 1 : -1;
-                    const pOrder = { high: 0, medium: 1, low: 2 };
-                    return pOrder[a.priority] - pOrder[b.priority];
-                });
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-bold text-text-muted uppercase mb-1">Priority</label>
+                        <select id="edit-priority" class="w-full bg-card border border-border-main rounded p-2 focus:border-primary focus:outline-none text-text-main">
+                            <option value="low">Low</option>
+                            <option value="medium">Medium</option>
+                            <option value="high">High</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-text-muted uppercase mb-1">Due Date</label>
+                        <input type="date" id="edit-date" class="w-full bg-card border border-border-main rounded p-2 focus:border-primary focus:outline-none text-text-main text-sm">
+                    </div>
+                </div>
 
-                list.innerHTML = tasks.map(task => {
-                    const isDone = task.status === 'completed';
-                    const pColor = task.priority === 'high' ? 'text-error border-error/30 bg-error/10' : 
-                                   task.priority === 'medium' ? 'text-warning border-warning/30 bg-warning/10' : 
-                                   'text-text-muted border-border-main bg-card';
-                    
-                    return \`
-                        <div class="group flex items-center gap-3 p-3 mb-2 rounded-xl bg-panel border border-border-main hover:border-primary/50 transition-all \${isDone ? 'opacity-50' : ''}">
-                            <button onclick="toggle('\${task.id}')" class="shrink-0 w-5 h-5 rounded-full border-2 \${isDone ? 'bg-success border-success' : 'border-text-muted hover:border-primary'} flex items-center justify-center transition">
-                                \${isDone ? '<svg class="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"></path></svg>' : ''}
-                            </button>
-                            
-                            <div class="flex-1 min-w-0">
-                                <div class="text-sm font-medium truncate \${isDone ? 'line-through text-text-muted' : 'text-text-main'}">\${task.title}</div>
-                                <div class="flex items-center gap-2 mt-1">
-                                    <span class="text-[10px] px-1.5 py-0.5 rounded border \${pColor} uppercase font-bold tracking-wider">\${task.priority}</span>
-                                    <span class="text-[10px] text-text-muted font-mono">\${new Date(task.created_at).toLocaleDateString()}</span>
-                                </div>
-                            </div>
+                <div>
+                    <label class="block text-xs font-bold text-text-muted uppercase mb-1">Description / Notes</label>
+                    <textarea id="edit-desc" rows="4" class="w-full bg-card border border-border-main rounded p-2 focus:border-primary focus:outline-none text-text-main text-sm resize-none" placeholder="Add details..."></textarea>
+                </div>
+            </div>
 
-                            <button onclick="del('\${task.id}')" class="p-2 text-text-muted hover:text-error opacity-0 group-hover:opacity-100 transition">
-                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
-                            </button>
+            <div class="p-4 border-t border-border-main flex justify-between items-center bg-card/50 rounded-b-xl">
+                <button onclick="deleteFromModal()" class="text-error text-sm hover:underline font-medium">Delete Task</button>
+                <div class="flex gap-2">
+                    <button onclick="closeTaskModal()" class="px-4 py-2 rounded-lg text-sm font-medium hover:bg-hover transition">Cancel</button>
+                    <button onclick="saveTaskChanges()" class="px-4 py-2 rounded-lg bg-primary text-text-inverted text-sm font-bold hover:bg-primary/90 shadow transition">Save Changes</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentFilter = 'all';
+        let allTasks = [];
+        
+        const DOM = id => document.getElementById(id);
+
+        const GroupUI = {
+            overdue:   { label: "Overdue",   icon: '🔥', color: 'text-error' },
+            today:     { label: "Today",     icon: '🌟', color: 'text-text-muted' },
+            upcoming:  { label: "Upcoming",  icon: '📌', color: 'text-text-muted' },
+            noDate:    { label: "No Date",   icon: '📌', color: 'text-text-muted' },
+            completed: { label: "Completed", icon: '✔️', color: 'text-text-muted' }
+        };
+
+        const renderTaskCard = (task, todayStr) => {
+            const isDone = task.status === 'completed';
+            const hasDate = !!task.dueDate;
+            const isOverdue = hasDate && !isDone && task.dueDate < todayStr;
+            const pColors = { high: 'text-error border-error/30 bg-error/10', medium: 'text-warning border-warning/30 bg-warning/10', low: 'text-success border-success/30 bg-success/10' };
+            
+            return \`
+                <div class="group flex items-center gap-3 p-3 mb-2 rounded-xl bg-panel border border-border-main hover:border-primary/50 transition-all duration-200 \${isDone ? 'opacity-50 grayscale' : 'hover:shadow-md hover:-translate-y-0.5'}">
+                    <button onclick="toggle('\${task.id}')" class="shrink-0 w-5 h-5 rounded-full border-2 flex items-center justify-center transition hover:scale-110 \${isDone ? 'bg-success border-success' : 'border-text-muted hover:border-primary'}">
+                        \${isDone ? '<svg class="w-3 h-3 text-text-inverted" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"></path></svg>' : ''}
+                    </button>
+                    <div class="flex-1 min-w-0 cursor-pointer" onclick="openTaskModal('\${task.id}')">
+                        <div class="text-sm font-medium truncate \${isDone ? 'line-through text-text-muted' : 'text-text-main'}">\${task.title}</div>
+                        <div class="flex items-center gap-2 mt-1">
+                            <span class="text-[10px] px-1.5 py-0.5 rounded border \${pColors[task.priority] || pColors.medium} uppercase font-bold tracking-wider">\${task.priority || 'med'}</span>
+                            \${hasDate ? \`<span class="text-[10px] \${isOverdue ? 'text-error font-bold' : 'text-text-muted'} font-mono flex items-center gap-1"><svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>\${task.dueDate}</span>\` : ''}
                         </div>
-                    \`;
-                }).join('');
+                    </div>
+                    <button onclick="del('\${task.id}')" class="p-2 text-text-muted hover:text-error opacity-0 group-hover:opacity-100 transition hover:scale-110">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                    </button>
+                </div>\`;
+        };
 
-            } catch(e) {
-                list.innerHTML = \`<div class="text-error p-4">Error: \${e.message}</div>\`;
-            }
+        async function render() {
+            const list = DOM('task-list');
+            try {
+                allTasks = await App.getTasks();
+                const tasks = allTasks.filter(t => currentFilter === 'all' || (currentFilter === 'pending' && t.status !== 'completed') || (currentFilter === 'completed' && t.status === 'completed'));
+                
+                if (!tasks.length) return list.innerHTML = \`<div class="text-center text-text-muted text-sm py-10 italic">No tasks found.<br>Get things done!</div>\`;
+
+                const todayStr = new Date().toISOString().slice(0, 10);
+                const getGroupKey = t => t.status === 'completed' ? 'completed' : !t.dueDate ? 'noDate' : t.dueDate < todayStr ? 'overdue' : t.dueDate === todayStr ? 'today' : 'upcoming';
+                
+                // Group & Sort in one functional sweep
+                const groups = tasks
+                    .sort((a, b) => (a.status === 'completed' ? 1 : 0) - (b.status === 'completed' ? 1 : 0) || (a.dueDate || '9999') > (b.dueDate || '9999') ? 1 : -1)
+                    .reduce((acc, t) => { acc[getGroupKey(t)].push(t); return acc; }, { overdue:[], today:[], upcoming:[], noDate:[], completed:[] });
+
+                list.innerHTML = Object.entries(groups).filter(([, arr]) => arr.length).map(([key, arr]) => \`
+                    <div class="mt-4 mb-2">
+                        <h3 class="text-[11px] font-bold uppercase tracking-widest \${GroupUI[key].color} flex items-center gap-1.5 px-1 border-b border-border-main/50 pb-1">
+                            <span>\${GroupUI[key].icon}</span> \${GroupUI[key].label}
+                            <span class="ml-auto bg-card px-2 py-0.5 rounded-full text-[9px] border border-border-main">\${arr.length}</span>
+                        </h3>
+                    </div>
+                    \${arr.map(t => renderTaskCard(t, todayStr)).join('')}
+                \`).join('');
+
+            } catch(e) { list.innerHTML = \`<div class="text-error p-4">Error: \${e.message}</div>\`; }
+        }
+
+        function setFilter(filter) {
+            currentFilter = filter;
+            // Reset Styles
+            ['all', 'pending', 'completed'].forEach(f => {
+                const btn = document.getElementById('filter-' + f);
+                btn.className = "px-4 py-2 text-sm font-medium border-b-2 border-transparent text-text-muted hover:text-text-main transition-all";
+            });
+            // Set Active
+            const active = document.getElementById('filter-' + filter);
+            active.className = "px-4 py-2 text-sm font-medium border-b-2 border-primary text-primary transition-all";
+            
+            render();
         }
 
         async function addTask() {
             const input = document.getElementById('task-input');
+            const dateInput = document.getElementById('task-date');
             const priority = document.getElementById('task-priority').value;
+            
             if(!input.value.trim()) return;
             
-            await App.addTask(input.value, '', priority);
+            await App.addTask(input.value, dateInput.value, priority);
+            
             input.value = '';
+            dateInput.value = ''; // Reset date
             render();
         }
 
         async function toggle(id) { await App.toggleTask(id); render(); }
         async function del(id) { if(confirm('Delete task?')) { await App.deleteTask(id); render(); } }
+
+        // Modal Logic
+        function openTaskModal(id) {
+            const task = allTasks.find(t => t.id === id);
+            if (!task) return;
+
+            document.getElementById('edit-id').value = task.id;
+            document.getElementById('edit-title').value = task.title;
+            document.getElementById('edit-priority').value = task.priority || 'medium';
+            document.getElementById('edit-date').value = task.dueDate || '';
+            document.getElementById('edit-desc').value = task.description || ''; // Load description
+
+            document.getElementById('edit-modal').classList.remove('hidden');
+        }
+
+        function closeTaskModal() {
+            document.getElementById('edit-modal').classList.add('hidden');
+        }
+
+        async function saveTaskChanges() {
+            const id = document.getElementById('edit-id').value;
+            const title = document.getElementById('edit-title').value;
+            const priority = document.getElementById('edit-priority').value;
+            const dueDate = document.getElementById('edit-date').value;
+            const description = document.getElementById('edit-desc').value;
+
+            if (!title.trim()) return;
+
+            // We use updateTask from std.js. Note: std.js doesn't validate fields, so we can add description.
+            await App.updateTask(id, {
+                title,
+                priority,
+                dueDate,
+                description
+            });
+
+            closeTaskModal();
+            render();
+        }
+
+        async function deleteFromModal() {
+            const id = document.getElementById('edit-id').value;
+            if (confirm('Delete this task permanently?')) {
+                await App.deleteTask(id);
+                closeTaskModal();
+                render();
+            }
+        }
+
+        // Reactive Update
+        if (window.MetaOS) {
+            MetaOS.on('file_changed', (payload) => {
+                // If tasks DB changes, refresh list
+                if (payload.path.startsWith('data/tasks/')) {
+                    console.log('Task DB changed, reloading...');
+                    render();
+                }
+            });
+        }
 
         // Init
         render();
@@ -1295,8 +1442,10 @@ Use this Codex as a guidepost, and build a better Itera OS together with the use
     <script src="../system/lib/ui.js"></script>
     <script src="../system/lib/std.js"></script>
     <style>
-        .calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 1px; }
         .calendar-cell { min-height: 80px; }
+        /* スクロールバー非表示用ユーティリティ */
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
     </style>
 </head>
 <body class="bg-app text-text-main h-screen flex flex-col p-6 overflow-hidden">
@@ -1316,65 +1465,114 @@ Use this Codex as a guidepost, and build a better Itera OS together with the use
         </div>
     </header>
 
+    <!-- Event Details Modal (Hidden by default) -->
+    <div id="day-modal" class="hidden fixed inset-0 bg-black/50 z-50 flex justify-end backdrop-blur-sm transition-opacity">
+        <div class="bg-panel w-full max-w-sm h-full shadow-2xl border-l border-border-main flex flex-col transform translate-x-full transition-transform duration-300" id="day-modal-content">
+            <!-- Modal Header -->
+            <div class="p-4 border-b border-border-main flex justify-between items-center bg-card/50">
+                <div>
+                    <h3 class="font-bold text-xl tracking-tight" id="modal-date-display">Date</h3>
+                    <p class="text-xs text-text-muted font-mono uppercase tracking-widest mt-0.5" id="modal-weekday-display">Day</p>
+                </div>
+                <button onclick="closeDayModal()" class="p-2 rounded-full hover:bg-hover text-text-muted hover:text-text-main transition bg-panel shadow-sm border border-border-main">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                </button>
+            </div>
+            
+            <!-- Event List -->
+            <div class="flex-1 p-4 overflow-y-auto space-y-3" id="modal-event-list">
+                <!-- Events injected here -->
+            </div>
+
+            <!-- Event Form (Hidden by default, used for Add and Edit) -->
+            <div id="event-edit-form" class="hidden flex-1 p-4 overflow-y-auto flex-col space-y-4">
+                <input type="hidden" id="edit-event-id">
+                <input type="hidden" id="edit-event-original-date">
+                
+                <div>
+                    <label class="block text-xs font-bold text-text-muted uppercase mb-1">Event Title <span class="text-error">*</span></label>
+                    <input type="text" id="edit-event-title" placeholder="Meeting with client..." class="w-full bg-card border border-border-main rounded p-2 focus:border-primary focus:outline-none text-text-main text-sm">
+                </div>
+                
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-bold text-text-muted uppercase mb-1">Date <span class="text-error">*</span></label>
+                        <input type="date" id="edit-event-date" class="w-full bg-card border border-border-main rounded p-2 focus:border-primary focus:outline-none text-text-main text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-text-muted uppercase mb-1">Time</label>
+                        <input type="time" id="edit-event-time" class="w-full bg-card border border-border-main rounded p-2 focus:border-primary focus:outline-none text-text-main text-sm">
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-bold text-text-muted uppercase mb-1">Notes / Description</label>
+                    <textarea id="edit-event-note" rows="4" placeholder="Zoom link, agenda..." class="w-full bg-card border border-border-main rounded p-2 focus:border-primary focus:outline-none text-text-main text-sm resize-none"></textarea>
+                </div>
+
+                <div class="mt-auto flex gap-2 pt-4 border-t border-border-main">
+                    <button onclick="cancelEventForm()" class="flex-1 px-4 py-2 rounded-lg text-sm font-medium hover:bg-hover transition border border-border-main text-text-main">Cancel</button>
+                    <button onclick="saveEventForm()" class="flex-1 px-4 py-2 rounded-lg bg-primary text-text-inverted text-sm font-bold hover:bg-primary/90 shadow transition flex items-center justify-center gap-1">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+                        Save Event
+                    </button>
+                </div>
+            </div>
+
+            <!-- Add Event Button (Visible in list mode) -->
+            <div class="p-4 border-t border-border-main bg-card/50" id="add-event-section">
+                <input type="hidden" id="modal-target-date">
+                <button onclick="openEventForm(null)" class="w-full bg-panel hover:bg-hover border border-border-main text-primary font-bold px-4 py-3 rounded-xl transition shadow-sm hover:shadow flex items-center justify-center gap-2 group">
+                    <span class="text-xl leading-none group-hover:scale-125 transition-transform">+</span> 
+                    <span>Create New Event</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
     <!-- Calendar -->
-    <div class="flex-1 flex flex-col bg-panel border border-border-main rounded-xl overflow-hidden shadow-sm">
-        <div class="grid grid-cols-7 gap-px bg-border-main text-center py-2 text-xs font-bold text-text-muted uppercase tracking-wider bg-panel">
+    <div class="flex-1 flex flex-col bg-panel border border-border-main rounded-xl overflow-hidden shadow-sm relative">
+        <!-- Header Row -->
+        <div class="grid grid-cols-7 gap-px bg-border-main text-center py-2 text-xs font-bold text-text-muted uppercase tracking-wider bg-panel shrink-0">
             <div>Sun</div><div>Mon</div><div>Tue</div><div>Wed</div><div>Thu</div><div>Fri</div><div>Sat</div>
         </div>
-        <div id="grid" class="flex-1 calendar-grid bg-border-main overflow-y-auto">
+        <!-- Grid Body -->
+        <!-- ★修正: calendar-gridクラスを削除し、grid grid-cols-7 gap-px に変更 -->
+        <div id="grid" class="flex-1 grid grid-cols-7 gap-px bg-border-main overflow-y-auto">
             <!-- Cells -->
         </div>
     </div>
 
     <script>
         let currentDate = new Date();
+        const DOM = id => document.getElementById(id);
 
         async function render() {
-            const year = currentDate.getFullYear();
-            const month = currentDate.getMonth();
+            const [year, month] = [currentDate.getFullYear(), currentDate.getMonth()];
             const monthKey = \`\${year}-\${String(month + 1).padStart(2, '0')}\`;
-            
-            document.getElementById('month-label').textContent = currentDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
-
-            // Data Fetch
-            let items = [];
-            try {
-                items = await App.getCalendarItems(monthKey);
-            } catch(e) { console.warn(e); }
-
-            const firstDay = new Date(year, month, 1).getDay();
-            const daysInMonth = new Date(year, month + 1, 0).getDate();
             const todayStr = new Date().toISOString().slice(0, 10);
+            
+            DOM('month-label').textContent = currentDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+            const items = await App.getCalendarItems(monthKey).catch(() => []);
+            const [firstDay, daysInMonth] = [new Date(year, month, 1).getDay(), new Date(year, month + 1, 0).getDate()];
 
-            const grid = document.getElementById('grid');
-            grid.innerHTML = '';
-
-            // Empty slots
-            for (let i = 0; i < firstDay; i++) {
-                grid.innerHTML += \`<div class="bg-app/50"></div>\`;
-            }
-
-            // Days
-            for (let d = 1; d <= daysInMonth; d++) {
+            const renderCell = d => {
                 const dateStr = \`\${year}-\${String(month + 1).padStart(2, '0')}-\${String(d).padStart(2, '0')}\`;
-                const isToday = dateStr === todayStr;
-                
-                const dayItems = items.filter(i => i.date === dateStr);
-                const itemHtml = dayItems.map(item => {
-                    const color = item.type === 'task' ? 'bg-success/20 text-success border-success/30' : 'bg-primary/20 text-primary border-primary/30';
-                    return \`<div class="text-[9px] px-1 py-0.5 rounded border \${color} truncate mb-0.5">\${item.title}</div>\`;
+                const badges = items.filter(i => i.date === dateStr).sort((a, b) => (a.time || '').localeCompare(b.time || '')).map(i => {
+                    const color = i.type === 'task' ? 'bg-success/15 text-success border-success/30' : 'bg-primary/15 text-primary border-primary/30';
+                    return \`<div class="text-[9px] px-1.5 py-0.5 rounded border \${color} truncate mb-0.5 font-medium tracking-tight">\${i.time ? \`<span class="opacity-60 font-mono mr-1">\${i.time}</span>\` : ''}\${i.title}</div>\`;
                 }).join('');
 
-                grid.innerHTML += \`
-                    <div class="calendar-cell bg-panel hover:bg-hover transition p-2 cursor-pointer flex flex-col gap-1 group relative" onclick="addEvent('\${dateStr}')">
-                        <div class="text-xs font-bold \${isToday ? 'bg-primary text-white w-6 h-6 flex items-center justify-center rounded-full shadow-lg shadow-primary/30' : 'text-text-muted'}">\${d}</div>
-                        <div class="flex-1 overflow-hidden">\${itemHtml}</div>
-                        <div class="absolute bottom-1 right-1 opacity-0 group-hover:opacity-100">
-                            <span class="text-primary text-lg leading-none">+</span>
-                        </div>
-                    </div>
-                \`;
-            }
+                const todayStyles = dateStr === todayStr ? 'bg-primary text-white w-6 h-6 flex items-center justify-center rounded-full shadow-lg shadow-primary/30 ring-2 ring-primary/20' : 'text-text-muted';
+                return \`<div class="calendar-cell bg-panel hover:bg-hover transition-colors duration-200 p-2 cursor-pointer flex flex-col gap-1 group relative overflow-hidden border-t border-transparent hover:border-primary/30" onclick="openDayModal('\${dateStr}')">
+                            <div class="text-xs font-bold \${todayStyles} transition-transform group-hover:scale-110 group-hover:text-text-main">\${d}</div>
+                            <div class="flex-1 w-full space-y-0.5 mt-1 overflow-y-auto no-scrollbar">\${badges}</div>
+                            <div class="absolute inset-0 border-2 border-primary/0 group-hover:border-primary/20 rounded transition-colors pointer-events-none"></div>
+                        </div>\`;
+            };
+
+            DOM('grid').innerHTML = Array(firstDay).fill(\`<div class="calendar-cell bg-app/50"></div>\`).join('') + 
+                                    Array.from({ length: daysInMonth }, (_, i) => renderCell(i + 1)).join('');
         }
 
         function changeMonth(d) {
@@ -1385,10 +1583,143 @@ Use this Codex as a guidepost, and build a better Itera OS together with the use
             currentDate = new Date();
             render();
         }
-        function addEvent(date) {
-            const title = prompt("New Event Title:", "");
-            if(title) {
-                App.addEvent(title, date).then(render);
+
+        // --- Day Modal Logic ---
+        let currentModalDate = '';
+        let currentMonthItems = [];
+
+        async function openDayModal(dateStr) {
+            currentModalDate = dateStr;
+            const targetDate = new Date(dateStr);
+            
+            document.getElementById('modal-date-display').textContent = targetDate.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+            document.getElementById('modal-weekday-display').textContent = targetDate.toLocaleDateString('en-US', { weekday: 'long' });
+            document.getElementById('modal-target-date').value = dateStr;
+
+            // Get events for this day
+            const yearMonth = dateStr.slice(0, 7);
+            try {
+                currentMonthItems = await App.getCalendarItems(yearMonth);
+            } catch(e) {}
+            
+            const dayEvents = currentMonthItems.filter(i => i.date === dateStr);
+            const listContainer = document.getElementById('modal-event-list');
+            
+            if (dayEvents.length === 0) {
+                listContainer.innerHTML = \`
+                    <div class="flex flex-col items-center justify-center h-40 text-text-muted opacity-60">
+                        <svg class="w-10 h-10 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+                        <span class="text-sm font-medium">No events for this day</span>
+                        <span class="text-xs">Enjoy your free time!</span>
+                    </div>
+                \`;
+            } else {
+                // Sort by time (All-day first)
+                dayEvents.sort((a, b) => (a.time || '').localeCompare(b.time || ''));
+
+                listContainer.innerHTML = \`<div class="relative mt-2">\` + dayEvents.map((event, index) => {
+                    const isTask = event.type === 'task';
+                    const icon = isTask ? '✅' : '📅';
+                    const isLast = index === dayEvents.length - 1;
+                    const colorClasses = isTask ? 'bg-success/5 border-success/30 hover:bg-success/10' : 'bg-primary/5 border-primary/30 hover:bg-primary/10 hover:border-primary/50 cursor-pointer';
+                    const dotColor = isTask ? 'bg-success' : 'bg-primary';
+                    const timeText = event.time ? event.time : 'ALL DAY';
+                    const timeClass = event.time ? 'text-text-main font-bold text-sm' : 'text-text-muted font-bold text-[10px] uppercase tracking-wider pt-1';
+
+                    return \`
+                        <div class="flex gap-4 group relative" \${!isTask ? \`onclick="openEventForm('\${event.id}')"\` : \`title="Tasks cannot be edited here."\`}>
+                            <!-- Timeline Left (Time) -->
+                            <div class="w-14 shrink-0 text-right pt-2">
+                                <span class="font-mono \${timeClass}">\${timeText}</span>
+                            </div>
+                            
+                            <!-- Timeline Center (Dot & Line) -->
+                            <div class="flex flex-col items-center relative">
+                                <div class="w-3 h-3 rounded-full \${dotColor} mt-3.5 z-10 shadow-[0_0_8px_currentColor] ring-4 ring-app"></div>
+                                \${!isLast ? \`<div class="w-px h-full bg-border-main absolute top-6 bottom-[-24px]"></div>\` : ''}
+                            </div>
+                            
+                            <!-- Timeline Right (Content Card) -->
+                            <div class="flex-1 pb-6 pt-1">
+                                <div class="p-3 rounded-xl border \${colorClasses} flex flex-col gap-1 shadow-sm transition">
+                                    <div class="flex items-start justify-between gap-2">
+                                        <div class="text-sm font-bold text-text-main leading-tight">\${event.title}</div>
+                                        \${!isTask ? \`
+                                        <button onclick="event.stopPropagation(); delEvent('\${event.id}', '\${dateStr}')" class="p-1 text-text-muted hover:text-error hover:bg-error/10 rounded opacity-0 group-hover:opacity-100 transition shrink-0">
+                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                                        </button>
+                                        \` : ''}
+                                    </div>
+                                    <div class="text-[10px] text-text-muted uppercase tracking-wider font-bold flex items-center gap-1">
+                                        <span>\${icon}</span> \${isTask ? 'Task Deadline' : (event.note ? 'Notes attached' : 'Event')}
+                                    </div>
+                                    \${event.note ? \`<div class="text-xs text-text-muted mt-1 bg-card/50 p-2 rounded border border-border-main/50 line-clamp-2">\${event.note}</div>\` : ''}
+                                </div>
+                            </div>
+                        </div>
+                    \`;
+                }).join('') + \`</div>\`;
+            }
+
+            // Show modal with slide-in animation
+            const modal = document.getElementById('day-modal');
+            const content = document.getElementById('day-modal-content');
+            modal.classList.remove('hidden');
+            // Trigger reflow for transition
+            void modal.offsetWidth; 
+            content.classList.remove('translate-x-full');
+        }
+
+        function closeDayModal() {
+            const modal = document.getElementById('day-modal');
+            const content = document.getElementById('day-modal-content');
+            content.classList.add('translate-x-full');
+            setTimeout(() => {
+                modal.classList.add('hidden');
+                cancelEventForm(); // Reset to list view for next open
+            }, 300);
+        }
+
+        // --- Modal & Form Logic ---
+        function toggleFormView(showForm) {
+            ['modal-event-list', 'add-event-section'].forEach(id => DOM(id).classList.toggle('hidden', showForm));
+            DOM('event-edit-form').classList.toggle('hidden', !showForm);
+            DOM('event-edit-form').classList.toggle('flex', showForm);
+        }
+
+        function openEventForm(id = null) {
+            const e = id ? currentMonthItems.find(e => e.id === id) : {};
+            if (id && !e) return;
+            
+            DOM('edit-event-id').value = e.id || '';
+            DOM('edit-event-original-date').value = e.date || '';
+            DOM('edit-event-title').value = e.title || '';
+            DOM('edit-event-date').value = e.date || DOM('modal-target-date').value;
+            DOM('edit-event-time').value = e.time || '';
+            DOM('edit-event-note').value = e.note || '';
+
+            toggleFormView(true);
+            setTimeout(() => DOM('edit-event-title').focus(), 50);
+        }
+
+        const cancelEventForm = () => toggleFormView(false);
+
+        async function saveEventForm() {
+            const [id, title, date, time, note, originalDate] = ['id','title','date','time','note','original-date'].map(k => DOM(\`edit-event-\${k}\`).value);
+            if (!title.trim() || !date) return;
+
+            id ? await App.updateEvent(id, { title, date, time, note, originalDate }) : await App.addEvent(title, date, time, note);
+            
+            cancelEventForm();
+            await render();
+            openDayModal(date);
+        }
+        
+        async function delEvent(id, dateStr) {
+            if (confirm('Delete this event?')) {
+                await App.deleteEvent(id);
+                await render();
+                openDayModal(dateStr);
             }
         }
 
@@ -1407,6 +1738,14 @@ Use this Codex as a guidepost, and build a better Itera OS together with the use
     <title>Notes</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <!-- MathJax -->
+    <script>
+    window.MathJax = {
+      tex: { inlineMath: [['\$', '\$'], ['\\\\(', '\\\\)']] },
+      svg: { fontCache: 'global' }
+    };
+    </script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
     <script src="../system/lib/ui.js"></script>
     <script src="../system/lib/std.js"></script>
     <style>
@@ -1415,112 +1754,446 @@ Use this Codex as a guidepost, and build a better Itera OS together with the use
         .prose h1 { font-size: 1.75em; border-bottom: 1px solid rgb(var(--c-border-main)); padding-bottom: 0.3em; }
         .prose p { margin-bottom: 1em; line-height: 1.7; color: rgb(var(--c-text-main)); opacity: 0.9; }
         .prose ul { list-style: disc; padding-left: 1.5em; color: rgb(var(--c-text-muted)); }
+        .prose ol { list-style: decimal; padding-left: 1.5em; color: rgb(var(--c-text-muted)); }
         .prose code { background: rgb(var(--c-bg-hover)); padding: 0.2em 0.4em; rounded: 0.25em; font-family: monospace; color: rgb(var(--c-accent-primary)); }
         .prose pre { background: rgb(var(--c-bg-app)); padding: 1em; border-radius: 0.5em; overflow: auto; border: 1px solid rgb(var(--c-border-main)); }
         .prose blockquote { border-left: 4px solid rgb(var(--c-border-highlight)); padding-left: 1em; color: rgb(var(--c-text-muted)); font-style: italic; }
+        .prose a { color: rgb(var(--c-accent-primary)); text-decoration: underline; }
     </style>
 </head>
-<body class="bg-app text-text-main h-screen flex overflow-hidden">
+<body class="bg-app text-text-main h-screen flex overflow-hidden relative">
+
+    <!-- Mobile Overlay for Sidebar -->
+    <div id="sidebar-overlay" onclick="toggleSidebar()" class="fixed inset-0 bg-black/50 z-30 hidden lg:hidden opacity-0 transition-opacity duration-300"></div>
 
     <!-- Sidebar -->
-    <aside class="w-64 bg-panel border-r border-border-main flex flex-col shrink-0">
-        <div class="h-14 flex items-center px-4 border-b border-border-main gap-3">
-            <button onclick="AppUI.home()" class="text-text-muted hover:text-text-main"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg></button>
-            <span class="font-bold">Notes</span>
-            <button onclick="newNote()" class="ml-auto text-primary hover:text-primary/80 text-sm font-bold">+ New</button>
+    <aside id="sidebar" class="absolute lg:relative w-72 h-full bg-panel border-r border-border-main flex flex-col shrink-0 z-40 transform -translate-x-full lg:translate-x-0 transition-transform duration-300 shadow-2xl lg:shadow-none">
+        <div class="h-14 flex items-center justify-between px-4 border-b border-border-main shrink-0">
+            <div class="flex items-center gap-2">
+                <button onclick="AppUI.home()" class="text-text-muted hover:text-text-main transition p-1 rounded hover:bg-hover"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg></button>
+                <span class="font-bold tracking-tight">Data Tree</span>
+            </div>
+            <div class="flex gap-1">
+                <button onclick="newNote()" class="text-primary hover:text-primary/80 text-sm font-bold bg-primary/10 px-2 py-1 rounded transition">+ New</button>
+                <!-- Close Button (Mobile Only) -->
+                <button onclick="toggleSidebar()" class="lg:hidden text-text-muted hover:text-text-main p-1 rounded hover:bg-hover">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                </button>
+            </div>
         </div>
-        <ul id="file-list" class="flex-1 overflow-y-auto p-2 space-y-1">
-            <li class="text-xs text-center text-text-muted py-4">Loading...</li>
-        </ul>
+        
+        <!-- Search -->
+        <div class="p-3 border-b border-border-main/50 bg-panel/50 backdrop-blur shrink-0 z-10 sticky top-0">
+            <div class="relative">
+                <svg class="w-4 h-4 absolute left-3 top-2.5 text-text-muted opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+                <input type="text" id="search-input" placeholder="Search data..." class="w-full bg-card border border-border-main rounded-lg pl-9 pr-3 py-2 text-sm text-text-main focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/30 transition-all placeholder-text-muted">
+            </div>
+        </div>
+
+        <div id="file-list" class="flex-1 overflow-y-auto p-2 space-y-0.5 pb-20">
+            <div class="text-xs text-center text-text-muted py-4">Loading tree...</div>
+        </div>
     </aside>
 
-    <!-- Main -->
-    <main class="flex-1 flex flex-col bg-app relative">
-        <div id="empty-state" class="absolute inset-0 flex items-center justify-center text-text-muted flex-col">
-            <div class="text-4xl mb-2 opacity-30">📝</div>
-            <p>Select a note</p>
+    <!-- Main Content Area -->
+    <main class="flex-1 flex flex-col bg-app relative min-w-0">
+        <!-- Main Header -->
+        <header class="h-14 border-b border-border-main flex items-center justify-between px-4 bg-panel shrink-0 z-10">
+            <div class="flex items-center gap-3 min-w-0">
+                <button onclick="toggleSidebar()" class="p-1.5 rounded-lg text-text-muted hover:text-text-main hover:bg-hover transition bg-card border border-border-main lg:hidden">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path></svg>
+                </button>
+                <button onclick="toggleSidebar()" class="hidden lg:block p-1.5 rounded-lg text-text-muted hover:text-text-main hover:bg-hover transition" title="Toggle Sidebar">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h7"></path></svg>
+                </button>
+                <h2 id="note-title" class="font-bold truncate text-text-main text-sm">Welcome</h2>
+            </div>
+            
+            <div id="editor-toolbar" class="hidden items-center gap-3 shrink-0 pl-4">
+                <span id="status-indicator" class="text-[10px] text-text-muted font-mono uppercase tracking-widest hidden sm:inline-block">Synced</span>
+                
+                <!-- Toggle View/Edit -->
+                <div class="bg-card border border-border-main rounded-lg p-0.5 flex text-xs font-medium">
+                    <button id="btn-view" onclick="setMode('view')" class="px-3 py-1.5 rounded-md bg-panel text-text-main shadow-sm transition">View</button>
+                    <button id="btn-edit" onclick="setMode('edit')" class="px-3 py-1.5 rounded-md text-text-muted hover:text-text-main transition">Edit</button>
+                </div>
+
+                <button onclick="openInMonaco()" class="text-text-muted hover:text-primary p-1.5 rounded transition" title="Open in Code Editor (Host)">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"></path></svg>
+                </button>
+            </div>
+        </header>
+
+        <!-- Empty State -->
+        <div id="empty-state" class="absolute inset-0 flex items-center justify-center text-text-muted flex-col pointer-events-none mt-14">
+            <svg class="w-16 h-16 mb-4 opacity-20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+            <p class="font-medium">Select a file from the tree</p>
+            <p class="text-xs opacity-60 mt-1">Markdown files in data/ directory</p>
         </div>
 
-        <div id="content-view" class="hidden flex-1 flex flex-col h-full">
-            <header class="h-14 border-b border-border-main flex items-center justify-between px-6 bg-panel shrink-0">
-                <h2 id="note-title" class="font-bold truncate text-text-main font-mono">Untitled.md</h2>
-                <button onclick="editCurrent()" class="text-xs bg-primary hover:bg-primary/80 text-white px-3 py-1.5 rounded transition">Edit Source</button>
-            </header>
-            <div class="flex-1 overflow-y-auto p-8">
+        <!-- Content View -->
+        <div id="content-view" class="hidden flex-1 relative overflow-hidden">
+            <!-- Rendered Markdown (View Mode) -->
+            <div id="markdown-viewer" class="absolute inset-0 overflow-y-auto p-4 md:p-8 scroll-smooth">
                 <article id="markdown-body" class="prose max-w-3xl mx-auto pb-20"></article>
+            </div>
+
+            <!-- Raw Textarea (Edit Mode) -->
+            <div id="markdown-editor-container" class="hidden absolute inset-0 bg-app">
+                <textarea id="markdown-editor" class="w-full h-full bg-transparent text-text-main p-4 md:p-8 focus:outline-none resize-none font-mono text-sm leading-relaxed" spellcheck="false" placeholder="Start writing..."></textarea>
             </div>
         </div>
     </main>
 
     <script>
         let currentPath = null;
+        let allFiles = [];
+        let currentMode = 'view';
+        let saveTimeout = null;
+        let fileContent = '';
 
-        async function loadList() {
-            const list = document.getElementById('file-list');
-            try {
-                // Use MetaOS directly for now to list files
-                const files = await MetaOS.listFiles('data/notes');
-                const notes = files.filter(f => f.endsWith('.md')).sort();
-                
-                if(notes.length === 0) {
-                    list.innerHTML = \`<li class="text-xs text-center text-text-muted py-4">No notes.</li>\`;
-                    return;
+        // --- UI Toggles ---
+        function toggleSidebar() {
+            const sidebar = document.getElementById('sidebar');
+            const overlay = document.getElementById('sidebar-overlay');
+            
+            // For Mobile (Overlay)
+            if (window.innerWidth < 1024) {
+                if (sidebar.classList.contains('-translate-x-full')) {
+                    sidebar.classList.remove('-translate-x-full');
+                    overlay.classList.remove('hidden');
+                    setTimeout(() => overlay.classList.remove('opacity-0'), 10);
+                } else {
+                    sidebar.classList.add('-translate-x-full');
+                    overlay.classList.add('opacity-0');
+                    setTimeout(() => overlay.classList.add('hidden'), 300);
                 }
+            } else {
+                // For Desktop
+                if (sidebar.classList.contains('lg:translate-x-0')) {
+                    sidebar.classList.remove('lg:translate-x-0');
+                    sidebar.classList.add('-translate-x-full', 'hidden');
+                } else {
+                    sidebar.classList.remove('-translate-x-full', 'hidden');
+                    sidebar.classList.add('lg:translate-x-0');
+                }
+            }
+        }
 
-                list.innerHTML = notes.map(path => {
-                    const name = path.split('/').pop().replace('.md', '');
-                    const isActive = path === currentPath;
-                    return \`
-                        <li onclick="openNote('\${path}')" class="px-3 py-2 rounded cursor-pointer text-sm truncate transition flex items-center gap-2 \${isActive ? 'bg-primary/10 text-primary font-bold' : 'text-text-muted hover:bg-hover hover:text-text-main'}">
-                            <span class="opacity-50">📄</span> \${name}
-                        </li>
-                    \`;
-                }).join('');
+        // --- Init ---
+        async function init() {
+            await loadList();
+            
+            const pending = localStorage.getItem('metaos_open_note');
+            if(pending) {
+                localStorage.removeItem('metaos_open_note');
+                openNote(pending);
+            }
+        }
+
+        // --- List & Tree ---
+        async function loadList() {
+            try {
+                // Search Entire 'data' directory recursively
+                const files = await MetaOS.listFiles('data', { recursive: true });
+                
+                // Assuming it returns array of paths
+                if (Array.isArray(files)) {
+                    allFiles = files.filter(f => {
+                        const pathStr = typeof f === 'object' ? f.path : f;
+                        return pathStr.endsWith('.md') && !pathStr.includes('.git');
+                    }).map(f => typeof f === 'object' ? f.path : f).sort();
+                } else {
+                    allFiles = [];
+                }
+                
+                renderTree(allFiles);
             } catch(e) {
-                list.innerHTML = \`<li class="text-error text-xs p-2">Error loading list</li>\`;
+                document.getElementById('file-list').innerHTML = \`<div class="text-error text-xs p-2">Error: \${e.message}</div>\`;
+            }
+        }
+
+        function renderTree(files) {
+            const container = document.getElementById('file-list');
+            const query = document.getElementById('search-input').value.toLowerCase();
+            const filtered = files.filter(p => p.toLowerCase().includes(query));
+
+            if (!filtered.length) return container.innerHTML = '<div class="text-text-muted text-xs text-center py-4">No matching files.</div>';
+
+            // Poetic Tree Builder (Functional Reduce)
+            const tree = filtered.reduce((acc, path) => {
+                path.replace(/^data\\//, '').split('/').reduce((node, part, i, arr) => 
+                    node[part] = node[part] ?? (i === arr.length - 1 ? path : {}), acc);
+                return acc;
+            }, {});
+
+            container.innerHTML = '';
+            container.appendChild(renderTreeLevel(tree));
+        }
+
+        function renderTreeLevel(node, depth = 0) {
+            const ul = document.createElement('div');
+            ul.className = depth > 0 ? "border-l border-border-main/50 ml-3 pl-1 space-y-0.5" : "space-y-0.5";
+            
+            const keys = Object.keys(node).sort((a, b) => {
+                const isAFolder = typeof node[a] === 'object';
+                const isBFolder = typeof node[b] === 'object';
+                if (isAFolder && !isBFolder) return -1;
+                if (!isAFolder && isBFolder) return 1;
+                return a.localeCompare(b);
+            });
+
+            keys.forEach(key => {
+                const value = node[key];
+                
+                if (typeof value === 'object') {
+                    // Folder
+                    const details = document.createElement('details');
+                    details.open = depth < 1; // Open root folders by default
+                    const summary = document.createElement('summary');
+                    summary.className = "cursor-pointer px-2 py-1.5 text-[10px] font-bold text-text-muted hover:text-text-main uppercase tracking-wider flex items-center gap-1.5 select-none group rounded hover:bg-hover";
+                    summary.innerHTML = \`
+                        <svg class="w-3 h-3 text-text-muted group-hover:text-text-main transition transform group-open:rotate-90 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
+                        <svg class="w-3.5 h-3.5 text-warning/70 group-hover:text-warning shrink-0" fill="currentColor" viewBox="0 0 24 24"><path d="M4 4c0-1.1.9-2 2-2h4.59L12 4h6c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H6c-1.1 0-2-.9-2-2V4z"/></svg>
+                        <span class="truncate">\${key}</span>
+                    \`;
+                    details.appendChild(summary);
+                    details.appendChild(renderTreeLevel(value, depth + 1));
+                    ul.appendChild(details);
+                } else {
+                    // File
+                    const path = value;
+                    const isActive = currentPath === path;
+                    const div = document.createElement('div');
+                    div.className = \`cursor-pointer px-2 py-1.5 text-[13px] rounded-md truncate transition flex items-center gap-2 mt-0.5 \${isActive ? 'bg-primary/10 text-primary font-medium border border-primary/20' : 'text-text-muted hover:bg-hover hover:text-text-main border border-transparent'}\`;
+                    
+                    div.onclick = () => {
+                        openNote(path);
+                        if (window.innerWidth < 1024) toggleSidebar(); // Auto-close on mobile
+                    };
+                    
+                    div.title = key;
+                    div.innerHTML = \`
+                        <svg class="w-3.5 h-3.5 opacity-50 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                        <span class="truncate">\${key.replace('.md', '')}</span>
+                    \`;
+                    ul.appendChild(div);
+                }
+            });
+            return ul;
+        }
+
+        function renderTreeLevel(node, depth = 0) {
+            const ul = document.createElement('div');
+            ul.className = depth > 0 ? "border-l border-border-main/50 ml-3 pl-1 space-y-0.5" : "space-y-0.5";
+            
+            const keys = Object.keys(node).sort((a, b) => {
+                const isAFolder = typeof node[a] === 'object';
+                const isBFolder = typeof node[b] === 'object';
+                if (isAFolder && !isBFolder) return -1;
+                if (!isAFolder && isBFolder) return 1;
+                return a.localeCompare(b);
+            });
+
+            keys.forEach(key => {
+                const value = node[key];
+                
+                if (typeof value === 'object') {
+                    // Folder
+                    const details = document.createElement('details');
+                    details.open = true;
+                    const summary = document.createElement('summary');
+                    summary.className = "cursor-pointer px-2 py-1 text-[10px] font-bold text-text-muted hover:text-text-main uppercase tracking-wider flex items-center gap-1 select-none group";
+                    summary.innerHTML = \`
+                        <svg class="w-3 h-3 text-text-muted group-hover:text-text-main transition transform group-open:rotate-90" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
+                        <svg class="w-3 h-3 text-warning/70 group-hover:text-warning" fill="currentColor" viewBox="0 0 24 24"><path d="M4 4c0-1.1.9-2 2-2h4.59L12 4h6c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H6c-1.1 0-2-.9-2-2V4z"/></svg>
+                        \${key}
+                    \`;
+                    details.appendChild(summary);
+                    details.appendChild(renderTreeLevel(value, depth + 1));
+                    ul.appendChild(details);
+                } else {
+                    // File
+                    const path = value;
+                    const isActive = currentPath === path;
+                    const div = document.createElement('div');
+                    div.className = \`cursor-pointer px-2 py-1.5 text-sm rounded-md truncate transition flex items-center gap-2 \${isActive ? 'bg-primary/10 text-primary font-medium' : 'text-text-muted hover:bg-hover hover:text-text-main'}\`;
+                    div.onclick = () => openNote(path);
+                    div.title = key.replace('.md', '');
+                    div.innerHTML = \`
+                        <svg class="w-3 h-3 opacity-50 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                        <span class="truncate">\${key.replace('.md', '')}</span>
+                    \`;
+                    ul.appendChild(div);
+                }
+            });
+            return ul;
+        }
+
+        // --- Viewing & Editing ---
+
+        function setMode(mode) {
+            currentMode = mode;
+            const btnView = document.getElementById('btn-view');
+            const btnEdit = document.getElementById('btn-edit');
+            const viewer = document.getElementById('markdown-viewer');
+            const editor = document.getElementById('markdown-editor-container');
+            const textarea = document.getElementById('markdown-editor');
+
+            if (mode === 'edit') {
+                btnView.className = "px-3 py-1.5 rounded-md text-text-muted hover:text-text-main transition";
+                btnEdit.className = "px-3 py-1.5 rounded-md bg-panel text-text-main shadow-sm transition";
+                viewer.classList.add('hidden');
+                editor.classList.remove('hidden');
+                textarea.value = fileContent;
+                textarea.focus();
+            } else {
+                btnEdit.className = "px-3 py-1.5 rounded-md text-text-muted hover:text-text-main transition";
+                btnView.className = "px-3 py-1.5 rounded-md bg-panel text-text-main shadow-sm transition";
+                editor.classList.add('hidden');
+                viewer.classList.remove('hidden');
+                
+                // If content changed during edit, save and re-render
+                if (textarea.value !== fileContent) {
+                    fileContent = textarea.value;
+                    saveContent(); // Force save
+                }
+                renderMarkdown(fileContent);
             }
         }
 
         async function openNote(path) {
             currentPath = path;
-            loadList(); // Update highlight
+            renderTree(allFiles); // Update active state
             
             document.getElementById('empty-state').classList.add('hidden');
             document.getElementById('content-view').classList.remove('hidden');
+            document.getElementById('editor-toolbar').classList.remove('hidden');
+            document.getElementById('editor-toolbar').classList.add('flex');
             document.getElementById('note-title').textContent = path.split('/').pop();
             
+            const status = document.getElementById('status-indicator');
+            status.textContent = "Loading...";
+            
             const body = document.getElementById('markdown-body');
-            body.innerHTML = '<div class="animate-pulse h-4 bg-border-main rounded w-3/4"></div>';
+            body.innerHTML = '<div class="animate-pulse space-y-4 pt-4"><div class="h-8 bg-panel rounded w-1/3 mb-6"></div><div class="h-4 bg-panel rounded w-full"></div><div class="h-4 bg-panel rounded w-5/6"></div></div>';
 
             try {
-                const content = await MetaOS.readFile(path);
-                body.innerHTML = marked.parse(content);
+                fileContent = await MetaOS.readFile(path);
+                
+                // Always render to viewer
+                renderMarkdown(fileContent);
+                status.textContent = "Synced";
+
+                // If currently in edit mode, update textarea
+                if (currentMode === 'edit') {
+                    document.getElementById('markdown-editor').value = fileContent;
+                }
+
             } catch(e) {
-                body.innerHTML = \`<div class="text-error">Failed to load content.</div>\`;
+                body.innerHTML = \`<div class="text-error p-4 border border-error/50 rounded bg-error/10">Failed to load: \${e.message}</div>\`;
+                status.textContent = "Error";
             }
         }
 
-        async function newNote() {
-            const name = prompt("Note Name:");
-            if(!name) return;
-            const path = \`data/notes/\${name}.md\`;
-            await MetaOS.saveFile(path, \`# \${name}\\n\\nStart writing...\`);
-            loadList();
-            openNote(path);
+        function renderMarkdown(content) {
+            const body = document.getElementById('markdown-body');
+            try {
+                // MathJax Protection
+                const mathBlocks = [];
+                const protectedContent = content.replace(/\\\$\\\$([\\s\\S]+?)\\\$\\\$/g, (m) => { mathBlocks.push(m); return \`MATHBLOCK\${mathBlocks.length-1}END\`; })
+                                                .replace(/\\\$([^\$]+?)\\\$/g, (m) => { mathBlocks.push(m); return \`MATHINLINE\${mathBlocks.length-1}END\`; });
+
+                let html = marked.parse(protectedContent);
+                
+                // Restore Math
+                html = html.replace(/MATHBLOCK(\\d+)END/g, (m, id) => mathBlocks[parseInt(id)])
+                           .replace(/MATHINLINE(\\d+)END/g, (m, id) => mathBlocks[parseInt(id)]);
+
+                body.innerHTML = html;
+
+                if (window.MathJax) {
+                    MathJax.typesetPromise([body]).then(() => {});
+                }
+            } catch (e) {
+                body.innerHTML = \`<div class="text-error">Markdown render error</div>\`;
+            }
         }
 
-        function editCurrent() {
+        // --- Debounced Auto Save ---
+        const setStatus = (msg, state = '') => {
+            const el = document.getElementById('status-indicator');
+            el.textContent = msg;
+            el.className = \`text-[10px] font-mono uppercase tracking-widest hidden sm:inline-block \${state === 'warn' ? 'text-warning' : state === 'err' ? 'text-error' : 'text-text-muted'}\`;
+        };
+
+        const debounce = (fn, ms) => { let t; return (...args) => { clearTimeout(t); t = setTimeout(() => fn(...args), ms); }; };
+
+        const saveContent = async () => {
+            if (!currentPath) return;
+            setStatus("Saving...", "warn");
+            try {
+                await MetaOS.saveFile(currentPath, fileContent);
+                setStatus("Saved");
+                setTimeout(() => setStatus("Synced"), 2000);
+            } catch { setStatus("Error", "err"); }
+        };
+
+        const autoSave = debounce(saveContent, 1000);
+
+        document.getElementById('markdown-editor').addEventListener('input', e => {
+            fileContent = e.target.value;
+            setStatus("Editing...", "warn");
+            autoSave();
+        });
+
+        // Add keyboard shortcut (Ctrl+S / Cmd+S)
+        document.addEventListener('keydown', (e) => {
+            if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+                e.preventDefault();
+                if (currentMode === 'edit') saveContent();
+            }
+        });
+
+        async function newNote() {
+            const name = prompt("Enter file name (e.g. 'notes/Meeting.md' or 'projects/Design.md'):\\nDefault goes to 'data/notes/'", "Untitled.md");
+            if(!name) return;
+            
+            let path = name;
+            // If user just typed "Name.md", prepend "data/notes/"
+            if (!path.includes('/')) {
+                path = \`data/notes/\${path}\`;
+            } else if (!path.startsWith('data/')) {
+                path = \`data/\${path}\`;
+            }
+            if (!path.endsWith('.md')) path += '.md';
+
+            await MetaOS.saveFile(path, \`# \${path.split('/').pop().replace('.md','')}\\n\\nStart writing...\`);
+            // List will auto-reload via event listener
+        }
+
+        function openInMonaco() {
             if(currentPath) MetaOS.openFile(currentPath);
         }
 
-        // Auto open if passed from dashboard
-        const pending = localStorage.getItem('metaos_open_note');
-        if(pending) {
-            localStorage.removeItem('metaos_open_note');
-            openNote(pending);
+        document.getElementById('search-input').addEventListener('input', () => renderTree(allFiles));
+
+        // --- Reactive ---
+        if (window.MetaOS && MetaOS.on) {
+            MetaOS.on('file_changed', (payload) => {
+                if (payload.path.startsWith('data/notes') || payload.path.startsWith('data/')) {
+                    // Update list
+                     loadList().then(() => {
+                         // Update content if current
+                         if(currentPath && payload.path === currentPath) {
+                             openNote(currentPath);
+                         }
+                     });
+                }
+            });
         }
 
-        loadList();
+        init();
     </script>
 </body>
 </html>
@@ -1646,142 +2319,238 @@ Use this Codex as a guidepost, and build a better Itera OS together with the use
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="../system/lib/ui.js"></script>
     <script src="../system/lib/std.js"></script>
+    <style>
+        /* Hide scrollbar for clean OS look */
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+    </style>
 </head>
-<body class="bg-app text-text-main min-h-screen p-6 max-w-3xl mx-auto">
+<body class="bg-app text-text-main h-screen flex flex-col overflow-hidden">
 
-    <header class="flex items-center gap-4 mb-8">
-        <button onclick="AppUI.home()" class="p-2 -ml-2 rounded-full hover:bg-hover text-text-muted hover:text-text-main transition">
-            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg>
-        </button>
-        <h1 class="text-2xl font-bold">Settings</h1>
+    <!-- Header -->
+    <header class="h-14 border-b border-border-main flex items-center justify-between px-6 bg-panel shrink-0 z-10 sticky top-0 shadow-sm">
+        <div class="flex items-center gap-4">
+            <button onclick="AppUI.home()" class="p-1.5 -ml-1.5 rounded-lg text-text-muted hover:text-text-main hover:bg-hover transition bg-card border border-border-main">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg>
+            </button>
+            <h1 class="text-lg font-bold tracking-tight">System Settings</h1>
+        </div>
+        <div class="flex items-center gap-2">
+            <span id="save-status" class="text-[10px] text-text-muted font-mono uppercase tracking-widest opacity-0 transition-opacity">Saved</span>
+        </div>
     </header>
 
-    <div class="space-y-8">
-        
-        <!-- Theme Section -->
-        <section class="bg-panel rounded-xl border border-border-main p-6 shadow-sm">
-            <h2 class="text-lg font-bold mb-4 flex items-center gap-2">
-                <span>🎨</span> Theme
-            </h2>
-            <div id="theme-list" class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div class="text-text-muted text-sm animate-pulse">Loading themes...</div>
-            </div>
-        </section>
+    <!-- Content -->
+    <main class="flex-1 overflow-y-auto no-scrollbar p-6">
+        <div class="max-w-3xl mx-auto space-y-8 pb-10">
 
-        <!-- Profile Section -->
-        <section class="bg-panel rounded-xl border border-border-main p-6 shadow-sm">
-            <h2 class="text-lg font-bold mb-4 flex items-center gap-2">
-                <span>👤</span> Profile
-            </h2>
-            <div class="flex gap-4 items-end">
-                <div class="flex-1">
-                    <label class="block text-xs font-bold text-text-muted uppercase mb-1">Username</label>
-                    <input type="text" id="username-input" class="w-full bg-card border border-border-main rounded px-3 py-2 text-text-main focus:outline-none focus:border-primary">
+            <!-- Profile & Agent -->
+            <section class="bg-panel rounded-2xl border border-border-main p-6 shadow-sm">
+                <div class="flex items-center gap-3 mb-6 pb-4 border-b border-border-main/50">
+                    <div class="w-8 h-8 rounded-full bg-primary/20 text-primary flex items-center justify-center">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path></svg>
+                    </div>
+                    <div>
+                        <h2 class="text-sm font-bold uppercase tracking-wider text-text-main">Identity & Localization</h2>
+                        <p class="text-xs text-text-muted">User and Assistant profiles.</p>
+                    </div>
                 </div>
-                <button onclick="saveProfile()" class="bg-primary hover:bg-primary/90 text-white px-4 py-2 rounded font-bold text-sm transition">Save</button>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                        <label class="block text-xs font-bold text-text-muted uppercase mb-1.5">User Name</label>
+                        <input type="text" id="config-username" data-key="username" class="w-full bg-card border border-border-main rounded-lg px-3 py-2 text-sm text-text-main focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/30 transition shadow-inner">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-text-muted uppercase mb-1.5">Agent Name</label>
+                        <input type="text" id="config-agentName" data-key="agentName" class="w-full bg-card border border-border-main rounded-lg px-3 py-2 text-sm text-text-main focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/30 transition shadow-inner">
+                    </div>
+                    <div class="md:col-span-2">
+                        <label class="block text-xs font-bold text-text-muted uppercase mb-1.5">Language</label>
+                        <select id="config-language" data-key="language" class="w-full md:w-1/2 bg-card border border-border-main rounded-lg px-3 py-2 text-sm text-text-main focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/30 transition cursor-pointer">
+                            <option value="English">English</option>
+                            <option value="Japanese">Japanese (日本語)</option>
+                            <option value="Spanish">Spanish (Español)</option>
+                            <option value="French">French (Français)</option>
+                            <option value="German">German (Deutsch)</option>
+                            <option value="Chinese (Simplified)">Chinese Simplified (简体中文)</option>
+                            <option value="Chinese (Traditional)">Chinese Traditional (繁體中文)</option>
+                            <option value="Korean">Korean (한국어)</option>
+                            <option value="Portuguese">Portuguese (Português)</option>
+                            <option value="Russian">Russian (Русский)</option>
+                            <option value="Arabic">Arabic (العربية)</option>
+                            <option value="Hindi">Hindi (हिन्दी)</option>
+                        </select>
+                    </div>
+                </div>
+            </section>
+
+            <!-- System & LLM -->
+            <section class="bg-panel rounded-2xl border border-border-main p-6 shadow-sm">
+                <div class="flex items-center gap-3 mb-6 pb-4 border-b border-border-main/50">
+                    <div class="w-8 h-8 rounded-full bg-warning/20 text-warning flex items-center justify-center">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+                    </div>
+                    <div>
+                        <h2 class="text-sm font-bold uppercase tracking-wider text-text-main">AI Engine (LLM)</h2>
+                        <p class="text-xs text-text-muted">Configure the autonomous brain of the OS.</p>
+                    </div>
+                </div>
+
+                <div class="space-y-6">
+                    <div>
+                        <label class="block text-xs font-bold text-text-muted uppercase mb-1.5">Model Name</label>
+                        <input type="text" id="config-llm-model" data-key="llm.model" class="w-full font-mono bg-card border border-border-main rounded-lg px-3 py-2 text-sm text-text-main focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/30 transition shadow-inner" placeholder="e.g. gemini-3.1-pro-preview">
+                        <p class="text-[10px] text-text-muted mt-1.5 opacity-80">Requires engine restart or reload to take full effect.</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Appearance (Themes) -->
+            <section class="bg-panel rounded-2xl border border-border-main p-6 shadow-sm">
+                <div class="flex items-center gap-3 mb-6 pb-4 border-b border-border-main/50">
+                    <div class="w-8 h-8 rounded-full bg-success/20 text-success flex items-center justify-center">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01"></path></svg>
+                    </div>
+                    <div>
+                        <h2 class="text-sm font-bold uppercase tracking-wider text-text-main">Appearance</h2>
+                        <p class="text-xs text-text-muted">Customize the visual theme of the interface.</p>
+                    </div>
+                </div>
+
+                <div id="theme-list" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <div class="text-text-muted text-sm animate-pulse">Loading themes...</div>
+                </div>
+            </section>
+
+            <!-- System Info Footer -->
+            <div class="text-center pt-4 pb-8">
+                <p class="text-xs font-bold text-text-main tracking-widest uppercase">Itera OS v4.1</p>
+                <p class="text-[10px] text-text-muted opacity-50 mt-1 font-mono">Kernel: Guest Bridge (window.MetaOS)</p>
             </div>
-        </section>
 
-        <!-- System Info -->
-        <section class="text-center pt-8 border-t border-border-main">
-            <p class="text-xs text-text-muted">Itera OS v1.0.0 (Guest Runtime)</p>
-            <p class="text-[10px] text-text-muted opacity-50 mt-1">REAL Architecture</p>
-        </section>
-
-    </div>
+        </div>
+    </main>
 
     <script>
-        let currentConfig = {};
-
-        async function init() {
+        let config = {};
+        const DOM = id => document.getElementById(id);
+        
+        // --- Core ---
+        async function loadConfig() {
             try {
-                // Load Config
-                const configStr = await MetaOS.readFile('system/config/config.json');
-                currentConfig = JSON.parse(configStr);
+                const str = await MetaOS.readFile('system/config/config.json');
+                config = JSON.parse(str);
                 
-                document.getElementById('username-input').value = currentConfig.username || "User";
-                
-                await renderThemes();
+                // Bind values to UI
+                DOM('config-username').value = config.username || '';
+                DOM('config-agentName').value = config.agentName || '';
+                DOM('config-language').value = config.language || 'English';
+                DOM('config-llm-model').value = config?.llm?.model || '';
 
-            } catch(e) {
-                console.error("Settings Init Error", e);
+                await loadThemes();
+            } catch (e) { console.warn("Failed to load config", e); }
+        }
+
+        async function saveConfig() {
+            const status = DOM('save-status');
+            status.textContent = "Saving...";
+            status.classList.remove('opacity-0');
+            status.classList.add('text-warning');
+
+            try {
+                await MetaOS.saveFile('system/config/config.json', JSON.stringify(config, null, 4));
+                status.textContent = "Saved";
+                status.classList.remove('text-warning');
+                status.classList.add('text-success');
+                setTimeout(() => {
+                    status.classList.add('opacity-0');
+                    setTimeout(() => { status.classList.remove('text-success'); status.textContent = ""; }, 300);
+                }, 2000);
+            } catch (e) {
+                status.textContent = "Error";
+                status.classList.add('text-error');
             }
         }
 
-        async function renderThemes() {
-            const container = document.getElementById('theme-list');
+        // Deep set object value by string path (e.g. "llm.model")
+        function setNestedValue(obj, path, value) {
+            const keys = path.split('.');
+            let current = obj;
+            for (let i = 0; i < keys.length - 1; i++) {
+                if (!current[keys[i]]) current[keys[i]] = {};
+                current = current[keys[i]];
+            }
+            current[keys[keys.length - 1]] = value;
+        }
+
+        // --- Event Listeners (Auto-Save) ---
+        const handleInput = (e) => {
+            const key = e.target.getAttribute('data-key');
+            if (!key) return;
+            
+            setNestedValue(config, key, e.target.value);
+            
+            // Debounce save (500ms)
+            clearTimeout(window._saveTimer);
+            window._saveTimer = setTimeout(saveConfig, 500);
+        };
+
+        ['config-username', 'config-agentName', 'config-language', 'config-llm-model'].forEach(id => {
+            DOM(id).addEventListener('input', handleInput);
+        });
+
+        // --- Themes ---
+        async function loadThemes() {
+            const container = DOM('theme-list');
             container.innerHTML = '';
 
             try {
-                // List themes directory
                 const files = await MetaOS.listFiles('system/themes');
-                const themeFiles = files.filter(f => f.endsWith('.json'));
+                const themeFiles = files.filter(f => f.endsWith('.json')).sort();
 
                 for (const path of themeFiles) {
                     try {
-                        const content = await MetaOS.readFile(path);
-                        const themeData = JSON.parse(content);
-                        const meta = themeData.meta || { name: path.split('/').pop(), author: '?' };
+                        const themeData = JSON.parse(await MetaOS.readFile(path));
+                        const meta = themeData.meta || { name: path.split('/').pop().replace('.json', ''), author: 'System' };
+                        const isActive = config.theme === path;
                         
-                        const isActive = currentConfig.theme === path;
-                        
-                        // Preview colors
-                        const bg = themeData.colors?.bg?.app || '#000';
-                        const fg = themeData.colors?.text?.main || '#fff';
-                        const accent = themeData.colors?.accent?.primary || '#888';
+                        const bg = themeData.colors?.bg?.app || '#1a1b26';
+                        const fg = themeData.colors?.text?.main || '#c0caf5';
+                        const accent = themeData.colors?.accent?.primary || '#7aa2f7';
 
                         const div = document.createElement('div');
-                        div.className = \`cursor-pointer p-4 rounded-lg border-2 transition relative overflow-hidden group \${isActive ? 'border-primary bg-primary/5' : 'border-border-main hover:border-text-muted bg-card'}\`;
-                        div.onclick = () => applyTheme(path);
+                        div.className = \`cursor-pointer p-4 rounded-xl border-2 transition-all relative overflow-hidden group shadow-sm hover:shadow-md \${isActive ? 'border-primary bg-primary/5 ring-4 ring-primary/10' : 'border-border-main hover:border-text-muted bg-card'}\`;
+                        div.onclick = () => {
+                            if (config.theme !== path) {
+                                config.theme = path;
+                                saveConfig().then(loadThemes);
+                            }
+                        };
 
                         div.innerHTML = \`
-                            <div class="flex items-center gap-4 relative z-10">
-                                <div class="w-10 h-10 rounded-full border border-gray-600 shadow-sm shrink-0" style="background:\${bg}; display:flex; align-items:center; justify-content:center;">
-                                    <div class="w-4 h-4 rounded-full" style="background:\${accent}"></div>
+                            <div class="flex items-center gap-3 relative z-10">
+                                <div class="w-12 h-12 rounded-full border border-gray-600 shadow-inner shrink-0 flex items-center justify-center transition-transform group-hover:scale-105" style="background:\${bg}">
+                                    <div class="w-5 h-5 rounded-full shadow-[0_0_10px_rgba(0,0,0,0.5)]" style="background:\${accent}"></div>
                                 </div>
-                                <div class="min-w-0">
-                                    <div class="font-bold text-sm truncate" style="\${isActive ? 'color:rgb(var(--c-accent-primary))' : ''}">\${meta.name}</div>
-                                    <div class="text-[10px] text-text-muted truncate">by \${meta.author}</div>
+                                <div class="min-w-0 flex-1">
+                                    <div class="font-bold text-sm truncate flex items-center justify-between" style="color:\${isActive ? 'rgb(var(--c-accent-primary))' : 'inherit'}">
+                                        \${meta.name}
+                                        \${isActive ? '<svg class="w-4 h-4 text-primary shrink-0 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"></path></svg>' : ''}
+                                    </div>
+                                    <div class="text-[10px] text-text-muted truncate mt-0.5 font-mono opacity-80 uppercase tracking-widest">by \${meta.author}</div>
                                 </div>
-                                \${isActive ? '<div class="ml-auto text-primary">✓</div>' : ''}
                             </div>
                         \`;
                         container.appendChild(div);
 
-                    } catch(err) {
-                        console.warn("Invalid theme file", path);
-                    }
+                    } catch(err) { console.warn("Invalid theme file", path); }
                 }
-
-            } catch(e) {
-                container.innerHTML = \`<div class="text-error text-sm">Failed to load themes.</div>\`;
-            }
+            } catch(e) { container.innerHTML = \`<div class="text-error text-sm">Failed to load themes.</div>\`; }
         }
 
-        async function applyTheme(path) {
-            if (currentConfig.theme === path) return;
-            
-            // Update Config Object
-            currentConfig.theme = path;
-            
-            // Save to VFS
-            await MetaOS.saveFile('system/config/config.json', JSON.stringify(currentConfig, null, 4));
-            
-            // ThemeManager (Host) detects file change and updates CSS variables.
-            // Guest UI (this page) might need a refresh or re-render to reflect "Active" state visually
-            renderThemes();
-        }
-
-        async function saveProfile() {
-            const newName = document.getElementById('username-input').value;
-            if (newName) {
-                currentConfig.username = newName;
-                await MetaOS.saveFile('system/config/config.json', JSON.stringify(currentConfig, null, 4));
-                alert("Profile saved.");
-            }
-        }
-
-        init();
+        // Boot
+        document.readyState === 'loading' ? document.addEventListener('DOMContentLoaded', loadConfig) : loadConfig();
     </script>
 </body>
 </html>
