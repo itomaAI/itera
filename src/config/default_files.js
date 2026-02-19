@@ -622,41 +622,1367 @@ Use this Codex as a guidepost, and build a better Itera OS together with the use
 
         // --- User Land (Dashboard) ---
 
+        "system/lib/ui.js": `
+/**
+ * Itera Guest UI Kit
+ * Provides theme configuration and shared UI utilities.
+ */
+
+(function(global) {
+    // 1. Tailwind Configuration Injection
+    // Host側で注入されたCSS変数 (--c-*) を参照する設定
+    if (global.tailwind) {
+        global.tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        // Semantic Tokens
+                        app: 'rgb(var(--c-bg-app) / <alpha-value>)',
+                        panel: 'rgb(var(--c-bg-panel) / <alpha-value>)',
+                        card: 'rgb(var(--c-bg-card) / <alpha-value>)',
+                        hover: 'rgb(var(--c-bg-hover) / <alpha-value>)',
+                        overlay: 'rgb(var(--c-bg-overlay) / <alpha-value>)',
+                        
+                        border: {
+                            main: 'rgb(var(--c-border-main) / <alpha-value>)',
+                            highlight: 'rgb(var(--c-border-highlight) / <alpha-value>)',
+                        },
+                        
+                        text: {
+                            main: 'rgb(var(--c-text-main) / <alpha-value>)',
+                            muted: 'rgb(var(--c-text-muted) / <alpha-value>)',
+                            inverted: 'rgb(var(--c-text-inverted) / <alpha-value>)',
+                            system: 'rgb(var(--c-text-system) / <alpha-value>)',
+                        },
+                        
+                        primary: 'rgb(var(--c-accent-primary) / <alpha-value>)',
+                        success: 'rgb(var(--c-accent-success) / <alpha-value>)',
+                        warning: 'rgb(var(--c-accent-warning) / <alpha-value>)',
+                        error: 'rgb(var(--c-accent-error) / <alpha-value>)',
+                    }
+                }
+            }
+        };
+    }
+
+    // 2. Global Styles Injection (Scrollbar, Font)
+    const style = document.createElement('style');
+    style.textContent = \`
+        body { font-family: 'Inter', system-ui, sans-serif; }
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: rgb(var(--c-bg-hover)); border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: rgb(var(--c-text-muted)); }
+    \`;
+    document.head.appendChild(style);
+
+    // 3. UI Helpers
+    global.AppUI = {
+        /**
+         * Navigate to another view
+         * @param {string} path - relative path from root or absolute path
+         */
+        go: (path) => {
+            if (global.MetaOS) {
+                global.MetaOS.switchView(path);
+            } else {
+                window.location.href = path;
+            }
+        },
+
+        /**
+         * Go back to Dashboard
+         */
+        home: () => {
+            if (global.MetaOS) {
+                global.MetaOS.switchView('index.html');
+            }
+        },
+
+        /**
+         * Simple Toast Notification (Future implementation)
+         */
+        notify: (message) => {
+            console.log(\`[UI] \${message}\`);
+            // TODO: Implement DOM based toast
+        }
+    };
+
+})(window);
+`.trim(),
+
+        "system/lib/std.js": `
+/**
+ * Itera Guest Standard Library (std.js)
+ * Data Access Layer for Tasks, Events, and Notes.
+ */
+
+(function(global) {
+    
+    // --- Utilities ---
+    const Utils = {
+        getMonthKey: () => new Date().toISOString().slice(0, 7), // YYYY-MM
+        getDateStr: () => new Date().toISOString().slice(0, 10), // YYYY-MM-DD
+        
+        async safeReadJson(path, defaultValue = []) {
+            try {
+                if (!global.MetaOS) return defaultValue;
+                const content = await global.MetaOS.readFile(path);
+                return JSON.parse(content);
+            } catch (e) {
+                // File not found or parse error -> return default
+                return defaultValue;
+            }
+        },
+
+        async safeWriteJson(path, data) {
+            if (!global.MetaOS) {
+                console.warn("[Std] MetaOS not found, cannot save:", path);
+                return;
+            }
+            await global.MetaOS.saveFile(path, JSON.stringify(data, null, 2));
+        }
+    };
+
+    // --- App Logic ---
+    global.App = {
+        
+        // === Tasks ===
+
+        async getTasks(month = null) {
+            const m = month || Utils.getMonthKey();
+            // Try to read tasks.json (flat) or month-based? 
+            // Previous implementation used month-based tasks/YYYY-MM.json
+            return await Utils.safeReadJson(\`data/tasks/\${m}.json\`);
+        },
+
+        async saveTasks(tasks, month = null) {
+            const m = month || Utils.getMonthKey();
+            await Utils.safeWriteJson(\`data/tasks/\${m}.json\`, tasks);
+        },
+
+        async addTask(title, dueDate = '', priority = 'medium') {
+            if (!title.trim()) return;
+            const tasks = await this.getTasks();
+            const newTask = {
+                id: Date.now().toString(),
+                title: title.trim(),
+                status: 'pending',
+                dueDate: dueDate,
+                priority: priority,
+                created_at: new Date().toISOString()
+            };
+            tasks.push(newTask);
+            await this.saveTasks(tasks);
+            return newTask;
+        },
+
+        async updateTask(id, updates) {
+            const tasks = await this.getTasks();
+            const index = tasks.findIndex(t => t.id === id);
+            if (index !== -1) {
+                tasks[index] = { ...tasks[index], ...updates };
+                await this.saveTasks(tasks);
+                return true;
+            }
+            return false;
+        },
+
+        async toggleTask(id) {
+            const tasks = await this.getTasks();
+            const task = tasks.find(t => t.id === id);
+            if (task) {
+                task.status = task.status === 'completed' ? 'pending' : 'completed';
+                await this.saveTasks(tasks);
+                return true;
+            }
+            return false;
+        },
+
+        async deleteTask(id) {
+            let tasks = await this.getTasks();
+            const initialLen = tasks.length;
+            tasks = tasks.filter(t => t.id !== id);
+            if (tasks.length !== initialLen) {
+                await this.saveTasks(tasks);
+                return true;
+            }
+            return false;
+        },
+
+        // === Events (Calendar) ===
+
+        async getEvents(monthKey) {
+            // monthKey: YYYY-MM
+            const path = \`data/events/\${monthKey}.json\`;
+            let events = await Utils.safeReadJson(path);
+            
+            // Sort by date
+            events.sort((a, b) => {
+                if (a.date < b.date) return -1;
+                if (a.date > b.date) return 1;
+                return 0;
+            });
+            return events;
+        },
+
+        async addEvent(title, date, time = '', note = '') {
+            if (!title.trim() || !date) return;
+            const monthKey = date.slice(0, 7);
+            const path = \`data/events/\${monthKey}.json\`;
+            
+            let events = await Utils.safeReadJson(path);
+            const newEvent = {
+                id: Date.now().toString(),
+                title: title.trim(),
+                date: date,
+                time: time,
+                note: note
+            };
+            events.push(newEvent);
+            await Utils.safeWriteJson(path, events);
+            return newEvent;
+        },
+
+        async getCalendarItems(monthKey) {
+            // 1. Get Events
+            const events = await this.getEvents(monthKey);
+            const formattedEvents = events.map(e => ({ ...e, type: 'event' }));
+
+            // 2. Get Tasks (Simple logic: Check current month tasks)
+            // Ideally tasks should be indexed by date, but we scan the current month file.
+            const currentTasks = await this.getTasks(monthKey); // Assuming tasks are also split by month
+            // Wait, tasks.json might be flat or monthly. Let's assume monthly for now.
+            // If the user wants to see tasks due this month, they should be in this month's file OR global.
+            // For simplicity in this starter kit, we check the requested month's task file.
+            
+            const formattedTasks = currentTasks
+                .filter(t => t.dueDate && t.dueDate.startsWith(monthKey) && t.status !== 'completed')
+                .map(t => ({
+                    id: t.id,
+                    title: t.title,
+                    date: t.dueDate,
+                    time: '',
+                    type: 'task',
+                    priority: t.priority
+                }));
+
+            return [...formattedEvents, ...formattedTasks];
+        },
+
+        // === Notes ===
+
+        async getRecentNotes(limit = 5) {
+            if (!global.MetaOS) return [];
+            
+            try {
+                // Recursive search in data/notes
+                const files = await global.MetaOS.listFiles('data/notes', { recursive: true, detail: true });
+                
+                // If API returns detailed objects
+                let notes = [];
+                if (Array.isArray(files) && files.length > 0 && typeof files[0] === 'object') {
+                    notes = files.filter(f => f.path.endsWith('.md'))
+                        .sort((a, b) => b.updated_at - a.updated_at)
+                        .slice(0, limit)
+                        .map(f => f.path);
+                } else {
+                    // Fallback for string array
+                    const strFiles = Array.isArray(files) ? files : [];
+                    notes = strFiles.filter(f => f.endsWith('.md')).slice(0, limit);
+                }
+                return notes;
+            } catch (e) {
+                console.warn("[Std] Failed to list notes:", e);
+                return [];
+            }
+        },
+
+        // === System ===
+        
+        async getApps() {
+            return await Utils.safeReadJson('system/config/apps.json', []);
+        }
+    };
+
+})(window);
+`.trim(),
+
         "index.html": `
 <!DOCTYPE html>
-<html lang="en" class="dark">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Itera Dashboard</title>
+    <title>Dashboard</title>
+    <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <script>
-        tailwind.config = { darkMode: 'class' };
-    </script>
+    
+    <!-- System Libraries -->
+    <script src="system/lib/ui.js"></script>
+    <script src="system/lib/std.js"></script>
+    
+    <!-- Kernel Logic -->
+    <script src="system/kernel/dashboard.js" defer></script>
 </head>
-<body class="bg-gray-900 text-gray-100 h-screen flex flex-col items-center justify-center p-6">
-    <div class="max-w-md w-full bg-gray-800 rounded-xl shadow-2xl border border-gray-700 p-8 text-center">
-        <div class="w-16 h-16 bg-blue-600 rounded-full flex items-center justify-center mx-auto mb-6 shadow-lg shadow-blue-900/50">
-            <span class="text-3xl font-bold">I</span>
+<body class="bg-app text-text-main h-screen p-6 overflow-hidden flex flex-col select-none">
+
+    <!-- Header / Greeting -->
+    <header class="mb-8 flex justify-between items-end shrink-0 animate-fade-in-up">
+        <div>
+            <h1 id="greeting" class="text-3xl font-bold text-text-main tracking-tight">Welcome Back</h1>
+            <p id="date-display" class="text-text-muted font-mono text-sm mt-1 opacity-80">Loading...</p>
         </div>
-        <h1 class="text-2xl font-bold mb-2">Itera OS</h1>
-        <p class="text-gray-400 mb-8 text-sm">Autonomous Environment Ready.</p>
+        <div class="text-right">
+            <div id="clock-display" class="text-4xl font-light text-primary font-mono tracking-widest">00:00</div>
+            <div class="flex items-center justify-end gap-2 mt-1">
+                <div class="w-2 h-2 rounded-full bg-success animate-pulse"></div>
+                <span class="text-xs text-text-muted uppercase tracking-wider">System Online</span>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Grid -->
+    <main class="flex-1 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 overflow-y-auto pb-10">
         
-        <div class="grid grid-cols-2 gap-4">
-            <button onclick="MetaOS.agent('Create a simple todo list app', { context: { type: 'demo' } })" 
-                    class="bg-gray-700 hover:bg-gray-600 text-white py-3 rounded-lg text-sm font-medium transition border border-gray-600">
-                ✨ Create App
+        <!-- Widget: Quick Launcher -->
+        <section class="bg-panel rounded-2xl p-5 border border-border-main shadow-lg flex flex-col gap-4 hover:border-primary/30 transition-colors">
+            <!-- ★ Modified: Added link to Launcher -->
+            <div class="flex items-center justify-between">
+                <h2 class="text-sm font-bold text-text-muted uppercase tracking-wider flex items-center gap-2">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"></path></svg>
+                    Apps
+                </h2>
+                <button onclick="AppUI.go('apps/launcher.html')" class="text-xs font-bold text-primary hover:text-primary/80 transition flex items-center gap-1 group">
+                    Library <span class="group-hover:translate-x-0.5 transition-transform">→</span>
+                </button>
+            </div>
+            
+            <div class="grid grid-cols-2 gap-3">
+                <button onclick="AppUI.go('apps/tasks.html')" class="flex flex-col items-center justify-center p-4 bg-card hover:bg-hover rounded-xl transition border border-transparent hover:border-primary/50 group">
+                    <span class="text-2xl mb-1 group-hover:scale-110 transition-transform">✅</span>
+                    <span class="text-xs font-bold text-text-main">Tasks</span>
+                </button>
+                <button onclick="AppUI.go('apps/notes.html')" class="flex flex-col items-center justify-center p-4 bg-card hover:bg-hover rounded-xl transition border border-transparent hover:border-primary/50 group">
+                    <span class="text-2xl mb-1 group-hover:scale-110 transition-transform">📝</span>
+                    <span class="text-xs font-bold text-text-main">Notes</span>
+                </button>
+                <button onclick="AppUI.go('apps/calendar.html')" class="flex flex-col items-center justify-center p-4 bg-card hover:bg-hover rounded-xl transition border border-transparent hover:border-primary/50 group">
+                    <span class="text-2xl mb-1 group-hover:scale-110 transition-transform">📅</span>
+                    <span class="text-xs font-bold text-text-main">Calendar</span>
+                </button>
+                <button onclick="AppUI.go('apps/settings.html')" class="flex flex-col items-center justify-center p-4 bg-card hover:bg-hover rounded-xl transition border border-transparent hover:border-primary/50 group">
+                    <span class="text-2xl mb-1 group-hover:scale-110 transition-transform">⚙️</span>
+                    <span class="text-xs font-bold text-text-main">Settings</span>
+                </button>
+            </div>
+        </section>
+
+        <!-- Widget: Recent Tasks -->
+        <section class="bg-panel rounded-2xl p-5 border border-border-main shadow-lg flex flex-col hover:border-primary/30 transition-colors">
+            <h2 class="text-sm font-bold text-text-muted uppercase tracking-wider mb-4 flex items-center gap-2">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"></path></svg>
+                Active Tasks
+            </h2>
+            <div id="widget-tasks" class="flex-1 space-y-2 overflow-y-auto pr-1">
+                <!-- Injected via JS -->
+                <div class="animate-pulse flex space-x-2">
+                    <div class="h-4 bg-card rounded w-3/4"></div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Widget: Recent Notes -->
+        <section class="bg-panel rounded-2xl p-5 border border-border-main shadow-lg flex flex-col hover:border-primary/30 transition-colors md:col-span-2 lg:col-span-1">
+            <h2 class="text-sm font-bold text-text-muted uppercase tracking-wider mb-4 flex items-center gap-2">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>
+                Recent Notes
+            </h2>
+            <div id="widget-notes" class="flex-1 space-y-2 overflow-y-auto pr-1">
+                <!-- Injected via JS -->
+                <div class="animate-pulse space-y-2">
+                    <div class="h-4 bg-card rounded w-full"></div>
+                    <div class="h-4 bg-card rounded w-5/6"></div>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <style>
+        @keyframes fadeInUp {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .animate-fade-in-up { animation: fadeInUp 0.5s ease-out forwards; }
+    </style>
+</body>
+</html>
+`.trim(),
+
+        "system/kernel/dashboard.js": `
+/**
+ * Itera Dashboard Kernel
+ * Controls the main dashboard widgets and data fetching.
+ */
+
+(function() {
+    
+    // --- Clock & Greeting ---
+    
+    function updateClock() {
+        const now = new Date();
+        const timeStr = now.toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit' });
+        const dateStr = now.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
+        
+        document.getElementById('clock-display').textContent = timeStr;
+        document.getElementById('date-display').textContent = dateStr;
+
+        // Dynamic Greeting
+        const hour = now.getHours();
+        let greet = "Hello";
+        if (hour < 12) greet = "Good Morning";
+        else if (hour < 18) greet = "Good Afternoon";
+        else greet = "Good Evening";
+        
+        // Try to get username from config (if accessible), else default
+        // For simplicity, we just use the greeting + "User" or just Greeting.
+        document.getElementById('greeting').textContent = \`\${greet}, User.\`;
+    }
+
+    // --- Data Widgets ---
+
+    async function refreshWidgets() {
+        if (!window.App) return;
+
+        // 1. Active Tasks
+        try {
+            const tasks = await App.getTasks();
+            const pendingTasks = tasks.filter(t => t.status !== 'completed');
+            
+            // Sort: Priority > Date
+            pendingTasks.sort((a, b) => {
+                const pOrder = { high: 0, medium: 1, low: 2 };
+                return (pOrder[a.priority] || 1) - (pOrder[b.priority] || 1);
+            });
+
+            const taskContainer = document.getElementById('widget-tasks');
+            if (pendingTasks.length === 0) {
+                taskContainer.innerHTML = '<div class="text-text-muted text-xs italic py-2">No active tasks.</div>';
+            } else {
+                taskContainer.innerHTML = pendingTasks.slice(0, 5).map(t => {
+                    const priorityColor = t.priority === 'high' ? 'text-error' : 'text-text-main';
+                    return \`
+                        <div class="flex items-center gap-3 p-2 rounded hover:bg-hover transition cursor-pointer group" onclick="AppUI.go('apps/tasks.html')">
+                            <div class="w-2 h-2 rounded-full border border-text-muted group-hover:bg-primary group-hover:border-primary transition"></div>
+                            <span class="text-sm truncate flex-1 \${priorityColor}">\${t.title}</span>
+                            \${t.dueDate ? \`<span class="text-[10px] text-text-muted font-mono opacity-70">\${t.dueDate.slice(5)}</span>\` : ''}
+                        </div>
+                    \`;
+                }).join('');
+            }
+        } catch (e) {
+            console.error("Task Widget Error", e);
+        }
+
+        // 2. Recent Notes
+        try {
+            const notes = await App.getRecentNotes(5);
+            const noteContainer = document.getElementById('widget-notes');
+            
+            if (notes.length === 0) {
+                noteContainer.innerHTML = '<div class="text-text-muted text-xs italic py-2">No notes found.</div>';
+            } else {
+                noteContainer.innerHTML = notes.map(path => {
+                    const filename = path.split('/').pop().replace('.md', '');
+                    return \`
+                        <div class="flex items-center gap-2 p-2 rounded hover:bg-hover transition cursor-pointer group" onclick="localStorage.setItem('metaos_open_note', '\${path}'); AppUI.go('apps/notes.html')">
+                            <svg class="w-4 h-4 text-text-muted group-hover:text-primary transition" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                            <span class="text-sm text-text-main truncate font-mono opacity-90">\${filename}</span>
+                        </div>
+                    \`;
+                }).join('');
+            }
+        } catch (e) {
+            console.error("Note Widget Error", e);
+        }
+    }
+
+    // --- Init ---
+
+    function init() {
+        updateClock();
+        setInterval(updateClock, 1000);
+        refreshWidgets();
+
+        // Listen for VFS changes to auto-refresh
+        if (window.MetaOS && MetaOS.on) {
+            MetaOS.on('file_changed', (payload) => {
+                if (payload.path.startsWith('data/')) {
+                    refreshWidgets();
+                }
+            });
+        }
+    }
+
+    // Boot
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', init);
+    } else {
+        init();
+    }
+
+})();
+`.trim(),
+
+        "apps/tasks.html": `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tasks</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="../system/lib/ui.js"></script>
+    <script src="../system/lib/std.js"></script>
+</head>
+<body class="bg-app text-text-main h-screen flex flex-col p-6 overflow-hidden">
+
+    <!-- Header -->
+    <header class="flex items-center justify-between mb-6 shrink-0">
+        <div class="flex items-center gap-4">
+            <button onclick="AppUI.home()" class="p-2 -ml-2 rounded-full hover:bg-hover text-text-muted hover:text-text-main transition">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg>
             </button>
-            <button onclick="MetaOS.switchView('docs/codex/00_preface.md')" 
-                    class="bg-gray-700 hover:bg-gray-600 text-white py-3 rounded-lg text-sm font-medium transition border border-gray-600">
-                📚 Read Codex
+            <h1 class="text-2xl font-bold tracking-tight">Tasks</h1>
+        </div>
+        <div class="flex gap-2">
+            <button onclick="render()" class="p-2 rounded hover:bg-hover text-text-muted hover:text-primary transition">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
             </button>
         </div>
-        
-        <div class="mt-8 pt-6 border-t border-gray-700 text-xs text-gray-500 font-mono">
-            System Status: <span class="text-green-400">Online</span>
+    </header>
+
+    <!-- Input Area -->
+    <div class="mb-6 shrink-0">
+        <div class="bg-panel border border-border-main rounded-xl p-2 flex gap-2 shadow-sm focus-within:ring-2 focus-within:ring-primary/50 transition-all">
+            <input type="text" id="task-input" placeholder="New task..." class="bg-transparent px-3 py-2 flex-1 focus:outline-none text-text-main placeholder-text-muted" onkeydown="if(event.key==='Enter') addTask()">
+            <select id="task-priority" class="bg-card border-none text-xs rounded px-2 text-text-muted focus:outline-none cursor-pointer hover:text-text-main">
+                <option value="low">Low</option>
+                <option value="medium" selected>Medium</option>
+                <option value="high">High</option>
+            </select>
+            <button onclick="addTask()" class="bg-primary hover:bg-primary/90 text-white px-4 rounded-lg font-bold text-sm transition">Add</button>
         </div>
     </div>
+
+    <!-- Task List -->
+    <div class="flex-1 overflow-y-auto -mx-2 px-2" id="task-list">
+        <!-- Injected via JS -->
+        <div class="text-center text-text-muted text-sm py-10 opacity-50">Loading...</div>
+    </div>
+
+    <script>
+        async function render() {
+            const list = document.getElementById('task-list');
+            try {
+                const tasks = await App.getTasks();
+                
+                if (tasks.length === 0) {
+                    list.innerHTML = \`<div class="text-center text-text-muted text-sm py-10 italic">No tasks found.<br>Get things done!</div>\`;
+                    return;
+                }
+
+                // Sort: Incomplete first, then Priority (High->Low), then Date
+                tasks.sort((a, b) => {
+                    if (a.status !== b.status) return a.status === 'completed' ? 1 : -1;
+                    const pOrder = { high: 0, medium: 1, low: 2 };
+                    return pOrder[a.priority] - pOrder[b.priority];
+                });
+
+                list.innerHTML = tasks.map(task => {
+                    const isDone = task.status === 'completed';
+                    const pColor = task.priority === 'high' ? 'text-error border-error/30 bg-error/10' : 
+                                   task.priority === 'medium' ? 'text-warning border-warning/30 bg-warning/10' : 
+                                   'text-text-muted border-border-main bg-card';
+                    
+                    return \`
+                        <div class="group flex items-center gap-3 p-3 mb-2 rounded-xl bg-panel border border-border-main hover:border-primary/50 transition-all \${isDone ? 'opacity-50' : ''}">
+                            <button onclick="toggle('\${task.id}')" class="shrink-0 w-5 h-5 rounded-full border-2 \${isDone ? 'bg-success border-success' : 'border-text-muted hover:border-primary'} flex items-center justify-center transition">
+                                \${isDone ? '<svg class="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"></path></svg>' : ''}
+                            </button>
+                            
+                            <div class="flex-1 min-w-0">
+                                <div class="text-sm font-medium truncate \${isDone ? 'line-through text-text-muted' : 'text-text-main'}">\${task.title}</div>
+                                <div class="flex items-center gap-2 mt-1">
+                                    <span class="text-[10px] px-1.5 py-0.5 rounded border \${pColor} uppercase font-bold tracking-wider">\${task.priority}</span>
+                                    <span class="text-[10px] text-text-muted font-mono">\${new Date(task.created_at).toLocaleDateString()}</span>
+                                </div>
+                            </div>
+
+                            <button onclick="del('\${task.id}')" class="p-2 text-text-muted hover:text-error opacity-0 group-hover:opacity-100 transition">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                            </button>
+                        </div>
+                    \`;
+                }).join('');
+
+            } catch(e) {
+                list.innerHTML = \`<div class="text-error p-4">Error: \${e.message}</div>\`;
+            }
+        }
+
+        async function addTask() {
+            const input = document.getElementById('task-input');
+            const priority = document.getElementById('task-priority').value;
+            if(!input.value.trim()) return;
+            
+            await App.addTask(input.value, '', priority);
+            input.value = '';
+            render();
+        }
+
+        async function toggle(id) { await App.toggleTask(id); render(); }
+        async function del(id) { if(confirm('Delete task?')) { await App.deleteTask(id); render(); } }
+
+        // Init
+        render();
+    </script>
+</body>
+</html>
+`.trim(),
+
+        "apps/calendar.html": `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Calendar</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="../system/lib/ui.js"></script>
+    <script src="../system/lib/std.js"></script>
+    <style>
+        .calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 1px; }
+        .calendar-cell { min-height: 80px; }
+    </style>
+</head>
+<body class="bg-app text-text-main h-screen flex flex-col p-6 overflow-hidden">
+
+    <!-- Header -->
+    <header class="flex items-center justify-between mb-6 shrink-0">
+        <div class="flex items-center gap-4">
+            <button onclick="AppUI.home()" class="p-2 -ml-2 rounded-full hover:bg-hover text-text-muted hover:text-text-main transition">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg>
+            </button>
+            <h1 class="text-2xl font-bold tracking-tight" id="month-label">Calendar</h1>
+        </div>
+        <div class="flex gap-2 bg-panel p-1 rounded-lg border border-border-main">
+            <button onclick="changeMonth(-1)" class="p-1 hover:bg-hover rounded text-text-muted hover:text-text-main transition">&lt;</button>
+            <button onclick="today()" class="px-3 text-xs font-bold text-text-main hover:bg-hover rounded transition">Today</button>
+            <button onclick="changeMonth(1)" class="p-1 hover:bg-hover rounded text-text-muted hover:text-text-main transition">&gt;</button>
+        </div>
+    </header>
+
+    <!-- Calendar -->
+    <div class="flex-1 flex flex-col bg-panel border border-border-main rounded-xl overflow-hidden shadow-sm">
+        <div class="grid grid-cols-7 gap-px bg-border-main text-center py-2 text-xs font-bold text-text-muted uppercase tracking-wider bg-panel">
+            <div>Sun</div><div>Mon</div><div>Tue</div><div>Wed</div><div>Thu</div><div>Fri</div><div>Sat</div>
+        </div>
+        <div id="grid" class="flex-1 calendar-grid bg-border-main overflow-y-auto">
+            <!-- Cells -->
+        </div>
+    </div>
+
+    <script>
+        let currentDate = new Date();
+
+        async function render() {
+            const year = currentDate.getFullYear();
+            const month = currentDate.getMonth();
+            const monthKey = \`\${year}-\${String(month + 1).padStart(2, '0')}\`;
+            
+            document.getElementById('month-label').textContent = currentDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+
+            // Data Fetch
+            let items = [];
+            try {
+                items = await App.getCalendarItems(monthKey);
+            } catch(e) { console.warn(e); }
+
+            const firstDay = new Date(year, month, 1).getDay();
+            const daysInMonth = new Date(year, month + 1, 0).getDate();
+            const todayStr = new Date().toISOString().slice(0, 10);
+
+            const grid = document.getElementById('grid');
+            grid.innerHTML = '';
+
+            // Empty slots
+            for (let i = 0; i < firstDay; i++) {
+                grid.innerHTML += \`<div class="bg-app/50"></div>\`;
+            }
+
+            // Days
+            for (let d = 1; d <= daysInMonth; d++) {
+                const dateStr = \`\${year}-\${String(month + 1).padStart(2, '0')}-\${String(d).padStart(2, '0')}\`;
+                const isToday = dateStr === todayStr;
+                
+                const dayItems = items.filter(i => i.date === dateStr);
+                const itemHtml = dayItems.map(item => {
+                    const color = item.type === 'task' ? 'bg-success/20 text-success border-success/30' : 'bg-primary/20 text-primary border-primary/30';
+                    return \`<div class="text-[9px] px-1 py-0.5 rounded border \${color} truncate mb-0.5">\${item.title}</div>\`;
+                }).join('');
+
+                grid.innerHTML += \`
+                    <div class="calendar-cell bg-panel hover:bg-hover transition p-2 cursor-pointer flex flex-col gap-1 group relative" onclick="addEvent('\${dateStr}')">
+                        <div class="text-xs font-bold \${isToday ? 'bg-primary text-white w-6 h-6 flex items-center justify-center rounded-full shadow-lg shadow-primary/30' : 'text-text-muted'}">\${d}</div>
+                        <div class="flex-1 overflow-hidden">\${itemHtml}</div>
+                        <div class="absolute bottom-1 right-1 opacity-0 group-hover:opacity-100">
+                            <span class="text-primary text-lg leading-none">+</span>
+                        </div>
+                    </div>
+                \`;
+            }
+        }
+
+        function changeMonth(d) {
+            currentDate.setMonth(currentDate.getMonth() + d);
+            render();
+        }
+        function today() {
+            currentDate = new Date();
+            render();
+        }
+        function addEvent(date) {
+            const title = prompt("New Event Title:", "");
+            if(title) {
+                App.addEvent(title, date).then(render);
+            }
+        }
+
+        render();
+    </script>
+</body>
+</html>
+`.trim(),
+
+        "apps/notes.html": `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Notes</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="../system/lib/ui.js"></script>
+    <script src="../system/lib/std.js"></script>
+    <style>
+        /* Markdown Typography overrides for Theme System */
+        .prose h1, .prose h2, .prose h3 { color: rgb(var(--c-text-main)); font-weight: 700; margin-top: 1.5em; margin-bottom: 0.5em; }
+        .prose h1 { font-size: 1.75em; border-bottom: 1px solid rgb(var(--c-border-main)); padding-bottom: 0.3em; }
+        .prose p { margin-bottom: 1em; line-height: 1.7; color: rgb(var(--c-text-main)); opacity: 0.9; }
+        .prose ul { list-style: disc; padding-left: 1.5em; color: rgb(var(--c-text-muted)); }
+        .prose code { background: rgb(var(--c-bg-hover)); padding: 0.2em 0.4em; rounded: 0.25em; font-family: monospace; color: rgb(var(--c-accent-primary)); }
+        .prose pre { background: rgb(var(--c-bg-app)); padding: 1em; border-radius: 0.5em; overflow: auto; border: 1px solid rgb(var(--c-border-main)); }
+        .prose blockquote { border-left: 4px solid rgb(var(--c-border-highlight)); padding-left: 1em; color: rgb(var(--c-text-muted)); font-style: italic; }
+    </style>
+</head>
+<body class="bg-app text-text-main h-screen flex overflow-hidden">
+
+    <!-- Sidebar -->
+    <aside class="w-64 bg-panel border-r border-border-main flex flex-col shrink-0">
+        <div class="h-14 flex items-center px-4 border-b border-border-main gap-3">
+            <button onclick="AppUI.home()" class="text-text-muted hover:text-text-main"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg></button>
+            <span class="font-bold">Notes</span>
+            <button onclick="newNote()" class="ml-auto text-primary hover:text-primary/80 text-sm font-bold">+ New</button>
+        </div>
+        <ul id="file-list" class="flex-1 overflow-y-auto p-2 space-y-1">
+            <li class="text-xs text-center text-text-muted py-4">Loading...</li>
+        </ul>
+    </aside>
+
+    <!-- Main -->
+    <main class="flex-1 flex flex-col bg-app relative">
+        <div id="empty-state" class="absolute inset-0 flex items-center justify-center text-text-muted flex-col">
+            <div class="text-4xl mb-2 opacity-30">📝</div>
+            <p>Select a note</p>
+        </div>
+
+        <div id="content-view" class="hidden flex-1 flex flex-col h-full">
+            <header class="h-14 border-b border-border-main flex items-center justify-between px-6 bg-panel shrink-0">
+                <h2 id="note-title" class="font-bold truncate text-text-main font-mono">Untitled.md</h2>
+                <button onclick="editCurrent()" class="text-xs bg-primary hover:bg-primary/80 text-white px-3 py-1.5 rounded transition">Edit Source</button>
+            </header>
+            <div class="flex-1 overflow-y-auto p-8">
+                <article id="markdown-body" class="prose max-w-3xl mx-auto pb-20"></article>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        let currentPath = null;
+
+        async function loadList() {
+            const list = document.getElementById('file-list');
+            try {
+                // Use MetaOS directly for now to list files
+                const files = await MetaOS.listFiles('data/notes');
+                const notes = files.filter(f => f.endsWith('.md')).sort();
+                
+                if(notes.length === 0) {
+                    list.innerHTML = \`<li class="text-xs text-center text-text-muted py-4">No notes.</li>\`;
+                    return;
+                }
+
+                list.innerHTML = notes.map(path => {
+                    const name = path.split('/').pop().replace('.md', '');
+                    const isActive = path === currentPath;
+                    return \`
+                        <li onclick="openNote('\${path}')" class="px-3 py-2 rounded cursor-pointer text-sm truncate transition flex items-center gap-2 \${isActive ? 'bg-primary/10 text-primary font-bold' : 'text-text-muted hover:bg-hover hover:text-text-main'}">
+                            <span class="opacity-50">📄</span> \${name}
+                        </li>
+                    \`;
+                }).join('');
+            } catch(e) {
+                list.innerHTML = \`<li class="text-error text-xs p-2">Error loading list</li>\`;
+            }
+        }
+
+        async function openNote(path) {
+            currentPath = path;
+            loadList(); // Update highlight
+            
+            document.getElementById('empty-state').classList.add('hidden');
+            document.getElementById('content-view').classList.remove('hidden');
+            document.getElementById('note-title').textContent = path.split('/').pop();
+            
+            const body = document.getElementById('markdown-body');
+            body.innerHTML = '<div class="animate-pulse h-4 bg-border-main rounded w-3/4"></div>';
+
+            try {
+                const content = await MetaOS.readFile(path);
+                body.innerHTML = marked.parse(content);
+            } catch(e) {
+                body.innerHTML = \`<div class="text-error">Failed to load content.</div>\`;
+            }
+        }
+
+        async function newNote() {
+            const name = prompt("Note Name:");
+            if(!name) return;
+            const path = \`data/notes/\${name}.md\`;
+            await MetaOS.saveFile(path, \`# \${name}\\n\\nStart writing...\`);
+            loadList();
+            openNote(path);
+        }
+
+        function editCurrent() {
+            if(currentPath) MetaOS.openFile(currentPath);
+        }
+
+        // Auto open if passed from dashboard
+        const pending = localStorage.getItem('metaos_open_note');
+        if(pending) {
+            localStorage.removeItem('metaos_open_note');
+            openNote(pending);
+        }
+
+        loadList();
+    </script>
+</body>
+</html>
+`.trim(),
+
+        "system/config/apps.json": JSON.stringify([
+            {
+                "id": "tasks",
+                "name": "Tasks",
+                "icon": "✅",
+                "path": "apps/tasks.html",
+                "description": "Manage daily to-dos"
+            },
+            {
+                "id": "notes",
+                "name": "Notes",
+                "icon": "📝",
+                "path": "apps/notes.html",
+                "description": "Markdown editor"
+            },
+            {
+                "id": "calendar",
+                "name": "Calendar",
+                "icon": "📅",
+                "path": "apps/calendar.html",
+                "description": "Schedule events"
+            },
+            {
+                "id": "othello",
+                "name": "Othello",
+                "icon": "⚫",
+                "path": "apps/othello.html",
+                "description": "Classic board game"
+            },
+            {
+                "id": "settings",
+                "name": "Settings",
+                "icon": "⚙️",
+                "path": "apps/settings.html",
+                "description": "System configuration"
+            }
+        ], null, 4),
+
+
+        "apps/launcher.html": `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>All Apps</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="../system/lib/ui.js"></script>
+    <script src="../system/lib/std.js"></script>
+</head>
+<body class="bg-app text-text-main min-h-screen p-8">
+
+    <!-- Header -->
+    <div class="max-w-5xl mx-auto mb-8 flex items-center gap-4 animate-fade-in-up">
+        <button onclick="AppUI.home()" class="p-2 -ml-2 rounded-full hover:bg-hover transition text-text-muted hover:text-text-main">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg>
+        </button>
+        <h1 class="text-2xl font-bold tracking-tight">Library</h1>
+    </div>
+
+    <!-- Grid -->
+    <div class="max-w-5xl mx-auto grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-6" id="app-grid">
+        <div class="col-span-full text-center text-text-muted py-10">Loading apps...</div>
+    </div>
+
+    <script>
+        async function loadApps() {
+            const grid = document.getElementById('app-grid');
+            try {
+                const apps = await App.getApps();
+                
+                grid.innerHTML = '';
+                apps.forEach((app, index) => {
+                    const div = document.createElement('div');
+                    div.style.animationDelay = \`\${index * 50}ms\`;
+                    div.className = "group flex flex-col items-center gap-3 p-6 rounded-2xl bg-panel border border-border-main hover:border-primary/50 hover:bg-hover transition-all cursor-pointer hover:-translate-y-1 shadow-lg hover:shadow-primary/10 animate-fade-in-up opacity-0 fill-mode-forwards";
+                    
+                    div.onclick = () => AppUI.go(app.path);
+                    
+                    div.innerHTML = \`
+                        <div class="w-14 h-14 rounded-xl bg-card text-text-main flex items-center justify-center text-3xl shadow-inner mb-1 group-hover:scale-110 transition-transform duration-300">
+                            \${app.icon}
+                        </div>
+                        <div class="text-center">
+                            <div class="text-sm font-bold text-text-main">\${app.name}</div>
+                            \${app.description ? \`<div class="text-[10px] text-text-muted mt-1 line-clamp-1">\${app.description}</div>\` : ''}
+                        </div>
+                    \`;
+                    grid.appendChild(div);
+                });
+            } catch(e) {
+                grid.innerHTML = '<div class="col-span-full text-center text-error">Failed to load apps config.</div>';
+            }
+        }
+        
+        // Simple animation style
+        const style = document.createElement('style');
+        style.textContent = \`
+            @keyframes fadeInUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+            .animate-fade-in-up { animation: fadeInUp 0.4s ease-out forwards; }
+            .fill-mode-forwards { animation-fill-mode: forwards; }
+        \`;
+        document.head.appendChild(style);
+
+        loadApps();
+    </script>
+</body>
+</html>
+`.trim(),
+
+        "apps/settings.html": `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Settings</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="../system/lib/ui.js"></script>
+    <script src="../system/lib/std.js"></script>
+</head>
+<body class="bg-app text-text-main min-h-screen p-6 max-w-3xl mx-auto">
+
+    <header class="flex items-center gap-4 mb-8">
+        <button onclick="AppUI.home()" class="p-2 -ml-2 rounded-full hover:bg-hover text-text-muted hover:text-text-main transition">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg>
+        </button>
+        <h1 class="text-2xl font-bold">Settings</h1>
+    </header>
+
+    <div class="space-y-8">
+        
+        <!-- Theme Section -->
+        <section class="bg-panel rounded-xl border border-border-main p-6 shadow-sm">
+            <h2 class="text-lg font-bold mb-4 flex items-center gap-2">
+                <span>🎨</span> Theme
+            </h2>
+            <div id="theme-list" class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div class="text-text-muted text-sm animate-pulse">Loading themes...</div>
+            </div>
+        </section>
+
+        <!-- Profile Section -->
+        <section class="bg-panel rounded-xl border border-border-main p-6 shadow-sm">
+            <h2 class="text-lg font-bold mb-4 flex items-center gap-2">
+                <span>👤</span> Profile
+            </h2>
+            <div class="flex gap-4 items-end">
+                <div class="flex-1">
+                    <label class="block text-xs font-bold text-text-muted uppercase mb-1">Username</label>
+                    <input type="text" id="username-input" class="w-full bg-card border border-border-main rounded px-3 py-2 text-text-main focus:outline-none focus:border-primary">
+                </div>
+                <button onclick="saveProfile()" class="bg-primary hover:bg-primary/90 text-white px-4 py-2 rounded font-bold text-sm transition">Save</button>
+            </div>
+        </section>
+
+        <!-- System Info -->
+        <section class="text-center pt-8 border-t border-border-main">
+            <p class="text-xs text-text-muted">Itera OS v1.0.0 (Guest Runtime)</p>
+            <p class="text-[10px] text-text-muted opacity-50 mt-1">REAL Architecture</p>
+        </section>
+
+    </div>
+
+    <script>
+        let currentConfig = {};
+
+        async function init() {
+            try {
+                // Load Config
+                const configStr = await MetaOS.readFile('system/config.json');
+                currentConfig = JSON.parse(configStr);
+                
+                document.getElementById('username-input').value = currentConfig.username || "User";
+                
+                await renderThemes();
+
+            } catch(e) {
+                console.error("Settings Init Error", e);
+            }
+        }
+
+        async function renderThemes() {
+            const container = document.getElementById('theme-list');
+            container.innerHTML = '';
+
+            try {
+                // List themes directory
+                const files = await MetaOS.listFiles('system/themes');
+                const themeFiles = files.filter(f => f.endsWith('.json'));
+
+                for (const path of themeFiles) {
+                    try {
+                        const content = await MetaOS.readFile(path);
+                        const themeData = JSON.parse(content);
+                        const meta = themeData.meta || { name: path.split('/').pop(), author: '?' };
+                        
+                        const isActive = currentConfig.theme === path;
+                        
+                        // Preview colors
+                        const bg = themeData.colors?.bg?.app || '#000';
+                        const fg = themeData.colors?.text?.main || '#fff';
+                        const accent = themeData.colors?.accent?.primary || '#888';
+
+                        const div = document.createElement('div');
+                        div.className = \`cursor-pointer p-4 rounded-lg border-2 transition relative overflow-hidden group \${isActive ? 'border-primary bg-primary/5' : 'border-border-main hover:border-text-muted bg-card'}\`;
+                        div.onclick = () => applyTheme(path);
+
+                        div.innerHTML = \`
+                            <div class="flex items-center gap-4 relative z-10">
+                                <div class="w-10 h-10 rounded-full border border-gray-600 shadow-sm shrink-0" style="background:\${bg}; display:flex; align-items:center; justify-content:center;">
+                                    <div class="w-4 h-4 rounded-full" style="background:\${accent}"></div>
+                                </div>
+                                <div class="min-w-0">
+                                    <div class="font-bold text-sm truncate" style="\${isActive ? 'color:rgb(var(--c-accent-primary))' : ''}">\${meta.name}</div>
+                                    <div class="text-[10px] text-text-muted truncate">by \${meta.author}</div>
+                                </div>
+                                \${isActive ? '<div class="ml-auto text-primary">✓</div>' : ''}
+                            </div>
+                        \`;
+                        container.appendChild(div);
+
+                    } catch(err) {
+                        console.warn("Invalid theme file", path);
+                    }
+                }
+
+            } catch(e) {
+                container.innerHTML = \`<div class="text-error text-sm">Failed to load themes.</div>\`;
+            }
+        }
+
+        async function applyTheme(path) {
+            if (currentConfig.theme === path) return;
+            
+            // Update Config Object
+            currentConfig.theme = path;
+            
+            // Save to VFS
+            await MetaOS.saveFile('system/config.json', JSON.stringify(currentConfig, null, 4));
+            
+            // ThemeManager (Host) detects file change and updates CSS variables.
+            // Guest UI (this page) might need a refresh or re-render to reflect "Active" state visually
+            renderThemes();
+        }
+
+        async function saveProfile() {
+            const newName = document.getElementById('username-input').value;
+            if (newName) {
+                currentConfig.username = newName;
+                await MetaOS.saveFile('system/config.json', JSON.stringify(currentConfig, null, 4));
+                alert("Profile saved.");
+            }
+        }
+
+        init();
+    </script>
+</body>
+</html>
+`.trim(),
+
+        "apps/othello.html": `
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Othello</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="../system/lib/ui.js"></script>
+    <style>
+        .cell {
+            width: 40px; height: 40px; perspective: 1000px;
+        }
+        @media (min-width: 640px) { .cell { width: 50px; height: 50px; } }
+        .disc {
+            width: 80%; height: 80%; border-radius: 50%;
+            transition: transform 0.4s; transform-style: preserve-3d; position: relative;
+        }
+        .disc.black { transform: rotateY(0deg); }
+        .disc.white { transform: rotateY(180deg); }
+        .face {
+            position: absolute; width: 100%; height: 100%; border-radius: 50%;
+            backface-visibility: hidden; box-shadow: inset 0 0 5px rgba(0,0,0,0.5);
+        }
+        .face-front { background: #111; transform: rotateY(0deg); } 
+        .face-back { background: #eee; transform: rotateY(180deg); } 
+        .valid-move::after {
+            content: ''; position: absolute; width: 20%; height: 20%;
+            background: rgba(0, 255, 0, 0.5); border-radius: 50%;
+            top: 50%; left: 50%; transform: translate(-50%, -50%);
+        }
+    </style>
+</head>
+<body class="bg-app text-text-main min-h-screen flex flex-col items-center justify-center p-4">
+
+    <div class="w-full max-w-md">
+        <!-- Header -->
+        <div class="flex justify-between items-center mb-6">
+            <h1 class="text-2xl font-bold text-text-main flex items-center gap-2">
+                <span class="text-3xl">⚫⚪</span> Othello
+            </h1>
+            <button onclick="AppUI.home()" class="text-text-muted hover:text-text-main transition">
+                &times; Close
+            </button>
+        </div>
+
+        <!-- Score Board -->
+        <div class="bg-panel rounded-xl p-4 mb-6 flex justify-between items-center border border-border-main shadow-lg">
+            <div class="text-center w-1/3 transition-opacity duration-300" id="p1-container">
+                <div class="text-xs text-text-muted uppercase font-bold">Black (You)</div>
+                <div class="text-3xl font-bold text-text-main" id="score-black">2</div>
+            </div>
+            <div class="text-center w-1/3">
+                <div id="turn-indicator" class="text-sm font-bold bg-primary text-white px-3 py-1 rounded-full inline-block animate-pulse">
+                    Your Turn
+                </div>
+            </div>
+            <div class="text-center w-1/3 transition-opacity duration-300 opacity-50" id="p2-container">
+                <div class="text-xs text-text-muted uppercase font-bold">White (AI)</div>
+                <div class="text-3xl font-bold text-text-main" id="score-white">2</div>
+            </div>
+        </div>
+
+        <!-- Board (Classic Green) -->
+        <div class="bg-green-800 p-2 rounded-lg shadow-2xl mx-auto w-fit border-4 border-panel">
+            <div id="board" class="grid grid-cols-8 gap-1 bg-green-900 border-2 border-green-900"></div>
+        </div>
+
+        <!-- Controls -->
+        <div class="mt-8 flex justify-between items-center">
+            <button onclick="initGame()" class="text-sm text-text-muted hover:text-text-main transition flex items-center gap-1">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+                Restart Game
+            </button>
+            <div class="text-xs text-text-muted font-mono">v1.1 (Theme Supported)</div>
+        </div>
+    </div>
+
+    <!-- Game Over Modal -->
+    <div id="game-over-modal" class="fixed inset-0 bg-black/80 flex items-center justify-center hidden z-50 backdrop-blur-sm">
+        <div class="bg-panel p-6 rounded-xl border border-border-main shadow-2xl text-center max-w-sm w-full">
+            <h2 class="text-2xl font-bold mb-2 text-text-main" id="game-result-title">Game Over</h2>
+            <p class="text-text-muted mb-6" id="game-result-msg">Black wins!</p>
+            <button onclick="closeModal(); initGame()" class="bg-success hover:bg-success/80 text-white font-bold py-2 px-6 rounded-lg transition transform hover:scale-105">
+                Play Again
+            </button>
+        </div>
+    </div>
+
+    <script>
+        const BOARD_SIZE = 8;
+        const CELL_EMPTY = 0;
+        const CELL_BLACK = 1;
+        const CELL_WHITE = 2;
+
+        let board = [], currentPlayer = CELL_BLACK, gameActive = true;
+        const boardEl = document.getElementById('board');
+        const scoreBlackEl = document.getElementById('score-black');
+        const scoreWhiteEl = document.getElementById('score-white');
+        const turnIndicatorEl = document.getElementById('turn-indicator');
+        const p1Container = document.getElementById('p1-container');
+        const p2Container = document.getElementById('p2-container');
+
+        function initGame() {
+            board = Array(BOARD_SIZE).fill().map(() => Array(BOARD_SIZE).fill(CELL_EMPTY));
+            board[3][3] = CELL_WHITE; board[3][4] = CELL_BLACK;
+            board[4][3] = CELL_BLACK; board[4][4] = CELL_WHITE;
+            currentPlayer = CELL_BLACK; gameActive = true;
+            renderBoard(); updateUI();
+        }
+
+        function renderBoard() {
+            boardEl.innerHTML = '';
+            const validMoves = getValidMoves(currentPlayer);
+            for (let r = 0; r < BOARD_SIZE; r++) {
+                for (let c = 0; c < BOARD_SIZE; c++) {
+                    const cell = document.createElement('div');
+                    cell.className = 'cell bg-green-600 relative cursor-pointer hover:bg-green-500 transition-colors duration-200';
+                    if (board[r][c] !== CELL_EMPTY) {
+                        const disc = document.createElement('div');
+                        disc.className = \`disc absolute inset-0 m-auto \${board[r][c] === CELL_BLACK ? 'black' : 'white'}\`;
+                        disc.innerHTML = \`<div class="face face-front"></div><div class="face face-back"></div>\`;
+                        cell.appendChild(disc);
+                    }
+                    if (validMoves.some(m => m.r === r && m.c === c) && currentPlayer === CELL_BLACK) {
+                        cell.classList.add('valid-move');
+                        cell.onclick = () => makeMove(r, c);
+                    }
+                    boardEl.appendChild(cell);
+                }
+            }
+        }
+
+        function getValidMoves(player) {
+            const moves = [];
+            for (let r = 0; r < BOARD_SIZE; r++) for (let c = 0; c < BOARD_SIZE; c++) if (isValidMove(r, c, player)) moves.push({r, c});
+            return moves;
+        }
+
+        function isValidMove(r, c, player) {
+            if (board[r][c] !== CELL_EMPTY) return false;
+            const opponent = player === CELL_BLACK ? CELL_WHITE : CELL_BLACK;
+            const directions = [[-1,-1],[-1,0],[-1,1],[0,-1],[0,1],[1,-1],[1,0],[1,1]];
+            for (const [dr, dc] of directions) {
+                let nr = r + dr, nc = c + dc, flipped = false;
+                while (nr >= 0 && nr < BOARD_SIZE && nc >= 0 && nc < BOARD_SIZE && board[nr][nc] === opponent) { nr += dr; nc += dc; flipped = true; }
+                if (flipped && nr >= 0 && nr < BOARD_SIZE && nc >= 0 && nc < BOARD_SIZE && board[nr][nc] === player) return true;
+            }
+            return false;
+        }
+
+        function makeMove(r, c) {
+            if (!gameActive) return;
+            board[r][c] = currentPlayer;
+            const opponent = currentPlayer === CELL_BLACK ? CELL_WHITE : CELL_BLACK;
+            const directions = [[-1,-1],[-1,0],[-1,1],[0,-1],[0,1],[1,-1],[1,0],[1,1]];
+            for (const [dr, dc] of directions) {
+                let nr = r + dr, nc = c + dc, toFlip = [];
+                while (nr >= 0 && nr < BOARD_SIZE && nc >= 0 && nc < BOARD_SIZE && board[nr][nc] === opponent) { toFlip.push({r: nr, c: nc}); nr += dr; nc += dc; }
+                if (toFlip.length > 0 && nr >= 0 && nr < BOARD_SIZE && nc >= 0 && nc < BOARD_SIZE && board[nr][nc] === currentPlayer) toFlip.forEach(f => board[f.r][f.c] = currentPlayer);
+            }
+            currentPlayer = opponent;
+            renderBoard(); updateUI(); checkTurn();
+        }
+
+        function updateUI() {
+            let black = 0, white = 0;
+            for(let r=0; r<8; r++) for(let c=0; c<8; c++) if(board[r][c]===CELL_BLACK) black++; else if(board[r][c]===CELL_WHITE) white++;
+            scoreBlackEl.textContent = black; scoreWhiteEl.textContent = white;
+            if (currentPlayer === CELL_BLACK) {
+                turnIndicatorEl.textContent = "Your Turn";
+                turnIndicatorEl.className = "text-sm font-bold bg-primary px-3 py-1 rounded-full inline-block animate-pulse text-white";
+                p1Container.style.opacity = 1; p2Container.style.opacity = 0.5;
+            } else {
+                turnIndicatorEl.textContent = "AI Thinking...";
+                turnIndicatorEl.className = "text-sm font-bold bg-card text-text-muted px-3 py-1 rounded-full inline-block border border-border-main";
+                p1Container.style.opacity = 0.5; p2Container.style.opacity = 1;
+            }
+        }
+
+        function checkTurn() {
+            const validMoves = getValidMoves(currentPlayer);
+            if (validMoves.length === 0) {
+                currentPlayer = currentPlayer === CELL_BLACK ? CELL_WHITE : CELL_BLACK;
+                if (getValidMoves(currentPlayer).length === 0) endGame();
+                else {
+                    updateUI();
+                    if (currentPlayer === CELL_WHITE) setTimeout(aiMove, 1000);
+                }
+                return;
+            }
+            if (currentPlayer === CELL_WHITE) setTimeout(aiMove, 800);
+        }
+
+        function aiMove() {
+            if (!gameActive) return;
+            const validMoves = getValidMoves(CELL_WHITE);
+            if (validMoves.length === 0) return;
+            const weights = [
+                [100, -20, 10, 5, 5, 10, -20, 100], [-20, -50, -2, -2, -2, -2, -50, -20],
+                [10, -2, -1, -1, -1, -1, -2, 10], [5, -2, -1, -1, -1, -1, -2, 5],
+                [5, -2, -1, -1, -1, -1, -2, 5], [10, -2, -1, -1, -1, -1, -2, 10],
+                [-20, -50, -2, -2, -2, -2, -50, -20], [100, -20, 10, 5, 5, 10, -20, 100]
+            ];
+            let bestMove = validMoves[0], bestScore = -Infinity;
+            for (const move of validMoves) {
+                const score = weights[move.r][move.c] + Math.random() * 5;
+                if (score > bestScore) { bestScore = score; bestMove = move; }
+            }
+            makeMove(bestMove.r, bestMove.c);
+        }
+
+        function endGame() {
+            gameActive = false;
+            let black = 0, white = 0;
+            for(let r=0; r<8; r++) for(let c=0; c<8; c++) if(board[r][c]===CELL_BLACK) black++; else if(board[r][c]===CELL_WHITE) white++;
+            const title = document.getElementById('game-result-title');
+            if (black > white) { title.textContent = "You Win! 🎉"; title.className = "text-2xl font-bold mb-2 text-success"; }
+            else if (white > black) { title.textContent = "AI Wins 🤖"; title.className = "text-2xl font-bold mb-2 text-error"; }
+            else { title.textContent = "Draw 🤝"; title.className = "text-2xl font-bold mb-2 text-text-muted"; }
+            document.getElementById('game-result-msg').textContent = \`Black: \${black} - White: \${white}\`;
+            document.getElementById('game-over-modal').classList.remove('hidden');
+        }
+
+        function closeModal() { document.getElementById('game-over-modal').classList.add('hidden'); }
+        initGame();
+    </script>
 </body>
 </html>
 `.trim(),
