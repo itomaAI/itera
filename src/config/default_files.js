@@ -8,8 +8,8 @@
 
     global.Itera.Config.DEFAULT_FILES = {
         // --- System Configuration ---
-        
-        "system/config.json": JSON.stringify({
+
+        "system/config/config.json": JSON.stringify({
             "theme": "system/themes/light.json",
             "language": "English",
             "username": "User",
@@ -1696,7 +1696,7 @@ Use this Codex as a guidepost, and build a better Itera OS together with the use
         async function init() {
             try {
                 // Load Config
-                const configStr = await MetaOS.readFile('system/config.json');
+                const configStr = await MetaOS.readFile('system/config/config.json');
                 currentConfig = JSON.parse(configStr);
                 
                 document.getElementById('username-input').value = currentConfig.username || "User";
@@ -1765,7 +1765,7 @@ Use this Codex as a guidepost, and build a better Itera OS together with the use
             currentConfig.theme = path;
             
             // Save to VFS
-            await MetaOS.saveFile('system/config.json', JSON.stringify(currentConfig, null, 4));
+            await MetaOS.saveFile('system/config/config.json', JSON.stringify(currentConfig, null, 4));
             
             // ThemeManager (Host) detects file change and updates CSS variables.
             // Guest UI (this page) might need a refresh or re-render to reflect "Active" state visually
@@ -1776,7 +1776,7 @@ Use this Codex as a guidepost, and build a better Itera OS together with the use
             const newName = document.getElementById('username-input').value;
             if (newName) {
                 currentConfig.username = newName;
-                await MetaOS.saveFile('system/config.json', JSON.stringify(currentConfig, null, 4));
+                await MetaOS.saveFile('system/config/config.json', JSON.stringify(currentConfig, null, 4));
                 alert("Profile saved.");
             }
         }

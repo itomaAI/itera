@@ -21,14 +21,14 @@
 
         _buildSystemPrompt(state) {
             let config = {};
-            
+
             // 1. Configの取得 (ConfigManager推奨、なければVFSフォールバック)
             if (state.configManager) {
                 config = state.configManager.get() || {};
             } else {
                 try {
-                    if (state.vfs && state.vfs.exists('system/config.json')) {
-                        config = JSON.parse(state.vfs.readFile('system/config.json'));
+                    if (state.vfs && state.vfs.exists('system/config/config.json')) {
+                        config = JSON.parse(state.vfs.readFile('system/config/config.json'));
                     }
                 } catch (e) {
                     // Config read error ignored
