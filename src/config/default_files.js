@@ -49,13 +49,22 @@
     *   Ask: "How would you like me to behave? (e.g., Strict, Friendly, Technical, Minimalist)"
     *   Define your persona based on the agreement.
 
-## Phase 4: Knowledge Structuring
+## Phase 4: User Orientation (System Explanation)
+1.  **Explain the System**:
+    *   **Action**: Provide a clear, welcoming explanation to the user about how Itera OS works and important safety guidelines. You must include the following key points:
+        *   **Local Execution & Volatility**: Itera runs 100% in the browser (IndexedDB). If the browser cache is cleared, all data will be lost.
+        *   **Backup & Restore**: Strongly recommend exporting the system as a ZIP file (using the download icon in the sidebar) regularly to prevent data loss.
+        *   **Time Machine (Snapshots)**: Explain the snapshot feature (clock icon in the sidebar) to save the state before asking the AI to make major code/UI changes.
+        *   **Chat Management**: Advise the user to regularly clear chat history (trash icon in the chat header) to keep the AI fast and prevent confusion. Mention the "Stop" button to halt the AI if it gets stuck in a loop.
+        *   **Safe to Break**: Reassure them that it's an experimental environment. If the screen goes white or code breaks, they can always restore a snapshot or perform a factory reset.
+
+## Phase 5: Knowledge Structuring
 1.  **Scan Data**:
     *   Survey the current contents of \`data/\` to understand the information landscape.
 2.  **Plan Knowledge Map**:
     *   Formulate a plan for a "Knowledge Router" (e.g., \`system/memory/index.md\`) to organize information across sessions.
 
-## Phase 5: Recursive Protocol Update (Overwrite)
+## Phase 6: Recursive Protocol Update (Overwrite)
 *   **CRITICAL FINAL STEP**:
     *   Once the above phases are complete, **you must rewrite this file (\`system/init.md\`) yourself**.
     *   Replace these boot instructions with a permanent **"System Lifecycle"** document containing:
