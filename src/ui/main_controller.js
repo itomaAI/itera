@@ -51,7 +51,7 @@
 			const initialFiles = savedSystem ? savedSystem.files : (this.config.DEFAULT_FILES || {});
 			const initialHistory = savedSystem ? savedSystem.history : [];
 
-			const vfs = new State.VirtualFileSystem(initialFiles);
+            const vfs = new State.VirtualFileSystem(initialFiles);
 			const history = new State.HistoryManager();
 			history.load(initialHistory);
 			const configManager = new State.ConfigManager(vfs);
@@ -78,6 +78,8 @@
 			this.components.preview = new Components.PreviewPane();
 			this.components.settings = new Components.SettingsModal(storage, configManager);
 			this.components.media = new Components.MediaViewer();
+
+			this.components.chat.setVfs(vfs);
 
 			const registry = new Control.ToolRegistry();
 			if (Control.Tools) {
@@ -147,43 +149,95 @@
 
 			// Chat Events
 			chat.on('send', async (text, attachments) => {
+				// 1. キャッシュディレクトリの準備
+				const CACHE_DIR = 'system/cache/media';
+				if (!vfs.exists(CACHE_DIR) && vfs.createDirectory) {
+					vfs.createDirectory(CACHE_DIR);
+				}
+
 				const content = [];
+
 				for (const file of attachments) {
 					const isText = file.type.startsWith('text/') || file.name.match(/\.(js|json|md|txt|html|css|xml|yml)$/);
+					
+					// ファイル読み込み
 					const reader = new FileReader();
 					const data = await new Promise(r => {
 						reader.onload = () => r(reader.result);
 						if (isText) reader.readAsText(file);
 						else reader.readAsDataURL(file);
 					});
+
 					if (isText) {
+						// テキストファイル
 						content.push({
 							text: `<user_attachment name="${file.name}">\n${data}\n</user_attachment>`
 						});
 					} else {
-						content.push({
-							inlineData: {
-								mimeType: file.type || 'application/octet-stream',
-								data: data.split(',')[1]
-							}
-						});
+						// バイナリファイル
+						const timestamp = Date.now();
+						const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+						const path = `${CACHE_DIR}/${timestamp}_${safeName}`;
+
+						try {
+							vfs.writeFile(path, data);
+							
+                            // メディアオブジェクト（画像表示用・FileAPI用）
+							content.push({
+								media: {
+									path: path,
+									mimeType: file.type || 'application/octet-stream',
+									metadata: {}
+								}
+							});
+	
+                            // user_inputの外に配置されるよう、独立したtextパーツとして追加
+                            content.push({
+                                text: `<user_attachment path="${path}">[Binary File: ${file.name}]</user_attachment>`
+                            });
+
+						} catch (e) {
+							console.error(`[MainController] Failed to save upload: ${path}`, e);
+							alert(`Failed to save attachment: ${e.message}`);
+							return;
+						}
 					}
 				}
-				if (text) content.push({
-					text
-				});
+
+				// ユーザーの入力テキストがあれば追加
+				if (text) {
+					content.push({ text: text });
+				}
+
+				if (content.length === 0) return;
+
 				this._refreshEngineConfig();
 				chat.setProcessing(true);
 				await this.engine.injectUserTurn(content);
 			});
 
 			chat.on('stop', () => this.engine.stop());
+			
 			chat.on('clear', () => {
-				if (confirm("Clear chat history?")) {
+				if (confirm("Clear chat history and media cache?")) {
 					history.clear();
+					
+					// キャッシュのパージ処理
+					try {
+						const CACHE_DIR = 'system/cache/media';
+						// ディレクトリ内のファイルを削除（deleteDirectoryの実装によるが、配下を消す）
+						if (vfs.deleteDirectory) {
+							vfs.deleteDirectory(CACHE_DIR);
+							console.log("[System] Media cache cleared.");
+						}
+					} catch (e) {
+						console.warn("[System] Failed to clear media cache:", e);
+					}
+
 					chat.renderHistory([]);
 				}
 			});
+
 			chat.on('delete_turn', (id) => {
 				history.delete(id);
 				chat.renderHistory(history.get());

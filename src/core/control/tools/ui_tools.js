@@ -39,11 +39,32 @@
                 await new Promise(r => setTimeout(r, 1000));
                 
                 try {
+                    // captureScreenshotは生のBase64文字列を返す仕様
                     const base64 = await context.ui.captureScreenshot();
+                    
+                    // ★ VFSへ保存処理
+                    const vfs = context.vfs;
+                    const timestamp = Date.now();
+                    const filename = `screenshot_${timestamp}.png`;
+                    const dir = 'system/cache/media';
+                    const path = `${dir}/${filename}`;
+                    
+                    // ディレクトリ作成（存在確認はcreateDirectory内で行われるが念のため）
+                    if (vfs.createDirectory) vfs.createDirectory(dir);
+                    
+                    // VFSはDataURL形式を期待しているためヘッダーを付与
+                    const dataUrl = `data:image/png;base64,${base64}`;
+                    vfs.writeFile(path, dataUrl);
+
                     return {
-                        log: `[take_screenshot] Captured.`,
-                        ui: `📸 Screenshot Captured`,
-                        image: base64 // Projectorがこれを拾ってLLMに見せる
+                        log: `[take_screenshot] Captured and saved to ${path}`,
+                        ui: `📸 Screenshot Saved`,
+                        // 旧来の image: base64 は廃止し、新しい media オブジェクトを返す
+                        media: {
+                            path: path,
+                            mimeType: 'image/png',
+                            metadata: {} 
+                        }
                     };
                 } catch (e) {
                     return {

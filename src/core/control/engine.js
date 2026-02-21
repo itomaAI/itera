@@ -87,8 +87,10 @@
 					loopCount++;
 
 					// 2. 思考 (L1)
-					const messages = this.projector.createContext(this.state);
-					this._emit('turn_start', {
+                    // ★ Modified: Added await for async projector (File API upload)
+					const messages = await this.projector.createContext(this.state);
+					
+                    this._emit('turn_start', {
 						role: Role.MODEL
 					});
 
@@ -102,7 +104,7 @@
 						type: TurnType.MODEL_THOUGHT
 					});
 
-                    // ★ Bugfix: モデルのターン終了イベントを発火
+                    // モデルのターン終了イベントを発火
                     this._emit('turn_end', {
                         role: Role.MODEL,
                         turn: modelTurn
