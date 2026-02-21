@@ -23,6 +23,7 @@
 	class ChatPanel {
 		constructor(renderer) {
 			this.renderer = renderer;
+			this.vfs = null; // ★ Added: VFS reference
 			this.els = {};
 			this.events = {};
 			this.pendingUploads = [];
@@ -33,6 +34,11 @@
 			this._initElements();
 			this._bindEvents();
 			this._initResizer();
+		}
+
+		// ★ Added: Method to inject VFS
+		setVfs(vfs) {
+			this.vfs = vfs;
 		}
 
 		on(event, callback) {
@@ -320,13 +326,14 @@
 						div.textContent = item.text;
 					}
 					container.appendChild(div);
-				} else if (item.output) {
+				} 
+                // ★ Tool Execution Log/UI
+                else if (item.output) {
 					const div = document.createElement('div');
 					div.className = "mb-1 whitespace-pre-wrap";
 					const uiText = item.output.ui || item.output.log || "";
 					if (item.output.ui) {
 						const span = document.createElement('span');
-						// ★ 変更点: text-primary -> text-system
 						span.className = "text-system font-bold";
 						span.textContent = uiText;
 						div.appendChild(span);
@@ -334,12 +341,62 @@
 						div.textContent = uiText;
 					}
 					container.appendChild(div);
-					if (item.output.image) this._appendMedia(container, item.output.image, item.output.mimeType);
-				} else if (item.inlineData) {
+
+                    // Handle Tool Output Images
+                    if (item.output.media) {
+                        this._renderMediaFromVfs(container, item.output.media);
+                    } else if (item.output.image) {
+                        // Legacy support
+                        this._appendMedia(container, item.output.image, item.output.mimeType);
+                    }
+				} 
+                // ★ User Input Media (New)
+                else if (item.media) {
+                    this._renderMediaFromVfs(container, item.media);
+                }
+                // ★ User Input Inline (Legacy)
+                else if (item.inlineData) {
 					this._appendMedia(container, item.inlineData.data, item.inlineData.mimeType);
 				}
 			});
 		}
+
+        /**
+         * VFSからメディアを読み込んで表示する
+         * @param {HTMLElement} container 
+         * @param {Object} mediaObj - { path, mimeType, ... }
+         */
+        _renderMediaFromVfs(container, mediaObj) {
+            if (!this.vfs) {
+                // VFSがまだセットされていない場合はプレースホルダー
+                const div = document.createElement('div');
+                div.className = "text-xs text-text-muted italic border border-border-main p-2 rounded mt-2";
+                div.textContent = `[Loading media: ${mediaObj.path}]`;
+                container.appendChild(div);
+                return;
+            }
+
+            try {
+                if (this.vfs.exists(mediaObj.path)) {
+                    // readFileは DataURL (data:...) を返すと仮定
+                    const content = this.vfs.readFile(mediaObj.path);
+                    this._appendMedia(container, content, mediaObj.mimeType);
+                } else {
+                    // ファイルが存在しない場合 (削除された等)
+                    const div = document.createElement('div');
+                    div.className = "flex items-center gap-2 text-xs text-text-muted bg-error/10 border border-error/20 p-2 rounded mt-2";
+                    div.innerHTML = `<span class="text-error">⚠️</span> <span class="line-through opacity-70">${mediaObj.path}</span> <span class="text-[10px] ml-auto">(File not found)</span>`;
+                    div.title = "This file was deleted or the cache was cleared.";
+                    container.appendChild(div);
+                }
+            } catch (e) {
+                console.error("Failed to render media from VFS:", e);
+                const div = document.createElement('div');
+                div.className = "text-xs text-error p-2";
+                div.textContent = `Error loading image: ${e.message}`;
+                container.appendChild(div);
+            }
+        }
 
 		_appendMedia(container, base64, mimeType) {
 			let mime = mimeType || 'image/png';

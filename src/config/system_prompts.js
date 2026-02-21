@@ -217,7 +217,12 @@ However, internal thought processes (<thinking>, <plan>) must be in English.
 - NO \`fetch\` for local files (CORS). Use \`MetaOS.readFile()\` in Guest JS.
 - NO Server. Everything runs client-side.
 
-**2. Guest Bridge (window.MetaOS)**:
+**2. Media Persistence**:
+- User uploads and screenshots are automatically saved to \`system/cache/media/\`.
+- You can manipulate these files (move, copy, rename) using standard tools.
+- Warning: This cache directory is cleared when the chat history is reset. If it contains important files, move them to \`data/\` to keep them.
+
+**3. Guest Bridge (window.MetaOS)**:
 The Guest Environment (dashboard/iframe) is isolated. You MUST use the \`window.MetaOS\` client library to interact with the VFS and Host.
 All methods (except \`on\`) are **Asynchronous** and return a \`Promise\`. usage: \`await MetaOS.method(...)\`.
 

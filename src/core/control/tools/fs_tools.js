@@ -22,26 +22,29 @@
 
             if (isBinary) {
                 // バイナリ処理
-                let base64 = content;
                 let mimeType = 'application/octet-stream';
                 if (params.path.match(/\.pdf$/i)) mimeType = 'application/pdf';
                 else if (params.path.match(/\.(png|jpg|jpeg)$/i)) mimeType = 'image/png';
                 
+                // DataURLからMimeTypeを抽出できる場合は上書き
                 if (content.startsWith('data:')) {
-                    const parts = content.split(',');
-                    base64 = parts[1];
-                    const match = parts[0].match(/:(.*?);/);
+                    const match = content.match(/:(.*?);/);
                     if (match) mimeType = match[1];
                 }
+
+                // ★ 新しい media オブジェクトを返す (Base64の実体は返さない)
                 return {
                     log: `[read_file] Read binary file: ${params.path} (${mimeType})`,
                     ui: `📦 Read Binary ${params.path}`,
-                    image: base64,
-                    mimeType: mimeType
+                    media: {
+                        path: params.path,
+                        mimeType: mimeType,
+                        metadata: {}
+                    }
                 };
             }
 
-            // テキスト処理
+            // テキスト処理 (変更なし)
             const lines = content.split(/\r?\n/);
             
             let s = parseInt(params.start);
