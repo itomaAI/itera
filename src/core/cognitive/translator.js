@@ -40,7 +40,7 @@
             const actions = [];
             for (const item of rawActions) {
                 let contentText = this._extractContent(item.content);
-                if (item.tag === 'edit_file' && contentText.includes('<<<<SEARCH')) {
+                if (item.tag === 'edit_file' && /<{3,}SEARCH/.test(contentText)) {
                     contentText = this._escapeRegexReplacement(contentText);
                 }
                 const action = {
@@ -146,7 +146,7 @@
             return String(content);
         }
         _escapeRegexReplacement(content) {
-            return content.replace(/(<<<<SEARCH\s*[\s\S]*?\s*====\s*)([\s\S]*?)(\s*>>>>)/g, (match, prefix, replacement, suffix) => {
+            return content.replace(/(<{3,}SEARCH[^\r\n]*\r?\n[\s\S]*?\r?\n[^\r\n]*={3,}[^\r\n]*\r?\n)([\s\S]*?)(\r?\n[^\r\n]*>{3,})/g, (match, prefix, replacement, suffix) => {
                 return prefix + replacement.replace(/\$/g, '$$$$') + suffix;
             });
         }

@@ -112,40 +112,54 @@
                 };
             }
 
-            const MARKER_SEARCH = "<<<<SEARCH";
-            const MARKER_DIVIDER = "====";
-            const MARKER_END = ">>>>";
+            if (/<{3,}SEARCH/.test(content)) {
+                const blockRegex = /<{3,}SEARCH[^\r\n]*\r?\n([\s\S]*?)\r?\n[^\r\n]*={3,}[^\r\n]*\r?\n([\s\S]*?)\r?\n[^\r\n]*>{3,}/g;
+                const blocks = [...content.matchAll(blockRegex)];
 
-            if (content.includes(MARKER_SEARCH)) {
-                if (content.split(MARKER_SEARCH).length > 2) throw new Error("Multiple replacements in one tag are not supported.");
-                
-                const searchStart = content.indexOf(MARKER_SEARCH) + MARKER_SEARCH.length;
-                const divStart = content.indexOf(MARKER_DIVIDER);
-                const divEnd = divStart + MARKER_DIVIDER.length;
-                const blockEnd = content.lastIndexOf(MARKER_END);
-
-                if (divStart === -1 || blockEnd === -1) throw new Error("Invalid edit block format.");
-
-                let patternStr = content.substring(searchStart, divStart);
-                let replaceStr = content.substring(divEnd, blockEnd);
-
-                if (patternStr.startsWith('\n')) patternStr = patternStr.substring(1);
-                if (patternStr.endsWith('\n')) patternStr = patternStr.substring(0, patternStr.length - 1);
-                if (replaceStr.startsWith('\n')) replaceStr = replaceStr.substring(1);
-                if (replaceStr.endsWith('\n')) replaceStr = replaceStr.substring(0, replaceStr.length - 1);
-
-                const isRegex = params.regex === 'true';
-                if (!isRegex) {
-                    patternStr = patternStr.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                if (blocks.length === 0) {
+                    throw new Error("Invalid edit block format. Ensure you use SEARCH, ====, and >>>> markers correctly.");
                 }
 
-                const msg = vfs.replaceContent(params.path, patternStr, replaceStr);
+                const isRegex = params.regex === 'true';
+                let currentFileContent = vfs.readFile(params.path);
+                let replaceCount = 0;
+
+                for (let i = 0; i < blocks.length; i++) {
+                    let patternStr = blocks[i][1];
+                    let replaceStr = blocks[i][2];
+
+                    if (!isRegex) {
+                        patternStr = patternStr.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                    }
+
+                    let regex;
+                    try {
+                        regex = new RegExp(patternStr, 'm');
+                    } catch (e) {
+                        throw new Error(`Invalid RegExp in block ${i + 1}: ${e.message}`);
+                    }
+
+                    if (!regex.test(currentFileContent)) {
+                        throw new Error(`Search pattern not found in ${params.path} for block ${i + 1}. No changes were made to the file.`);
+                    }
+
+                    const newContent = currentFileContent.replace(regex, replaceStr);
+                    if (newContent === currentFileContent) {
+                        throw new Error(`Replacement resulted in no change for block ${i + 1}. No changes were made to the file.`);
+                    }
+                    
+                    currentFileContent = newContent;
+                    replaceCount++;
+                }
+
+                vfs.writeFile(params.path, currentFileContent);
+                const blockMsg = replaceCount > 1 ? ` (${replaceCount} blocks updated)` : '';
                 return {
-                    log: `[edit_file] ${msg}`,
+                    log: `[edit_file] Replaced content in ${params.path}${blockMsg}`,
                     ui: `✏️ Replaced content in ${params.path}`
                 };
             }
-            throw new Error("Invalid <edit_file> content. Use strict markers (<<<<SEARCH) or specify 'mode' attribute.");
+            throw new Error("Invalid <edit_file> content. Use SEARCH markers or specify 'mode' attribute.");
         });
 
         // 4. list_files
