@@ -163,8 +163,8 @@
         deleteFile(path) {
             const p = this._norm(path);
             if (this.exists(p)) {
-                if (p.startsWith('.trash/')) {
-                    // ゴミ箱内の場合は完全削除
+                if (p.startsWith('.trash/') || p.startsWith('system/cache/')) {
+                    // ゴミ箱内またはキャッシュ領域の場合は完全削除
                     delete this.files[p];
                     this._emit('change', { type: 'delete', path: p, usage: this.getUsage() });
                     return `Permanently deleted file: ${p}`;
@@ -203,8 +203,8 @@
             const targets = Object.keys(this.files).filter(k => k.startsWith(p));
             if (targets.length === 0) return `Path ${p} not found.`;
 
-            if (p.startsWith('.trash/')) {
-                // ゴミ箱内の場合は完全削除
+            if (p.startsWith('.trash/') || p.startsWith('system/cache/')) {
+                // ゴミ箱内またはキャッシュ領域の場合は完全削除
                 targets.forEach(k => delete this.files[k]);
                 this._emit('change', { type: 'delete_dir', path: p, usage: this.getUsage() });
                 return `Permanently deleted directory ${p} (${targets.length} files).`;

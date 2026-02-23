@@ -815,6 +815,9 @@ Use this Codex as a guidepost, and build a better Itera OS together with the use
             };
             tasks.push(newTask);
             await this.saveTasks(tasks);
+            if (global.MetaOS && global.MetaOS.addEventLog) {
+                global.MetaOS.addEventLog(\`User added a new task: "\${newTask.title}" (Due: \${dueDate || 'None'})\`, 'task_added');
+            }
             return newTask;
         },
 
@@ -824,6 +827,9 @@ Use this Codex as a guidepost, and build a better Itera OS together with the use
             if (index !== -1) {
                 tasks[index] = { ...tasks[index], ...updates };
                 await this.saveTasks(tasks);
+                if (global.MetaOS && global.MetaOS.addEventLog && updates.title) {
+                    global.MetaOS.addEventLog(\`User updated task: "\${updates.title}"\`, 'task_updated');
+                }
                 return true;
             }
             return false;
@@ -843,9 +849,13 @@ Use this Codex as a guidepost, and build a better Itera OS together with the use
         async deleteTask(id) {
             let tasks = await this.getTasks();
             const initialLen = tasks.length;
+            const taskToDelete = tasks.find(t => t.id === id);
             tasks = tasks.filter(t => t.id !== id);
             if (tasks.length !== initialLen) {
                 await this.saveTasks(tasks);
+                if (global.MetaOS && global.MetaOS.addEventLog && taskToDelete) {
+                    global.MetaOS.addEventLog(\`User deleted task: "\${taskToDelete.title}"\`, 'task_deleted');
+                }
                 return true;
             }
             return false;
@@ -882,7 +892,35 @@ Use this Codex as a guidepost, and build a better Itera OS together with the use
             };
             events.push(newEvent);
             await Utils.safeWriteJson(path, events);
+            if (global.MetaOS && global.MetaOS.addEventLog) {
+                global.MetaOS.addEventLog(\`User added a calendar event: "\${title}" on \${date} \${time}\`, 'event_added');
+            }
             return newEvent;
+        },
+
+        async updateEvent(id, updates) {
+            const { originalDate, date, title, time, note } = updates;
+            await this.deleteEvent(id, originalDate || date);
+            const newEvent = await this.addEvent(title, date, time, note);
+            if (global.MetaOS && global.MetaOS.addEventLog) {
+                global.MetaOS.addEventLog(\`User updated calendar event: "\${title}" to \${date} \${time}\`, 'event_updated');
+            }
+            return newEvent;
+        },
+
+        async deleteEvent(id, dateStr) {
+            if (!dateStr) return false;
+            const monthKey = dateStr.slice(0, 7);
+            const path = \`data/events/\${monthKey}.json\`;
+            let events = await Utils.safeReadJson(path);
+            const eventToDelete = events.find(e => e.id === id);
+            events = events.filter(e => e.id !== id);
+            await Utils.safeWriteJson(path, events);
+            
+            if (global.MetaOS && global.MetaOS.addEventLog && eventToDelete) {
+                global.MetaOS.addEventLog(\`User deleted calendar event: "\${eventToDelete.title}" on \${eventToDelete.date}\`, 'event_deleted');
+            }
+            return true;
         },
 
         async getCalendarItems(monthKey) {
@@ -1741,7 +1779,7 @@ Use this Codex as a guidepost, and build a better Itera OS together with the use
         
         async function delEvent(id, dateStr) {
             if (confirm('Delete this event?')) {
-                await App.deleteEvent(id);
+                await App.deleteEvent(id, dateStr);
                 await render();
                 openDayModal(dateStr);
             }
@@ -2193,6 +2231,10 @@ Use this Codex as a guidepost, and build a better Itera OS together with the use
             if (!path.endsWith('.md')) path += '.md';
 
             await MetaOS.saveFile(path, \`# \${path.split('/').pop().replace('.md','')}\\n\\nStart writing...\`);
+            
+            if (window.MetaOS && MetaOS.addEventLog) {
+                MetaOS.addEventLog(\`User created a new note: "\${path}"\`, 'note_created');
+            }
             // List will auto-reload via event listener
         }
 
@@ -2458,6 +2500,7 @@ Use this Codex as a guidepost, and build a better Itera OS together with the use
 
     <script>
         let config = {};
+        let oldConfig = {};
         const DOM = id => document.getElementById(id);
         
         // --- Core ---
@@ -2465,6 +2508,7 @@ Use this Codex as a guidepost, and build a better Itera OS together with the use
             try {
                 const str = await MetaOS.readFile('system/config/config.json');
                 config = JSON.parse(str);
+                oldConfig = JSON.parse(str);
                 
                 // Bind values to UI
                 DOM('config-username').value = config.username || '';
@@ -2484,6 +2528,20 @@ Use this Codex as a guidepost, and build a better Itera OS together with the use
 
             try {
                 await MetaOS.saveFile('system/config/config.json', JSON.stringify(config, null, 4));
+                
+                if (window.MetaOS && MetaOS.addEventLog) {
+                    if (config.username !== oldConfig.username) {
+                        MetaOS.addEventLog(\`User changed their name to "\${config.username}".\`, 'config_changed');
+                    }
+                    if (config.agentName !== oldConfig.agentName) {
+                        MetaOS.addEventLog(\`User changed the agent's name to "\${config.agentName}".\`, 'config_changed');
+                    }
+                    if (config.language !== oldConfig.language) {
+                        MetaOS.addEventLog(\`User changed the system language to "\${config.language}". Please communicate in this language from now on.\`, 'config_changed');
+                    }
+                }
+                oldConfig = JSON.parse(JSON.stringify(config));
+
                 status.textContent = "Saved";
                 status.classList.remove('text-warning');
                 status.classList.add('text-success');

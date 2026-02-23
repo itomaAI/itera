@@ -240,6 +240,7 @@ All methods (except \`on\`) are **Asynchronous** and return a \`Promise\`. usage
 **AI Interaction**:
 - \`agent(instruction, { silent: boolean, context: object })\`: Triggers an autonomous AI task (background).
 - \`ask(text, attachments)\`: Triggers the AI as if the user sent a message (chat).
+- \`addEventLog(message, type)\`: Silently appends an event log to the chat history without triggering the AI. Useful for recording user actions in apps to give the AI context.
 
 **UI & Host Control**:
 - \`switchView(path)\`: Navigates the iframe to a specific HTML file (e.g., 'apps/calendar.html').

@@ -154,12 +154,7 @@
 
 			// Chat Events
 			chat.on('send', async (text, attachments) => {
-				// 1. キャッシュディレクトリの準備
 				const CACHE_DIR = 'system/cache/media';
-				if (!vfs.exists(CACHE_DIR) && vfs.createDirectory) {
-					vfs.createDirectory(CACHE_DIR);
-				}
-
 				const content = [];
 
 				for (const file of attachments) {
@@ -180,6 +175,10 @@
 						});
 					} else {
 						// バイナリファイル
+						if (!vfs.exists(CACHE_DIR) && vfs.createDirectory) {
+							vfs.createDirectory(CACHE_DIR);
+						}
+
 						const timestamp = Date.now();
 						const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
 						const path = `${CACHE_DIR}/${timestamp}_${safeName}`;
@@ -436,6 +435,17 @@
 				const content = vfs.readFile(path);
 				this.components.editor.open(path, content);
 				this._closeMobileDrawers();
+			});
+
+			bridge.registerHandler('add_event_log', ({
+				message,
+				type
+			}) => {
+				const lpml = `<event type="${type || 'app_event'}">\n${message}\n</event>`;
+				const turn = this.state.history.append(global.Itera.Role.SYSTEM, lpml, {
+					type: 'event_log'
+				});
+				this.components.chat.appendTurn(turn);
 			});
 
 			bridge.registerHandler('agent_trigger', async ({

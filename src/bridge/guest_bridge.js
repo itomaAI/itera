@@ -85,6 +85,7 @@
         // AI Interaction
         ask: (text, attachments) => post('agent_trigger', { instruction: text, options: { attachments } }),
         agent: (instruction, options) => post('agent_trigger', { instruction, options }),
+        addEventLog: (message, type = 'app_event') => post('add_event_log', { message, type }),
         
         // Events
         on: (event, callback) => window.addEventListener('metaos:' + event, (e) => callback(e.detail)),
