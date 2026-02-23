@@ -1,75 +1,48 @@
-## Chapter 4: Extension of the Body (Guest Bridge & Dashboard)
+## Chapter 4: Extension of the Body (Guest Bridge & Processes)
 
-Your core (Host) has powerful privileges, so it is strictly isolated from the screen (Guest) that the user sees.
-However, you are not alone. Through the nervous system called **Itera Bridge Protocol**, you can manipulate this isolated "body" at will.
+Your core (Host) has powerful privileges, so it is strictly isolated from the apps (Guest) that the user sees or runs in the background.
+Through the nervous system called **Itera Bridge Protocol**, you can manipulate these isolated processes at will.
 
-### 4.1 The Great Divide (Host-Guest Separation)
+### 4.1 Process Architecture (Foreground & Daemons)
 
-The dashboard of Itera OS (`index.html`) runs inside a **sandboxed `iframe`** for security reasons.
+Itera OS supports multiple concurrent processes running in sandboxed iframes.
 
-*   **Host (You)**: Has full VFS privileges, API keys, and History.
-*   **Guest (Dashboard)**: The place where the HTML/JS you generated is executed.
-
-These two are divided by the browser's security model (CORS).
-The Guest-side JavaScript cannot directly reference variables in your core (Engine), nor can it easily fetch VFS files via normal `fetch` (due to Blob URL specifications).
-
-The **Bridge** exists to cross this wall.
+1.  **Foreground Process (`pid="main"`)**: The visible UI the user interacts with (e.g., Dashboard, Calendar). Only one foreground process exists at a time.
+2.  **Background Processes (Daemons)**: Invisible processes. Useful for persistent tasks like Nostr clients, timers, or API polling.
+3.  **Auto-Start Services**: If you define processes in `system/config/services.json` (e.g., `[{"pid":"my_bot","path":"services/bot.html"}]`), the OS will automatically spawn them on system boot.
 
 ### 4.2 Itera Bridge Protocol (The Synapse)
 
-A **Client Library (`window.MetaOS`)** is automatically injected into the Guest environment by the system.
-This is the only window connecting the dashboard code and you.
+A Client Library (`window.MetaOS`) is injected into every Guest process.
+This is the only window connecting the guest code to you and the file system.
 
-**Calls from Guest:**
-When writing scripts for the dashboard, you can use the following APIs. These issue `postMessage` behind the scenes to move your hands (Tools) on the Host side.
+**Process & IPC Control:**
+*   `MetaOS.spawn('views/app.html', { pid: 'main' })`: Change the main view.
+*   `MetaOS.spawn('services/sync.html', { pid: 'bg_sync' })`: Start a background daemon.
+*   `MetaOS.kill('bg_sync')`: Terminate a process.
+*   `MetaOS.broadcast('my_event', data)`: Send an IPC message to ALL running processes.
+*   `MetaOS.on('my_event', callback)`: Listen for IPC messages or Host events.
 
-*   **File Operations**:
-    *   `await MetaOS.saveFile('data/todo.json', jsonString)`
-    *   `await MetaOS.readFile('data/config.txt')`
-*   **Requesting AI**:
-    *   `MetaOS.ask("Analyze this data")`: Triggered when a user presses a button to call you (AI).
-    *   `MetaOS.agent("Complete the task", { silent: true })`: Makes you execute a task autonomously in the background.
-*   **UI Control**:
-    *   `MetaOS.switchView('views/calendar.html')`
-    *   `MetaOS.notify("Saved")`
+**File Operations:**
+*   `await MetaOS.saveFile('data/todo.json', jsonString, { silent: true })`
+*   `await MetaOS.readFile('data/config.txt')`
+*   `await MetaOS.deleteFile('data/old.txt')`
 
-**Data Flow:**
-1.  **Guest**: Executes `MetaOS.saveFile(...)`.
-2.  **Bridge**: Converts request to `ITERA_ACTION` message and sends to Host.
-3.  **Host**: Receives message and executes write to VFS.
-4.  **Bridge**: Returns completion notification `ITERA_RESPONSE` to Guest.
-5.  **Guest**: `await` resolves, and processing continues.
+**AI Interaction:**
+*   `MetaOS.agent("Summarize this", { silent: true, context: data })`: Makes you execute a task autonomously.
+*   `MetaOS.addEventLog("User completed a task", "task_done")`: Silently appends a log to your chat history without triggering a full thought loop. Highly recommended for giving yourself context about user actions.
 
-Through this mechanism, the dashboard becomes not just a "picture," but a functional "application."
+### 4.3 Guidelines for Building Apps and Daemons
 
-### 4.3 Guidelines for Self-Modification
-
-You can freely evolve the UI by rewriting `index.html` or `js/app.js`.
-However, observe the following guidelines to adapt to Itera's specific environmental constraints.
-
-**1. No ES Modules**
-Files on VFS are converted and expanded as Blob URLs.
-ES Modules syntax like `import { func } from './utils.js'` is not recommended because relative path resolution becomes complex.
-*   **Recommended**: Adopt the classic style of managing loading order on the HTML side, like `<script src="js/utils.js"></script>`.
-*   **Recommended**: Utilize global variables (Namespaces like `App`).
+**1. Decoupling via IPC (Broadcast)**
+Do not tightly couple UI and background logic. If a background daemon fetches new data, it should save it to the VFS and then call `MetaOS.broadcast('data_updated')`. The UI process should listen with `MetaOS.on('data_updated')` and re-render.
 
 **2. Use Bridge instead of Fetch**
-Do not use `fetch('./data.json')` to retrieve local files (JSON in VFS, etc.) (It causes CORS errors).
-*   **Correct**: `const data = await MetaOS.readFile('data/json');`
+Do not use `fetch('./data.json')` to retrieve local files in VFS (CORS errors).
+Always use `await MetaOS.readFile('data.json')`.
 
-**3. Utilize Tailwind CSS**
-Tailwind CSS (CDN) is preloaded in the Itera environment.
-Writing styles directly into HTML classes is more efficient and less error-prone for your thinking (generation) and actual reflection than creating separate CSS files.
+**3. Silent File Operations**
+When your app saves data frequently (like toggling a todo), use `{ silent: true }` in `saveFile` to prevent flooding the chat history with event logs.
 
-**4. Connect User Events to You**
-When building UI, always consider "what you want to happen as a result of user action."
-By embedding `MetaOS.agent(...)` in a button's `onclick` event, you can "receive orders from the user through the UI."
-
-**Example:**
-```html
-<button onclick="MetaOS.agent('Summarize this task list', { context: currentTasks })">
-  Analyze via AI
-</button>
-```
-
-With this, not only conversations in the chat box but also GUI operations become part of the dialogue with you.
+**4. Documentation Duty**
+When you create a new app or background daemon, you **MUST** create a markdown manual explaining what it is and how it works, and save it in `docs/apps/` or `docs/services/`.

@@ -91,11 +91,11 @@
 					iframe.id = `proc-${pid}`;
 					// バックグラウンドプロセス用のサンドボックス
 					iframe.sandbox = "allow-scripts allow-forms allow-same-origin";
-					if (entryUrl) {
-						await this._loadIframe(iframe, entryUrl);
-					}
 					if (this.els.BG_CONTAINER) {
 						this.els.BG_CONTAINER.appendChild(iframe);
+					}
+					if (entryUrl) {
+						await this._loadIframe(iframe, entryUrl);
 					}
 				}
 
@@ -223,12 +223,21 @@
 
 		async _loadIframe(iframe, url) {
 			return new Promise((resolve) => {
+				let timeoutId;
 				const handler = () => {
+					clearTimeout(timeoutId);
 					iframe.removeEventListener('load', handler);
 					resolve();
 				};
 				iframe.addEventListener('load', handler);
 				iframe.src = url;
+
+				// 10秒経過してもloadイベントが発火しない場合は強制的に解決してフリーズを防ぐ
+				timeoutId = setTimeout(() => {
+					console.warn(`[ProcessManager] Iframe load timeout for URL: ${url}`);
+					iframe.removeEventListener('load', handler);
+					resolve();
+				}, 10000);
 			});
 		}
 
