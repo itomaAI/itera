@@ -69,10 +69,10 @@
         switchView: (path) => post('switch_view', { path }),
         
         // File System
-        saveFile: (path, content) => post('save_file', { path, content }),
+        saveFile: (path, content, options = { silent: true }) => post('save_file', { path, content, options }),
         readFile: (path) => post('read_file', { path }),
-        deleteFile: (path) => post('delete_file', { path }),
-        renameFile: (oldPath, newPath) => post('rename_file', { oldPath, newPath }),
+        deleteFile: (path, options = { silent: true }) => post('delete_file', { path, options }),
+        renameFile: (oldPath, newPath, options = { silent: true }) => post('rename_file', { oldPath, newPath, options }),
         stat: (path) => post('stat_file', { path }),
         listFiles: (path, options) => post('list_files', { path, options }),
         

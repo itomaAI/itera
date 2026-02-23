@@ -56,6 +56,11 @@
 			history.load(initialHistory);
 			const configManager = new State.ConfigManager(vfs);
 
+			// 自動パージ（1週間以上経過したゴミ箱のファイルを削除）
+			if (typeof vfs.purgeTrash === 'function') {
+				vfs.purgeTrash(7);
+			}
+
 			this.state = {
 				storage,
 				vfs,
@@ -359,20 +364,42 @@
 
 		_setupBridgeHandlers() {
 			const {
-				vfs
+				vfs,
+				history
 			} = this.state;
 			const bridge = this.bridge;
+			const chat = this.components.chat;
+
+			const checkAndEmitEvent = (options, type, desc) => {
+				if (options && options.silent === false) {
+					const lpml = `<event type="${type}">\n${desc}\n</event>`;
+					const turn = history.append(global.Itera.Role.SYSTEM, lpml, {
+						type: 'event_log'
+					});
+					chat.appendTurn(turn);
+				}
+			};
 
 			bridge.registerHandler('read_file', ({
 				path
 			}) => vfs.readFile(path));
 			bridge.registerHandler('save_file', ({
 				path,
-				content
-			}) => vfs.writeFile(path, content));
+				content,
+				options
+			}) => {
+				const res = vfs.writeFile(path, content);
+				checkAndEmitEvent(options, 'file_edited', `User App edited file: ${path}`);
+				return res;
+			});
 			bridge.registerHandler('delete_file', ({
-				path
-			}) => vfs.deleteFile(path));
+				path,
+				options
+			}) => {
+				const res = vfs.deleteFile(path);
+				checkAndEmitEvent(options, 'file_deleted', `User App deleted file: ${path}`);
+				return res;
+			});
 			bridge.registerHandler('stat_file', ({
 				path
 			}) => vfs.stat(path));
@@ -385,8 +412,13 @@
 			}));
 			bridge.registerHandler('rename_file', ({
 				oldPath,
-				newPath
-			}) => vfs.rename(oldPath, newPath));
+				newPath,
+				options
+			}) => {
+				const res = vfs.rename(oldPath, newPath);
+				checkAndEmitEvent(options, 'file_moved', `User App renamed file: ${oldPath} -> ${newPath}`);
+				return res;
+			});
 
 			bridge.registerHandler('switch_view', async ({
 				path

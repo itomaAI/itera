@@ -163,9 +163,22 @@
         deleteFile(path) {
             const p = this._norm(path);
             if (this.exists(p)) {
-                delete this.files[p];
-                this._emit('change', { type: 'delete', path: p, usage: this.getUsage() });
-                return `Deleted file: ${p}`;
+                if (p.startsWith('.trash/')) {
+                    // ゴミ箱内の場合は完全削除
+                    delete this.files[p];
+                    this._emit('change', { type: 'delete', path: p, usage: this.getUsage() });
+                    return `Permanently deleted file: ${p}`;
+                } else {
+                    // ゴミ箱へ移動
+                    const filename = p.split('/').pop();
+                    const trashPath = `.trash/${Date.now()}_${filename}`;
+                    this.files[trashPath] = this.files[p];
+                    this.files[trashPath].meta.deleted_at = Date.now();
+                    this.files[trashPath].meta.original_path = p;
+                    delete this.files[p];
+                    this._emit('change', { type: 'delete', path: p, usage: this.getUsage() });
+                    return `Moved to trash: ${p}`;
+                }
             }
             return this.deleteDirectory(p);
         }
@@ -190,9 +203,28 @@
             const targets = Object.keys(this.files).filter(k => k.startsWith(p));
             if (targets.length === 0) return `Path ${p} not found.`;
 
-            targets.forEach(k => delete this.files[k]);
-            this._emit('change', { type: 'delete_dir', path: p, usage: this.getUsage() });
-            return `Deleted directory ${p} (${targets.length} files).`;
+            if (p.startsWith('.trash/')) {
+                // ゴミ箱内の場合は完全削除
+                targets.forEach(k => delete this.files[k]);
+                this._emit('change', { type: 'delete_dir', path: p, usage: this.getUsage() });
+                return `Permanently deleted directory ${p} (${targets.length} files).`;
+            } else {
+                // ゴミ箱へ移動
+                const timestamp = Date.now();
+                const dirName = p.split('/').filter(Boolean).pop();
+                const trashBase = `.trash/${timestamp}_${dirName}/`;
+                
+                targets.forEach(k => {
+                    const dest = k.replace(p, trashBase);
+                    this.files[dest] = this.files[k];
+                    this.files[dest].meta.deleted_at = timestamp;
+                    this.files[dest].meta.original_path = k;
+                    delete this.files[k];
+                });
+                
+                this._emit('change', { type: 'delete_dir', path: p, usage: this.getUsage() });
+                return `Moved directory to trash: ${p} (${targets.length} files).`;
+            }
         }
 
         rename(oldPath, newPath) {
@@ -236,6 +268,27 @@
             const content = this.files[src].content;
             this.writeFile(dest, content);
             return `Copied: ${src} -> ${dest}`;
+        }
+
+        purgeTrash(days = 7) {
+            const threshold = Date.now() - (days * 24 * 60 * 60 * 1000);
+            const targets = Object.keys(this.files).filter(k => k.startsWith('.trash/'));
+            let count = 0;
+            
+            targets.forEach(k => {
+                const file = this.files[k];
+                const deletedAt = file.meta?.deleted_at || file.meta?.updated_at || 0;
+                if (deletedAt < threshold) {
+                    delete this.files[k];
+                    count++;
+                }
+            });
+            
+            if (count > 0) {
+                this._emit('change', { type: 'purge_trash', usage: this.getUsage() });
+                console.log(`[VFS] Purged ${count} old files from .trash/`);
+            }
+            return count;
         }
 
         // --- ★ Modified: Enhanced listFiles (Recursive support) ---
