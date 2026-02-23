@@ -1,4 +1,4 @@
-# Itera Blueprint: Itera Link v1.0
+# Itera Blueprint: Itera Link v1.1
 
 > **What is this?**
 > This is an executable blueprint for Itera OS. Drag and drop this file into your Itera chat and tell the AI: *"Install this blueprint."*
@@ -12,7 +12,7 @@ Please install this system by strictly following these phases:
 
 1. **Explain & Ask**: Briefly explain what Itera Link is to the user (a secure P2P network for their AI secretaries across devices) and ask for permission to begin installation. Wait for their approval.
 2. **Deploy Manual**: Create the `itera_link_manual.md` so you know how to use the protocol.
-3. **Deploy Daemon**: Create the background service that handles the Nostr network.
+3. **Deploy Daemon**: Create the background service that handles the Nostr network and file packaging.
 4. **Deploy UI**: Create the settings application for the user.
 5. **System Registration**: Update `apps.json` and `services.json` to enable the app and daemon.
 6. **Post-Install**: Instruct the user to open the Itera Link app to generate their Nostr keys.
@@ -26,32 +26,31 @@ Agent, create the following file so you understand how to use Itera Link.
 ```markdown
 # Itera Link Protocol (Agent Manual)
 
-Itera Link allows you to communicate with other Itera agents on different devices.
+Itera Link allows you to communicate with other Itera agents on different devices securely.
 
 ## 📤 How to SEND a Message
-To send information or files to another device, create a simple JSON file in the outbox: `data/itera_link/outbox/`.
+To send information or files to another device, create a JSON file in the outbox: `data/itera_link/outbox/`.
 Give it a unique name, e.g., `msg_<timestamp>.json`.
 
 **JSON Format:**
 \`\`\`json
 {
   "to": "npub1...", 
-  "content": "Please review this document and the attached image.",
+  "content": "Please review this document and the attached data.",
   "attachments": [
-    "data/notes/project_draft.md",
-    "system/cache/media/screenshot_123.png"
+    "data/notes/project_draft.md"
   ]
 }
 \`\`\`
-*Note: The Daemon will automatically read these paths from the VFS, package the actual files, encrypt them, and send them. It will then delete your outbox JSON. Do NOT embed file contents in the JSON yourself.*
+*Note: The Daemon will automatically read these paths from the VFS, package the actual files, encrypt them, and send them. Do NOT embed file contents in the JSON yourself.*
 
-**Size Limit Warning**: If the total size of the message and attachments exceeds 50KB, the Daemon will reject it and leave an error log. Keep attachments small.
+**Size Limit Warning**: Nostr relays have strict size limits (typically around 64KB per event). Large files (like high-res images) will cause the transmission to fail. Please keep attachments small (a few KB of text, JSON, or highly compressed thumbnails). If the Daemon rejects your message due to size, you will see an error log in your chat history.
 
 ## 📥 How to RECEIVE a Message
 When a message arrives, the Daemon will automatically unpack it into a new directory: `data/itera_link/inbox/<message_id>/`.
 Inside this directory, you will find:
 - `message.md` (The text content from the sender)
-- Any attached files (e.g., `project_draft.md`, `screenshot_123.png`)
+- Any attached files (e.g., `project_draft.md`)
 
 You will be notified via a system event log in your chat history.
 **Your Duty**: When notified, use `<list_files>` and `<read_file>` to review the inbox directory, process the request, and then use `<delete_file>` to remove the entire `<message_id>` directory to keep the system clean.
@@ -60,7 +59,7 @@ You will be notified via a system event log in your chat history.
 ---
 
 ## Phase 3: Deploy Background Daemon
-Create the daemon that handles the actual networking.
+Create the daemon that handles the actual networking. Note the specific CDN version and error handling mechanisms.
 
 ### File: `services/itera_link_daemon.html`
 ```html
@@ -68,7 +67,8 @@ Create the daemon that handles the actual networking.
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <script src="https://unpkg.com/nostr-tools/lib/nostr.bundle.js"></script>
+    <!-- MUST use v1.17.0 to prevent breaking changes in newer versions -->
+    <script src="https://unpkg.com/nostr-tools@1.17.0/lib/nostr.bundle.js"></script>
 </head>
 <body>
     <script>
@@ -112,6 +112,11 @@ Create the daemon that handles the actual networking.
                 processedIds = new Set(JSON.parse(p));
             } catch (e) { processedIds = new Set(); }
 
+            // Start IPC Heartbeat for UI
+            setInterval(() => {
+                MetaOS.broadcast('itera_link_heartbeat', { timestamp: Date.now() });
+            }, 3000);
+
             await connectRelay();
             setInterval(syncOutbox, 5000);
         }
@@ -140,7 +145,14 @@ Create the daemon that handles the actual networking.
             try {
                 const decrypted = await nip04.decrypt(privKeyHex, event.pubkey, event.content);
                 const senderNpub = nip19.npubEncode(event.pubkey);
-                const payload = JSON.parse(decrypted);
+                
+                // Fail-safe parsing: handle both IteraLink JSON and normal text DMs
+                let payload;
+                try {
+                    payload = JSON.parse(decrypted);
+                } catch(e) {
+                    payload = { content: decrypted, files: [] };
+                }
 
                 // Create Inbox Directory
                 const msgDir = `${DIRS.inbox}/${event.id}`;
@@ -159,7 +171,7 @@ Create the daemon that handles the actual networking.
                     }
                 }
 
-                // Mark processed
+                // Mark processed immediately to prevent loops
                 processedIds.add(event.id);
                 await MetaOS.saveFile(DIRS.processed, JSON.stringify([...processedIds]), {silent:true});
 
@@ -171,6 +183,11 @@ Create the daemon that handles the actual networking.
 
             } catch (e) {
                 console.error("[IteraLink] Failed to process incoming message", e);
+                // Mark broken messages as processed to avoid infinite crash loops
+                if (event && event.id) {
+                    processedIds.add(event.id);
+                    MetaOS.saveFile(DIRS.processed, JSON.stringify([...processedIds]), {silent:true});
+                }
             }
         }
 
@@ -254,7 +271,7 @@ Create the daemon that handles the actual networking.
 ---
 
 ## Phase 4: Deploy UI App
-Create the user interface for configuration.
+Create the user interface for configuration. This UI listens to the IPC heartbeat to accurately reflect the daemon's status.
 
 ### File: `apps/itera_link.html`
 ```html
@@ -266,7 +283,7 @@ Create the user interface for configuration.
     <title>Itera Link</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="../system/lib/ui.js"></script>
-    <script src="https://unpkg.com/nostr-tools/lib/nostr.bundle.js"></script>
+    <script src="https://unpkg.com/nostr-tools@1.17.0/lib/nostr.bundle.js"></script>
 </head>
 <body class="bg-app text-text-main h-screen flex flex-col p-6 overflow-hidden">
 
@@ -318,6 +335,7 @@ Create the user interface for configuration.
     <script>
         const { generatePrivateKey, getPublicKey, nip19 } = window.NostrTools;
         const CONFIG_PATH = 'data/itera_link/config.json';
+        let lastHeartbeat = 0;
 
         async function init() {
             if (!window.MetaOS) return setTimeout(init, 100);
@@ -331,7 +349,23 @@ Create the user interface for configuration.
             } catch(e) {}
             
             document.getElementById('input-privkey').addEventListener('input', (e) => updatePubkeyDisplay(e.target.value));
-            checkDaemon();
+
+            // IPC Heartbeat Listener
+            MetaOS.on('itera_link_heartbeat', () => {
+                lastHeartbeat = Date.now();
+            });
+
+            // UI Status Updater
+            setInterval(() => {
+                const statusEl = document.getElementById('daemon-status');
+                if (Date.now() - lastHeartbeat < 6000) {
+                    statusEl.textContent = "Running 🟢";
+                    statusEl.className = "font-mono text-success";
+                } else {
+                    statusEl.textContent = "Stopped 🔴 / Connecting...";
+                    statusEl.className = "font-mono text-error";
+                }
+            }, 1000);
         }
 
         function updatePubkeyDisplay(nsec) {
@@ -368,18 +402,7 @@ Create the user interface for configuration.
             await MetaOS.kill('itera_link_daemon');
             await MetaOS.spawn('services/itera_link_daemon.html', { pid: 'itera_link_daemon', mode: 'background' });
             
-            checkDaemon();
             alert("Settings saved. Itera Link is now active!");
-        }
-
-        async function checkDaemon() {
-            const statusEl = document.getElementById('daemon-status');
-            try {
-                // To check if it's running, we can check ps list
-                // For simplicity in UI, we just assume it's running if config exists
-                statusEl.textContent = "Running 🟢";
-                statusEl.className = "font-mono text-success";
-            } catch(e) {}
         }
 
         init();
@@ -401,7 +424,7 @@ Append this object to the array so the app shows up in the Library:
     {
         "id": "itera_link",
         "name": "Itera Link",
-        "icon": "📡",
+        "icon": "🔗",
         "path": "apps/itera_link.html",
         "description": "Device-to-Device Sync"
     }
