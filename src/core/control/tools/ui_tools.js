@@ -7,37 +7,6 @@
 
 	global.Itera.Control.Tools.registerUITools = function(registry) {
 
-		// --- Legacy Compatibility ---
-		registry.register('preview', async (params, context) => {
-			if (context.ui && context.ui.components && context.ui.components.processManager) {
-				await context.ui.components.processManager.spawn('main', params.path || 'index.html', 'foreground');
-				return {
-					log: `[preview] Refreshed main process.`,
-					ui: `🔄 Preview Refreshed`
-				};
-			}
-			return {
-				log: "ProcessManager not available.",
-				error: true
-			};
-		});
-
-		registry.register('switch_view', async (params, context) => {
-			const path = params.path || 'index.html';
-			if (context.ui && context.ui.components && context.ui.components.processManager) {
-				await context.ui.components.processManager.spawn('main', path, 'foreground');
-				return {
-					log: `[switch_view] Switched main view to ${path}`,
-					ui: `Navigate: ${path}`
-				};
-			}
-			return {
-				log: "ProcessManager not available.",
-				error: true
-			};
-		});
-		// ----------------------------
-
 		// 1. spawn (Start or restart a process)
 		registry.register('spawn', async (params, context) => {
 			const pid = params.pid || 'main';

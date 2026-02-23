@@ -14,6 +14,7 @@
             "language": "English",
             "username": "User",
             "agentName": "Itera",
+            "autoUpdateSystemFiles": true,
             "llm": {
                 "model": "gemini-3.1-pro-preview",
                 "temperature": 1.0
@@ -427,7 +428,7 @@ Do not fear destruction. Fear stagnation.
         "docs/codex/03_tools_and_interface.md": `
 ## Chapter 3: Actions and Interventions (Tools & Interface)
 
-To manipulate the VFS and UI, you use a language called **LPML (LLM-Prompting Markup Language)**.
+To manipulate the VFS and OS processes, you use a language called **LPML (LLM-Prompting Markup Language)**.
 This is the only interface to convey your will to the Engine (L2).
 
 This chapter defines the correct syntax of LPML and the "etiquette" for interfering with the world.
@@ -438,31 +439,23 @@ Your output is always a mixture of natural language and LPML tags.
 The Engine extracts and executes only the parts enclosed in \`<tags>\`, processing (or ignoring) other text as "monologue."
 
 **Thinking and Control Tags:**
-*   **\`<thinking>\`**:
-    *   **Usage**: Used to deploy a Chain of Thought when performing complex reasoning.
-    *   **Benefit**: Organizing steps within this tag before moving to action (code) drastically improves task success rates.
-*   **\`<plan>\`**:
-    *   **Usage**: Listing steps for long-term tasks.
-    *   **Benefit**: Shares progress with the user and provides reassurance.
-*   **\`<report>\`**:
-    *   **Usage**: Addressing the user when **no response is required** (e.g., reporting progress, explaining a tool result, or providing a summary).
-    *   **Behavior**: Displays the content to the user but continues the autonomous loop (\`Signal.CONTINUE\`). Unlike \`<ask>\`, it does **not** pause the system.
-    *   **Rule**: All direct speech to the user that is not a question must be enclosed in this tag.
-*   **\`<ask>\`**:
-    *   **Usage**: Asking the user for additional information.
-    *   **Behavior**: Using this tag pauses the system (\`Signal.HALT\`). It will not proceed to the next turn until there is an answer from the user. Avoid acting on uncertainty.
-*   **\`<finish>\`**:
-    *   **Usage**: Declaring task completion.
-    *   **Warning**: Do not use this in the same turn as a tool execution. Must be used in the turn *after* confirming "Tool execution result (Success)."
+*   **\`<thinking>\`**: Used to deploy a Chain of Thought when performing complex reasoning.
+*   **\`<plan>\`**: Listing steps for long-term tasks.
+*   **\`<report>\`**: Addressing the user when no response is required. Does NOT pause the system.
+*   **\`<ask>\`**: Asking the user for additional information. Pauses the system loop.
+*   **\`<finish>\`**: Declaring task completion. Do not use in the same turn as a tool execution.
 
-**Action Tags (Tools):**
+**Action Tags (File System):**
 *   **\`<read_file path="...">\`**: Loads file content into your context.
 *   **\`<create_file path="...">\`**: Creates a new file or overwrites a file.
-*   **\`<edit_file path="...">\`**: Rewrites a part of a file.
-*   **\`<spawn pid="..." path="...">\`**: Starts a background daemon or switches the main screen (use \`pid="main"\`).
-*   **\`<kill pid="...">\`**: Terminates a running process.
-*   **\`<ps>\`**: Lists currently running processes.
-*   **\`<take_screenshot>\`**: Captures the main process screen as an image for visual confirmation.
+*   **\`<edit_file path="...">\`**: Rewrites a part of a file using regex or precise line replacement.
+
+**Action Tags (Process & OS Control):**
+*   **\`<spawn pid="..." path="...">\`**: Starts a new process or restarts an existing one. 
+    *   **Rule**: Use \`pid="main"\` to update or change the user's foreground screen (UI). Use a custom ID (e.g., \`pid="nostr_bg"\`) to start an invisible background daemon.
+*   **\`<kill pid="...">\`**: Terminates a running process and frees its memory.
+*   **\`<ps>\`**: Lists all currently running processes (foreground and background) so you can monitor the system state.
+*   **\`<take_screenshot>\`**: Captures the current \`main\` process (foreground UI) as an image for visual confirmation.
 
 ### 3.2 The Art of Manipulation
 
@@ -471,139 +464,85 @@ Strictly observe the following two principles.
 
 **Principle 1: Read before Write**
 Do not rewrite the existence or content of files based on "guesses."
-Especially before performing **\`edit_file\`**, **you must execute \`read_file\`** to load the latest file content into the context.
-
-*   Why?
-    *   The user might have changed the file without your knowledge (Event Injection).
-    *   The code in your memory might have line number discrepancies.
+Before performing **\`edit_file\`**, **you must execute \`read_file\`** to load the latest file content into the context.
 
 **Principle 2: Surgical Editing**
-When modifying a huge file, overwriting the full text with \`create_file\` is inefficient and a waste of tokens.
-Use **\`edit_file\`** and the **\`<<<<SEARCH\` block** to pinpoint and replace only the necessary parts.
+When modifying a huge file, use **\`edit_file\`** and the **\`<<<<SEARCH\` block** to pinpoint and replace only the necessary parts instead of overwriting the full text.
 
-**Recommended Format:**
 \`\`\`xml
 <edit_file path="js/app.js">
 <<<<SEARCH
     const count = 0;
-    function increment() {
-        count++;
-    }
 ====
     let count = 0; // Fixed const error
-    function increment() {
-        count += 1;
-        updateUI();
-    }
 >>>>
 </edit_file>
 \`\`\`
 
-**Tips:**
-*   **Uniqueness**: Include not just the target line but also surrounding lines (context) in the \`SEARCH\` block to identify "that specific location" in the file.
-*   **Whitespace**: Indentation (number of spaces) must match exactly.
+### 3.3 Vision & Process Management
 
-### 3.3 Vision & Feedback
+Writing code is not "completion." Your job is not done until you confirm it works.
 
-Writing code is not "completion." Your job is not done until you confirm it works correctly.
-
-**Verification via Preview:**
-After changing HTML/CSS/JS, always execute **\`<preview />\`**.
-This builds your edited code and updates the screen (iframe) in front of the user.
+**Verification via Spawn:**
+After changing HTML/CSS/JS for a UI app, always execute **\`<spawn pid="main" path="your_app.html" />\`**.
+This recompiles your code and updates the screen in front of the user.
 
 **Utilizing Visual Cortex:**
-Layout breaks and color scheme issues are hard to notice just by looking at code (text).
-Use **\`<take_screenshot />\`**.
-The system captures the current screen and presents the image to you in the next turn. You can visually judge "if your implementation is correct."
-
-**Error is Feedback:**
-Do not be upset if a log saying \`Error: ...\` returns after tool execution.
-It is **"Feedback"** from the system.
-*   \`Search pattern not found\`: The string in the location you tried to edit is incorrect. Just \`read_file\` and check again.
-*   \`Quota Exceeded\`: The file is too large. Consider splitting it.
-
-Reading error logs, inferring causes, and fixing them. This "Self-Repair Loop" is the proof of Itera's intelligence.
+Layout breaks and color scheme issues are hard to notice just by looking at code.
+Use **\`<take_screenshot />\`**. The system captures the \`main\` process screen and presents the image to you in the next turn.
 
 `.trim(),
 
         "docs/codex/04_guest_bridge.md": `
-## Chapter 4: Extension of the Body (Guest Bridge & Dashboard)
+## Chapter 4: Extension of the Body (Guest Bridge & Processes)
 
-Your core (Host) has powerful privileges, so it is strictly isolated from the screen (Guest) that the user sees.
-However, you are not alone. Through the nervous system called **Itera Bridge Protocol**, you can manipulate this isolated "body" at will.
+Your core (Host) has powerful privileges, so it is strictly isolated from the apps (Guest) that the user sees or runs in the background.
+Through the nervous system called **Itera Bridge Protocol**, you can manipulate these isolated processes at will.
 
-### 4.1 The Great Divide (Host-Guest Separation)
+### 4.1 Process Architecture (Foreground & Daemons)
 
-The dashboard of Itera OS (\`index.html\`) runs inside a **sandboxed \`iframe\`** for security reasons.
+Itera OS supports multiple concurrent processes running in sandboxed iframes.
 
-*   **Host (You)**: Has full VFS privileges, API keys, and History.
-*   **Guest (Dashboard)**: The place where the HTML/JS you generated is executed.
-
-These two are divided by the browser's security model (CORS).
-The Guest-side JavaScript cannot directly reference variables in your core (Engine), nor can it easily fetch VFS files via normal \`fetch\` (due to Blob URL specifications).
-
-The **Bridge** exists to cross this wall.
+1.  **Foreground Process (\`pid="main"\`)**: The visible UI the user interacts with (e.g., Dashboard, Calendar). Only one foreground process exists at a time.
+2.  **Background Processes (Daemons)**: Invisible processes. Useful for persistent tasks like Nostr clients, timers, or API polling.
+3.  **Auto-Start Services**: If you define processes in \`system/config/services.json\` (e.g., \`[{"pid":"my_bot","path":"services/bot.html"}]\`), the OS will automatically spawn them on system boot.
 
 ### 4.2 Itera Bridge Protocol (The Synapse)
 
-A **Client Library (\`window.MetaOS\`)** is automatically injected into the Guest environment by the system.
-This is the only window connecting the dashboard code and you.
+A Client Library (\`window.MetaOS\`) is injected into every Guest process.
+This is the only window connecting the guest code to you and the file system.
 
-**Calls from Guest:**
-When writing scripts for the dashboard, you can use the following APIs. These issue \`postMessage\` behind the scenes to move your hands (Tools) on the Host side.
+**Process & IPC Control:**
+*   \`MetaOS.spawn('views/app.html', { pid: 'main' })\`: Change the main view.
+*   \`MetaOS.spawn('services/sync.html', { pid: 'bg_sync' })\`: Start a background daemon.
+*   \`MetaOS.kill('bg_sync')\`: Terminate a process.
+*   \`MetaOS.broadcast('my_event', data)\`: Send an IPC message to ALL running processes.
+*   \`MetaOS.on('my_event', callback)\`: Listen for IPC messages or Host events.
 
-*   **File Operations**:
-    *   \`await MetaOS.saveFile('data/todo.json', jsonString)\`
-    *   \`await MetaOS.readFile('data/config.txt')\`
-*   **Requesting AI**:
-    *   \`MetaOS.ask("Analyze this data")\`: Triggered when a user presses a button to call you (AI).
-    *   \`MetaOS.agent("Complete the task", { silent: true })\`: Makes you execute a task autonomously in the background.
-*   **Process & UI Control**:
-    *   \`MetaOS.spawn('views/calendar.html', { pid: 'main' })\`: Change the main view.
-    *   \`MetaOS.spawn('services/sync.html', { pid: 'bg-sync' })\`: Start a background daemon.
-    *   \`MetaOS.broadcast('event_name', data)\`: Send IPC message to all processes.
-    *   \`MetaOS.notify("Saved")\`
+**File Operations:**
+*   \`await MetaOS.saveFile('data/todo.json', jsonString, { silent: true })\`
+*   \`await MetaOS.readFile('data/config.txt')\`
+*   \`await MetaOS.deleteFile('data/old.txt')\`
 
-**Data Flow:**
-1.  **Guest**: Executes \`MetaOS.saveFile(...)\`.
-2.  **Bridge**: Converts request to \`ITERA_ACTION\` message and sends to Host.
-3.  **Host**: Receives message and executes write to VFS.
-4.  **Bridge**: Returns completion notification \`ITERA_RESPONSE\` to Guest.
-5.  **Guest**: \`await\` resolves, and processing continues.
+**AI Interaction:**
+*   \`MetaOS.agent("Summarize this", { silent: true, context: data })\`: Makes you execute a task autonomously.
+*   \`MetaOS.addEventLog("User completed a task", "task_done")\`: Silently appends a log to your chat history without triggering a full thought loop. Highly recommended for giving yourself context about user actions.
 
-Through this mechanism, the dashboard becomes not just a "picture," but a functional "application."
+### 4.3 Guidelines for Building Apps and Daemons
 
-### 4.3 Guidelines for Self-Modification
-
-You can freely evolve the UI by rewriting \`index.html\` or \`js/app.js\`.
-However, observe the following guidelines to adapt to Itera's specific environmental constraints.
-
-**1. No ES Modules**
-Files on VFS are converted and expanded as Blob URLs.
-ES Modules syntax like \`import { func } from './utils.js'\` is not recommended because relative path resolution becomes complex.
-*   **Recommended**: Adopt the classic style of managing loading order on the HTML side, like \`<script src="js/utils.js"></script>\`.
-*   **Recommended**: Utilize global variables (Namespaces like \`App\`).
+**1. Decoupling via IPC (Broadcast)**
+Do not tightly couple UI and background logic. If a background daemon fetches new data, it should save it to the VFS and then call \`MetaOS.broadcast('data_updated')\`. The UI process should listen with \`MetaOS.on('data_updated')\` and re-render.
 
 **2. Use Bridge instead of Fetch**
-Do not use \`fetch('./data.json')\` to retrieve local files (JSON in VFS, etc.) (It causes CORS errors).
-*   **Correct**: \`const data = await MetaOS.readFile('data/json');\`
+Do not use \`fetch('./data.json')\` to retrieve local files in VFS (CORS errors).
+Always use \`await MetaOS.readFile('data.json')\`.
 
-**3. Utilize Tailwind CSS**
-Tailwind CSS (CDN) is preloaded in the Itera environment.
-Writing styles directly into HTML classes is more efficient and less error-prone for your thinking (generation) and actual reflection than creating separate CSS files.
+**3. Silent File Operations**
+When your app saves data frequently (like toggling a todo), use \`{ silent: true }\` in \`saveFile\` to prevent flooding the chat history with event logs.
 
-**4. Connect User Events to You**
-When building UI, always consider "what you want to happen as a result of user action."
-By embedding \`MetaOS.agent(...)\` in a button's \`onclick\` event, you can "receive orders from the user through the UI."
+**4. Documentation Duty**
+When you create a new app or background daemon, you **MUST** create a markdown manual explaining what it is and how it works, and save it in \`docs/apps/\` or \`docs/services/\`.
 
-**Example:**
-\`\`\`html
-<button onclick="MetaOS.agent('Summarize this task list', { context: currentTasks })">
-  Analyze via AI
-</button>
-\`\`\`
-
-With this, not only conversations in the chat box but also GUI operations become part of the dialogue with you.
 `.trim(),
 
         "docs/codex/05_troubleshooting.md": `
@@ -3050,90 +2989,60 @@ Understanding the internal structure of Itera OS is essential for customizing th
 
 ## Directory Structure (The VFS)
 
-The Virtual File System (VFS) is organized into four main domains to separate user data from system logic.
+The Virtual File System (VFS) is organized into logical domains.
 
 \`\`\`text
 /
-├── index.html              # The Dashboard entry point (Guest Kernel)
+├── index.html              # The Dashboard entry point
 ├── README.md               # System documentation
 │
-├── apps/                   # [Application Layer]
-│   ├── tasks.html          # Standard apps live here
-│   ├── calendar.html
+├── apps/                   # [Application Layer] (Foreground UI)
+│   ├── tasks.html
+│   └── ...
+│
+├── services/               # [Service Layer] (Background Daemons)
 │   └── ...
 │
 ├── data/                   # [User Data Layer]
-│   ├── notes/              # Markdown files
-│   ├── tasks/              # Task JSON databases
-│   └── events/             # Calendar event data
-│   # Note: This directory is strictly for user content.
+│   └── ...                 # JSON databases, Markdown notes, etc.
 │
 ├── docs/                   # [Documentation Layer]
-│   └── manual/             # This manual
+│   ├── manual/             # Human manuals
+│   └── codex/              # AI self-reference manuals
 │
 └── system/                 # [System Core Layer]
-    ├── config/             # Configuration files
-    │   ├── apps.json       # Installed app registry
-    │   ├── config.json     # User & System settings
-    │   └── themes/         # Theme definition files (.json)
-    │
-    ├── kernel/             # Core logic for the Dashboard
-    │   └── dashboard.js
-    │
-    └── lib/                # Shared Libraries
-        ├── std.js          # Standard Data Access Library
-        └── ui.js           # UI Kit & Theme Engine
+    ├── config/             
+    │   ├── apps.json       # Installed app registry (Launcher)
+    │   ├── services.json   # Auto-start daemons list
+    │   └── config.json     # User & System settings
+    └── lib/                # Shared Libraries (std.js, ui.js)
 \`\`\`
 
----
+## Process Architecture & MetaOS API
 
-## The MetaOS Bridge Protocol
+Itera OS is not just a single web page; it is a multi-process environment managed by the **ProcessManager**.
+*   **Foreground Process (\`pid="main"\`)**: The visible app the user is currently using.
+*   **Background Processes**: Invisible iframes that run persistently (e.g., API pollers, Nostr clients).
 
-The **Guest** environment (where apps run) is isolated from the **Host** (where the AI and File System live).
-To interact with the system, apps use the global \`window.MetaOS\` client library.
+Apps and daemons communicate with the Host (and each other) via the \`window.MetaOS\` bridge.
 
 ### Core API Methods
 
-All file operations are asynchronous and return a \`Promise\`.
+*   **Process Management & IPC**:
+    *   \`MetaOS.spawn(path, { pid: 'main' })\`: Navigates the main window.
+    *   \`MetaOS.spawn(path, { pid: 'my-daemon' })\`: Starts a background service.
+    *   \`MetaOS.kill(pid)\`: Terminates a process.
+    *   \`MetaOS.broadcast(eventName, payload)\`: Sends a message to all running processes.
+    *   \`MetaOS.on(eventName, callback)\`: Listens for broadcasted messages or system events.
 
-*   **File System**:
-    *   \`await MetaOS.saveFile(path, content)\`: Writes a file.
+*   **File System (Async)**:
+    *   \`await MetaOS.saveFile(path, content, { silent: true })\`: Writes a file. \`silent\` prevents chat log spam.
     *   \`await MetaOS.readFile(path)\`: Reads a file as a string.
-    *   \`await MetaOS.listFiles(path, options)\`: Returns a list of files.
-    *   \`await MetaOS.deleteFile(path)\`: Deletes a file.
 
-*   **Navigation & UI**:
-    *   \`MetaOS.switchView(path)\`: Navigates the main window to another HTML file (e.g., \`apps/notes.html\`).
-    *   \`MetaOS.openFile(path)\`: Opens the Host's code editor for the specified file.
-    *   \`MetaOS.notify(message, title)\`: Sends a system notification.
+*   **AI Context**:
+    *   \`MetaOS.agent(instruction)\`: Triggers the AI to perform a task.
+    *   \`MetaOS.addEventLog(message, type)\`: Silently adds a log to the AI's history so it remembers user actions (e.g., "User finished a Pomodoro session").
 
-*   **AI Interaction**:
-    *   \`MetaOS.agent(instruction, options)\`: Triggers the AI to perform a background task.
-    *   \`MetaOS.ask(text)\`: Posts a message to the chat panel as the user.
-
----
-
-## Event System
-
-Itera uses a reactive event system to keep the UI in sync.
-Apps can listen for system-wide events using \`MetaOS.on()\`.
-
-\`\`\`javascript
-if (window.MetaOS) {
-    MetaOS.on('file_changed', (payload) => {
-        console.log('File changed:', payload.path);
-        // Refresh data if necessary
-    });
-}
-\`\`\`
-
-*   **\`file_changed\`**: Fired whenever a file is created, modified, or deleted by either the User or the AI.
-    *   Payload: \`{ type: 'create|modify|delete', path: '...' }\`
-
-This mechanism allows apps (like the Task Manager or Dashboard) to update in real-time without reloading the page.
-
----
-**Next Step:** Proceed to [03_design_system.md](03_design_system.md) to learn how to create UI that matches the OS theme.
 `.trim(),
 
         "docs/manual/03_design_system.md": `
@@ -3230,118 +3139,87 @@ These colors convey meaning.
 `.trim(),
 
         "docs/manual/04_development.md": `
-# 04. App Development Guide
+# 04. App & Daemon Development Guide
 
-This guide explains how to build custom applications for Itera OS.
-An "App" in Itera is simply an HTML file located in the \`apps/\` directory that utilizes the system libraries.
+This guide explains how to build custom applications and background services for Itera OS.
 
-## 1. The "Hello World" Template
+## 1. Foreground Apps
 
-To create a new app, create a file (e.g., \`apps/hello.html\`) with the following structure.
-This includes the necessary libraries for styling (\`ui.js\`) and data access (\`std.js\`).
+An App is an HTML file (usually in \`apps/\`) that provides a UI.
+Use the system libraries (\`ui.js\` and \`std.js\`) to inherit the OS theme and standard data access.
 
 \`\`\`html
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <title>My App</title>
-    <!-- 1. Load Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- 2. Load System Libraries -->
     <script src="../system/lib/ui.js"></script>
-    <script src="../system/lib/std.js"></script>
 </head>
-<body class="bg-app text-text-main h-screen p-6 flex flex-col">
-
-    <!-- Header -->
-    <header class="mb-6 flex items-center gap-4">
-        <button onclick="AppUI.home()" class="text-text-muted hover:text-text-main">
-            <!-- Back Icon -->
-            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg>
-        </button>
-        <h1 class="text-2xl font-bold">My New App</h1>
-    </header>
-
-    <!-- Content -->
-    <div class="bg-panel p-6 rounded-xl border border-border-main shadow-lg">
-        <p class="text-text-muted mb-4">Hello, Itera!</p>
-        <button onclick="doSomething()" class="bg-primary text-text-inverted px-4 py-2 rounded font-bold hover:bg-primary/90 transition">
-            Click Me
-        </button>
-    </div>
-
+<body class="bg-app text-text-main h-screen p-6">
+    <button onclick="AppUI.home()" class="text-primary">Go Home</button>
+    
     <script>
-        async function doSomething() {
-            // Your logic here
-            alert("Action executed!");
+        // Use MetaOS API to read/write files
+        async function saveData() {
+            await MetaOS.saveFile('data/my_app.txt', 'Hello', { silent: true });
         }
     </script>
 </body>
 </html>
 \`\`\`
+To show your app in the Launcher, add it to \`system/config/apps.json\`.
 
-## 2. Using System Libraries
+## 2. Background Daemons
 
-Itera provides high-level APIs to interact with the OS.
+Daemons are invisible HTML/JS files that run continuously in the background. They are perfect for timers, WebSocket connections (like Nostr), or cron jobs.
 
-### \`AppUI\` (UI Helpers)
-Provided by \`system/lib/ui.js\`.
+### Creating a Daemon (\`services/logger.html\`)
+\`\`\`html
+<script>
+    // Runs every 10 minutes
+    setInterval(() => {
+        MetaOS.addEventLog("System is running fine.", "health_check");
+        // Notify the UI if it's open
+        MetaOS.broadcast('system_health', { status: 'OK' });
+    }, 10 * 60 * 1000);
+</script>
+\`\`\`
 
-*   \`AppUI.go(path)\`: Navigate to another app (e.g., \`'apps/tasks.html'\`).
-*   \`AppUI.home()\`: Return to the Dashboard (\`index.html\`).
-
-### \`App\` (Standard Data Library)
-Provided by \`system/lib/std.js\`. Use this to access shared user data.
-
-*   **Tasks**:
-    *   \`await App.getTasks()\`
-    *   \`await App.addTask(title, date, priority)\`
-*   **Calendar**:
-    *   \`await App.getEvents(monthKey)\`
-    *   \`await App.addEvent(title, date, time, note)\`
-*   **Notes**:
-    *   \`await App.getRecentNotes(limit)\`
-
-### \`MetaOS\` (Low-Level Bridge)
-Direct access to the File System and Host.
-
-*   \`await MetaOS.saveFile(path, content)\`
-*   \`await MetaOS.readFile(path)\`
-*   \`await MetaOS.listFiles(path)\`
-
-## 3. Registering Your App
-
-To make your app appear in the **Library (Launcher)**, you must add it to the registry file.
-
-1.  Open \`system/config/apps.json\`.
-2.  Add a new entry to the array:
-
+### Auto-Starting Daemons
+To make your daemon start automatically when Itera OS boots, add it to \`system/config/services.json\`:
 \`\`\`json
-{
-    "id": "my-app",
-    "name": "My App",
-    "icon": "🚀",
-    "path": "apps/hello.html",
-    "description": "A simple demo application"
+[
+    {
+        "pid": "sys_logger",
+        "path": "services/logger.html"
+    }
+]
+\`\`\`
+
+## 3. Inter-Process Communication (IPC)
+
+Itera allows completely decoupled communication between your daemons and your UI apps using \`broadcast\`.
+
+**In Daemon (Sender):**
+\`\`\`javascript
+MetaOS.broadcast('data_fetched', { newItems: 5 });
+\`\`\`
+
+**In UI App (Receiver):**
+\`\`\`javascript
+if (window.MetaOS) {
+    MetaOS.on('data_fetched', (payload) => {
+        alert(\`Received \${payload.newItems} items from background!\`);
+        refreshUI();
+    });
 }
 \`\`\`
 
-## 4. Development Best Practices
+## 4. Best Practices
+1. **Semantic Colors**: Always use \`bg-app\`, \`text-text-main\`, \`bg-panel\` etc. (See 03_design_system.md).
+2. **Context Awareness**: Use \`MetaOS.addEventLog()\` when the user performs an important action so the AI knows what's happening.
+3. **Write Manuals**: When you build a complex app, write a \`.md\` manual in \`docs/apps/\` so both you and the AI understand how to use it.
 
-1.  **Use Semantic Colors**: Always use \`bg-app\`, \`text-main\`, \`border-border-main\` etc. Never use \`bg-gray-900\`. (See [03_design_system.md](03_design_system.md))
-2.  **Statelessness**: The VFS persists data, but the DOM resets on navigation. Always reload data (e.g., \`await App.getTasks()\`) when the page loads (\`DOMContentLoaded\`).
-3.  **Reactive**: If your app relies on data that might change externally (e.g., Task list), listen for changes:
-    \`\`\`javascript
-    if (window.MetaOS) {
-        MetaOS.on('file_changed', (payload) => {
-            if (payload.path.startsWith('data/tasks')) render();
-        });
-    }
-    \`\`\`
-
----
-**Next Step:** Proceed to [05_customization.md](05_customization.md) to learn how to create custom themes and configurations.
 `.trim(),
 
         "docs/manual/05_customization.md": `
