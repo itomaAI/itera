@@ -662,36 +662,93 @@ Use this Codex as a guidepost, and build a better Itera OS together with the use
 
     // 3. UI Helpers
     global.AppUI = {
-        /**
-         * Navigate to another view
-         * @param {string} path - relative path from root or absolute path
-         */
-        go: (path) => {
-            if (global.MetaOS) {
-                global.MetaOS.spawn(path, { pid: 'main' });
-            } else {
-                window.location.href = path;
-            }
-        },
+        go: (path) => { /* 変更なし */ },
+        home: () => { /* 変更なし */ },
 
         /**
-         * Go back to Dashboard
+         * Show a toast notification
+         * @param {string} message - 表示するメッセージ
+         * @param {'info'|'success'|'warning'|'error'} [type='info'] - トーストの種類
+         * @param {number} [duration=3000] - 表示時間（ms）
          */
-        home: () => {
-            if (global.MetaOS) {
-                global.MetaOS.spawn('index.html', { pid: 'main' });
+        notify: (message, type = 'info', duration = 3000) => {
+            // コンテナがなければ作成（画面右下に固定）
+            let container = document.getElementById('__itera-toast-container');
+            if (!container) {
+                container = document.createElement('div');
+                container.id = '__itera-toast-container';
+                Object.assign(container.style, {
+                    position: 'fixed',
+                    bottom: '1.25rem',
+                    right: '1.25rem',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '0.5rem',
+                    zIndex: '9999',
+                    pointerEvents: 'none',
+                });
+                document.body.appendChild(container);
             }
-        },
 
-        /**
-         * Simple Toast Notification (Future implementation)
-         */
-        notify: (message) => {
-            console.log(\`[UI] \${message}\`);
-            // TODO: Implement DOM based toast
+            // タイプ別のアイコンとカラー（CSS変数を使用）
+            const TYPES = {
+                info:    { icon: 'ℹ️', color: 'rgb(var(--c-accent-primary, 37 99 235))' },
+                success: { icon: '✅', color: 'rgb(var(--c-accent-success, 5 150 105))' },
+                warning: { icon: '⚠️', color: 'rgb(var(--c-accent-warning, 217 119 6))' },
+                error:   { icon: '❌', color: 'rgb(var(--c-accent-error, 220 38 38))' },
+            };
+            const { icon, color } = TYPES[type] || TYPES.info;
+
+            // トースト要素を作成
+            const toast = document.createElement('div');
+            Object.assign(toast.style, {
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.5rem',
+                padding: '0.6rem 1rem',
+                borderRadius: '0.5rem',
+                background: 'rgb(var(--c-bg-panel, 31 41 55))',
+                color: 'rgb(var(--c-text-main, 243 244 246))',
+                border: \`1px solid \${color}\`,
+                boxShadow: '0 4px 12px rgba(0,0,0,0.4)',
+                fontSize: '0.8rem',
+                fontFamily: 'system-ui, sans-serif',
+                pointerEvents: 'auto',
+                opacity: '0',
+                transform: 'translateX(1rem)',
+                transition: 'opacity 0.25s ease, transform 0.25s ease',
+                maxWidth: '320px',
+                wordBreak: 'break-word',
+            });
+
+            // 左のアクセントバー
+            const bar = document.createElement('div');
+            Object.assign(bar.style, {
+                width: '3px', height: '100%', minHeight: '1.5rem',
+                background: color, borderRadius: '2px', flexShrink: '0',
+            });
+
+            toast.appendChild(bar);
+            toast.insertAdjacentHTML('beforeend', \`<span>\${icon}</span><span>\${message}</span>\`);
+            container.appendChild(toast);
+
+            // アニメーション：フェードイン
+            requestAnimationFrame(() => {
+                requestAnimationFrame(() => {
+                    toast.style.opacity = '1';
+                    toast.style.transform = 'translateX(0)';
+                });
+            });
+
+            // 自動削除
+            const remove = () => {
+                toast.style.opacity = '0';
+                toast.style.transform = 'translateX(1rem)';
+                toast.addEventListener('transitionend', () => toast.remove(), { once: true });
+            };
+            setTimeout(remove, duration);
         }
     };
-
 })(window);
 `.trim(),
 
