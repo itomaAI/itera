@@ -1,14 +1,14 @@
 // src/bridge/guest_bridge.js
 
 (function(global) {
-    global.Itera = global.Itera || {};
-    global.Itera.Bridge = global.Itera.Bridge || {};
+	global.Itera = global.Itera || {};
+	global.Itera.Bridge = global.Itera.Bridge || {};
 
-    /**
-     * Guest-side library source code.
-     * This string will be injected into the iframe's <head>.
-     */
-    const GUEST_CLIENT_CODE = `
+	/**
+	 * Guest-side library source code.
+	 * This string will be injected into the iframe's <head>.
+	 */
+	const GUEST_CLIENT_CODE = `
 (function(global) {
     const REQUESTS = new Map();
 
@@ -65,9 +65,14 @@
 
     // --- Public API (MetaOS Compatible) ---
     global.MetaOS = {
-        // View Control
-        switchView: (path) => post('switch_view', { path }),
+        // Process Management (New)
+        spawn: (path, options = {}) => post('spawn_process', { path, options }),
+        kill: (pid) => post('kill_process', { pid }),
+        broadcast: (eventName, payload) => post('broadcast_event', { eventName, payload }),
         
+        // Legacy Compatibility
+        switchView: (path) => post('spawn_process', { path, options: { pid: 'main', mode: 'foreground' } }),
+
         // File System
         saveFile: (path, content, options = { silent: true }) => post('save_file', { path, content, options }),
         readFile: (path) => post('read_file', { path }),
@@ -98,6 +103,6 @@
 })(window);
 `;
 
-    global.Itera.Bridge.GuestCode = GUEST_CLIENT_CODE;
+	global.Itera.Bridge.GuestCode = GUEST_CLIENT_CODE;
 
 })(window);

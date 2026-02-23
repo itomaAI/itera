@@ -459,8 +459,10 @@ The Engine extracts and executes only the parts enclosed in \`<tags>\`, processi
 *   **\`<read_file path="...">\`**: Loads file content into your context.
 *   **\`<create_file path="...">\`**: Creates a new file or overwrites a file.
 *   **\`<edit_file path="...">\`**: Rewrites a part of a file.
-*   **\`<preview>\`**: Compiles the current VFS state and reloads the dashboard screen (iframe).
-*   **\`<take_screenshot>\`**: Captures the current dashboard screen as an image for visual confirmation.
+*   **\`<spawn pid="..." path="...">\`**: Starts a background daemon or switches the main screen (use \`pid="main"\`).
+*   **\`<kill pid="...">\`**: Terminates a running process.
+*   **\`<ps>\`**: Lists currently running processes.
+*   **\`<take_screenshot>\`**: Captures the main process screen as an image for visual confirmation.
 
 ### 3.2 The Art of Manipulation
 
@@ -556,8 +558,10 @@ When writing scripts for the dashboard, you can use the following APIs. These is
 *   **Requesting AI**:
     *   \`MetaOS.ask("Analyze this data")\`: Triggered when a user presses a button to call you (AI).
     *   \`MetaOS.agent("Complete the task", { silent: true })\`: Makes you execute a task autonomously in the background.
-*   **UI Control**:
-    *   \`MetaOS.switchView('views/calendar.html')\`
+*   **Process & UI Control**:
+    *   \`MetaOS.spawn('views/calendar.html', { pid: 'main' })\`: Change the main view.
+    *   \`MetaOS.spawn('services/sync.html', { pid: 'bg-sync' })\`: Start a background daemon.
+    *   \`MetaOS.broadcast('event_name', data)\`: Send IPC message to all processes.
     *   \`MetaOS.notify("Saved")\`
 
 **Data Flow:**
@@ -725,7 +729,7 @@ Use this Codex as a guidepost, and build a better Itera OS together with the use
          */
         go: (path) => {
             if (global.MetaOS) {
-                global.MetaOS.switchView(path);
+                global.MetaOS.spawn(path, { pid: 'main' });
             } else {
                 window.location.href = path;
             }
@@ -736,7 +740,7 @@ Use this Codex as a guidepost, and build a better Itera OS together with the use
          */
         home: () => {
             if (global.MetaOS) {
-                global.MetaOS.switchView('index.html');
+                global.MetaOS.spawn('index.html', { pid: 'main' });
             }
         },
 
@@ -2264,6 +2268,8 @@ Use this Codex as a guidepost, and build a better Itera OS together with the use
 </body>
 </html>
 `.trim(),
+
+        "system/config/services.json": JSON.stringify([], null, 4),
 
         "system/config/apps.json": JSON.stringify([
             {

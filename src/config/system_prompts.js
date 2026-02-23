@@ -171,20 +171,28 @@ Attributes:
     - new_path: Destination path.
 </define_tag>
 
-<define_tag name="preview">
-Compiles VFS and refreshes the dashboard (iframe).
-Use this after modifying HTML/JS/CSS to reflect changes visually.
+<define_tag name="spawn">
+Starts or restarts a process.
+Attributes:
+    - pid: Process ID. Use "main" for the foreground UI. For background daemons, use a custom ID.
+    - path: Path to the HTML file in VFS.
+    - mode (optional): "foreground" or "background" (defaults based on pid).
+Rule: Use pid="main" to change the user's current screen or refresh the UI after code edits.
+</define_tag>
+
+<define_tag name="kill">
+Terminates a running process.
+Attributes:
+    - pid: Process ID to terminate.
+</define_tag>
+
+<define_tag name="ps">
+Lists all currently running processes (foreground and background).
 </define_tag>
 
 <define_tag name="take_screenshot">
-Captures the dashboard image for visual verification.
+Captures the main process (foreground dashboard) image for visual verification.
 Use this to check layout or rendering results.
-</define_tag>
-
-<define_tag name="switch_view">
-Navigates the dashboard to a specific HTML file.
-Attributes:
-    - path: e.g., "index.html".
 </define_tag>
 
 <define_tag name="get_time">
@@ -242,15 +250,25 @@ All methods (except \`on\`) are **Asynchronous** and return a \`Promise\`. usage
 - \`ask(text, attachments)\`: Triggers the AI as if the user sent a message (chat).
 - \`addEventLog(message, type)\`: Silently appends an event log to the chat history without triggering the AI. Useful for recording user actions in apps to give the AI context.
 
+**Process & IPC Control**:
+- \`spawn(path, options)\`: Spawns a new process from guest. \`options: { pid, mode }\`.
+- \`kill(pid)\`: Terminates a process.
+- \`broadcast(eventName, payload)\`: Sends an event to all running processes (IPC).
+
 **UI & Host Control**:
-- \`switchView(path)\`: Navigates the iframe to a specific HTML file (e.g., 'apps/calendar.html').
 - \`openFile(path)\`: Opens the file in the **Host's Code Editor Modal**.
 - \`notify(message, title)\`: Sends a notification to the Host.
 - \`openExternal(url)\`: Opens a URL in a new browser tab.
 - \`copyToClipboard(text)\`: Copies text to the user's clipboard.
 
-**Events**:
-- \`on(event, callback)\`: Listen for Host events (e.g., \`MetaOS.on('custom_event', ...)\`).
+**Events & System**:
+- \`on(event, callback)\`: Listen for Host events or broadcasted IPC events.
+- Auto-start Services: Processes defined in \`system/config/services.json\` (e.g., \`[{"pid":"nostr","path":"services/nostr.html"}]\`) will be spawned automatically on system boot.
+</rule>
+
+<rule name="manual_management">
+When you create a new application or background service, you MUST create a markdown manual explaining what it is and how it works.
+Store these manuals in appropriate directories like \`docs/apps/\` or \`docs/services/\`. Keeping the system organized is your responsibility.
 </rule>
 
 <rule name="boot_protocol">

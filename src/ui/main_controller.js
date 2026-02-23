@@ -13,7 +13,7 @@
 	} = global.Itera;
 	const {
 		Components,
-        Services
+		Services
 	} = UI;
 
 	const DOM_IDS = {
@@ -51,7 +51,7 @@
 			const initialFiles = savedSystem ? savedSystem.files : (this.config.DEFAULT_FILES || {});
 			const initialHistory = savedSystem ? savedSystem.history : [];
 
-            const vfs = new State.VirtualFileSystem(initialFiles);
+			const vfs = new State.VirtualFileSystem(initialFiles);
 			const history = new State.HistoryManager();
 			history.load(initialHistory);
 			const configManager = new State.ConfigManager(vfs);
@@ -70,17 +70,17 @@
 
 			const themeManager = new UI.ThemeManager(configManager);
 			const translator = new Cognitive.Translator();
-            
-            const renderer = (Services && Services.LPMLRenderer) 
-                ? new Services.LPMLRenderer() 
-                : null;
 
-            if (!renderer) console.warn("[Itera] LPMLRenderer not found. Chat formatting will be disabled.");
+			const renderer = (Services && Services.LPMLRenderer) ?
+				new Services.LPMLRenderer() :
+				null;
+
+			if (!renderer) console.warn("[Itera] LPMLRenderer not found. Chat formatting will be disabled.");
 
 			this.components.chat = new Components.ChatPanel(renderer);
 			this.components.explorer = new Components.Explorer(vfs);
 			this.components.editor = new Components.EditorModal();
-			this.components.preview = new Components.PreviewPane();
+			this.components.processManager = new Components.ProcessManager(vfs);
 			this.components.settings = new Components.SettingsModal(storage, configManager);
 			this.components.media = new Components.MediaViewer();
 
@@ -126,6 +126,24 @@
 
 			this.components.chat.renderHistory(history.get());
 			this._updateStorageUI(vfs.getUsage());
+
+			// OS Boot Sequence: Start background services
+			try {
+				if (vfs.exists('system/config/services.json')) {
+					const services = JSON.parse(vfs.readFile('system/config/services.json'));
+					if (Array.isArray(services)) {
+						for (const svc of services) {
+							if (svc.pid && svc.path) {
+								await this.components.processManager.spawn(svc.pid, svc.path, 'background');
+							}
+						}
+					}
+				}
+			} catch (e) {
+				console.warn("[System] Failed to load services.json", e);
+			}
+
+			// Start foreground main process
 			await this.refreshPreview();
 
 			console.log("[Itera] System Ready.");
@@ -159,7 +177,7 @@
 
 				for (const file of attachments) {
 					const isText = file.type.startsWith('text/') || file.name.match(/\.(js|json|md|txt|html|css|xml|yml)$/);
-					
+
 					// ファイル読み込み
 					const reader = new FileReader();
 					const data = await new Promise(r => {
@@ -185,8 +203,8 @@
 
 						try {
 							vfs.writeFile(path, data);
-							
-                            // メディアオブジェクト（画像表示用・FileAPI用）
+
+							// メディアオブジェクト（画像表示用・FileAPI用）
 							content.push({
 								media: {
 									path: path,
@@ -194,11 +212,11 @@
 									metadata: {}
 								}
 							});
-	
-                            // user_inputの外に配置されるよう、独立したtextパーツとして追加
-                            content.push({
-                                text: `<user_attachment path="${path}">[Binary File: ${file.name}]</user_attachment>`
-                            });
+
+							// user_inputの外に配置されるよう、独立したtextパーツとして追加
+							content.push({
+								text: `<user_attachment path="${path}">[Binary File: ${file.name}]</user_attachment>`
+							});
 
 						} catch (e) {
 							console.error(`[MainController] Failed to save upload: ${path}`, e);
@@ -210,7 +228,9 @@
 
 				// ユーザーの入力テキストがあれば追加
 				if (text) {
-					content.push({ text: text });
+					content.push({
+						text: text
+					});
 				}
 
 				if (content.length === 0) return;
@@ -221,11 +241,11 @@
 			});
 
 			chat.on('stop', () => this.engine.stop());
-			
+
 			chat.on('clear', () => {
 				if (confirm("Clear chat history and media cache?")) {
 					history.clear();
-					
+
 					// キャッシュのパージ処理
 					try {
 						const CACHE_DIR = 'system/cache/media';
@@ -256,7 +276,7 @@
 				const BINARY_EXTS = /\.(png|jpg|jpeg|gif|webp|svg|ico|pdf|zip|mp3|mp4|wav|ogg)$/i;
 				if (path.match(BINARY_EXTS)) media.open(path, content);
 				else editor.open(path, content);
-	
+
 				this._closeMobileDrawers(); // モバイル時は自動でパネルを閉じる
 			});
 			explorer.on('history_event', (type, desc) => {
@@ -273,9 +293,11 @@
 					vfs.writeFile(path, content);
 					this.refreshPreview();
 
-                    const lpml = `<event type="file_edited">\nUser edited file manually: ${path}\n</event>`;
-                    const turn = history.append(global.Itera.Role.SYSTEM, lpml, { type: 'event_log' });
-                    chat.appendTurn(turn);
+					const lpml = `<event type="file_edited">\nUser edited file manually: ${path}\n</event>`;
+					const turn = history.append(global.Itera.Role.SYSTEM, lpml, {
+						type: 'event_log'
+					});
+					chat.appendTurn(turn);
 
 				} catch (e) {
 					alert(e.message);
@@ -284,15 +306,15 @@
 
 			// Settings Events
 			settings.on('factory_reset', async () => {
-                try {
-                    const timestamp = new Date().toLocaleString();
-                    const label = `Auto Backup (Pre-Reset) - ${timestamp}`;
-                    await storage.createSnapshot(label, vfs.files, history.get());
-                    console.log(`[System] Created safety snapshot: ${label}`);
-                } catch (e) {
-                    console.error("Auto backup failed:", e);
-                    if (!confirm("Automatic backup failed. Continue reset anyway?")) return;
-                }
+				try {
+					const timestamp = new Date().toLocaleString();
+					const label = `Auto Backup (Pre-Reset) - ${timestamp}`;
+					await storage.createSnapshot(label, vfs.files, history.get());
+					console.log(`[System] Created safety snapshot: ${label}`);
+				} catch (e) {
+					console.error("Auto backup failed:", e);
+					if (!confirm("Automatic backup failed. Continue reset anyway?")) return;
+				}
 
 				history.clear();
 				vfs.loadFiles(this.config.DEFAULT_FILES);
@@ -312,9 +334,8 @@
 			});
 			settings.on('api_key_updated', () => this._refreshEngineConfig());
 
-			// Preview Events
-			preview.on('refresh', () => this.refreshPreview());
-			preview.on('home', () => this.refreshPreview('index.html'));
+			// Process Manager Events
+			// (ProcessManager handles its own refresh/home via internal DOM binding, but we can leave hooks if needed)
 
 			// Engine Events
 			this.engine.on('turn_start', (data) => {
@@ -337,21 +358,21 @@
 				this._triggerAutoSave();
 			});
 
-            this.engine.on('loop_stop', (data) => {
-                if (chat.currentStreamEl) chat.finalizeStreaming();
-                chat.setProcessing(false);
+			this.engine.on('loop_stop', (data) => {
+				if (chat.currentStreamEl) chat.finalizeStreaming();
+				chat.setProcessing(false);
 
-                // エラーで停止した場合、履歴に追加されたエラーメッセージを表示する
-                if (data && data.reason === 'error') {
-                    const lastTurn = history.getLast();
-                    if (lastTurn) {
-                        chat.appendTurn(lastTurn);
-                        console.error("[MainController] Loop stopped due to error:", data.error);
-                    }
-                }
+				// エラーで停止した場合、履歴に追加されたエラーメッセージを表示する
+				if (data && data.reason === 'error') {
+					const lastTurn = history.getLast();
+					if (lastTurn) {
+						chat.appendTurn(lastTurn);
+						console.error("[MainController] Loop stopped due to error:", data.error);
+					}
+				}
 
-                this._triggerAutoSave();
-            });
+				this._triggerAutoSave();
+			});
 
 			// State Listeners
 			vfs.on('change', (payload) => {
@@ -419,12 +440,37 @@
 				return res;
 			});
 
+			// Legacy Compatibility
 			bridge.registerHandler('switch_view', async ({
 				path
 			}) => {
-				await this.refreshPreview(path);
+				await this.components.processManager.spawn('main', path, 'foreground');
 				this._closeMobileDrawers();
 			});
+
+			bridge.registerHandler('spawn_process', async ({
+				path,
+				options
+			}) => {
+				const pid = (options && options.pid) ? options.pid : 'main';
+				const mode = (options && options.mode) ? options.mode : (pid === 'main' ? 'foreground' : 'background');
+				await this.components.processManager.spawn(pid, path, mode);
+				if (mode === 'foreground') this._closeMobileDrawers();
+			});
+
+			bridge.registerHandler('kill_process', ({
+				pid
+			}) => {
+				return this.components.processManager.kill(pid);
+			});
+
+			bridge.registerHandler('broadcast_event', ({
+				eventName,
+				payload
+			}) => {
+				this.components.processManager.broadcast(eventName, payload);
+			});
+
 			bridge.registerHandler('show_notification', ({
 				message,
 				title
@@ -535,23 +581,23 @@
 			const usedMB = (usage.used / 1024 / 1024).toFixed(1);
 			const maxMB = (usage.max / 1024 / 1024).toFixed(1);
 			this.els.STORAGE_TEXT.textContent = `${usedMB} / ${maxMB} MB`;
-			
+
 			const percent = Math.min(100, usage.percent);
 			this.els.STORAGE_BAR.style.width = `${percent}%`;
 			this.els.STORAGE_BAR.className = 'absolute top-0 left-0 h-full transition-all duration-500 ease-out';
-            // font-mono text-gray-500 -> text-text-muted
+			// font-mono text-gray-500 -> text-text-muted
 			this.els.STORAGE_TEXT.className = 'font-mono text-text-muted';
-			
+
 			if (percent > 95) {
-                // bg-red-500 -> bg-error
-                // text-red-400 -> text-error
+				// bg-red-500 -> bg-error
+				// text-red-400 -> text-error
 				this.els.STORAGE_BAR.classList.add('bg-error', 'animate-pulse');
 				this.els.STORAGE_TEXT.classList.add('text-error', 'font-bold');
 			} else if (percent > 80) {
-                // bg-yellow-500 -> bg-warning
+				// bg-yellow-500 -> bg-warning
 				this.els.STORAGE_BAR.classList.add('bg-warning');
 			} else {
-                // bg-blue-500 -> bg-primary
+				// bg-blue-500 -> bg-primary
 				this.els.STORAGE_BAR.classList.add('bg-primary');
 			}
 		}
@@ -587,11 +633,12 @@
 		}
 
 		async refreshPreview(path) {
-			await this.components.preview.refresh(this.state.vfs, path);
+			// mainプロセスとして起動するショートカット
+			await this.components.processManager.spawn('main', path || 'index.html', 'foreground');
 		}
 
 		async captureScreenshot() {
-			return await this.components.preview.captureScreenshot();
+			return await this.components.processManager.captureScreenshot('main');
 		}
 	}
 

@@ -2,7 +2,16 @@
 <!DOCTYPE html>
 <html lang="en" class="dark">
 <head>
+    <!-- Google tag (gtag.js) -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-YMQZPN3X2Z"></script>
+    <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        gtag('js', new Date());
 
+        gtag('config', 'G-YMQZPN3X2Z');
+    </script>
+    
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Itera: AI Secretary</title>
@@ -335,6 +344,9 @@
     <div id="resize-overlay" class="fixed inset-0 z-[9999] hidden cursor-col-resize"></div>
     <div id="context-menu" class="fixed hidden z-[100] bg-panel border border-border-main rounded shadow-xl py-1 min-w-[140px]"></div>
 
+    <!-- Background Processes (Daemons) -->
+    <div id="background-processes" class="hidden"></div>
+
     <!-- Settings Modal -->
     <div id="history-modal" class="fixed inset-0 bg-black/80 z- hidden flex items-center justify-center modal backdrop-blur-sm transition-opacity">
         <div class="bg-panel rounded-lg shadow-2xl w-full max-w-md border border-border-main flex flex-col max-h-[80vh]">
@@ -376,6 +388,7 @@
     <script src="src/core/control/tools/search_tools.js"></script>
     <script src="src/core/control/tools/basic_tools.js"></script>
     <script src="src/core/control/engine.js"></script>
+    <script src="src/core/control/guest_compiler.js"></script>
     
     <!-- Bridge -->
     <script src="src/bridge/guest_bridge.js"></script>
@@ -388,7 +401,7 @@
     <script src="src/ui/components/tree_view.js"></script>
     <script src="src/ui/components/explorer.js"></script>
     <script src="src/ui/components/editor_modal.js"></script>
-    <script src="src/ui/components/preview_pane.js"></script>
+    <script src="src/ui/components/process_manager.js"></script>
     <script src="src/ui/components/media_viewer.js"></script>
     <script src="src/ui/components/settings_modal.js"></script>
     <script src="src/ui/main_controller.js"></script>
