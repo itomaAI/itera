@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Settings</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="../system/lib/ui.js"></script>
+    <script src="../system/lib/std.js"></script>
+    <style>
+        /* Hide scrollbar for clean OS look */
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+    </style>
+</head>
+<body class="bg-app text-text-main h-screen flex flex-col overflow-hidden">
+
+    <!-- Header -->
+    <header class="h-14 border-b border-border-main flex items-center justify-between px-6 bg-panel shrink-0 z-10 sticky top-0 shadow-sm">
+        <div class="flex items-center gap-4">
+            <button onclick="AppUI.home()" class="p-1.5 -ml-1.5 rounded-lg text-text-muted hover:text-text-main hover:bg-hover transition bg-card border border-border-main">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg>
+            </button>
+            <h1 class="text-lg font-bold tracking-tight">System Settings</h1>
+        </div>
+        <div class="flex items-center gap-2">
+            <span id="save-status" class="text-[10px] text-text-muted font-mono uppercase tracking-widest opacity-0 transition-opacity">Saved</span>
+        </div>
+    </header>
+
+    <!-- Content -->
+    <main class="flex-1 overflow-y-auto no-scrollbar p-6">
+        <div class="max-w-3xl mx-auto space-y-8 pb-10">
+
+            <!-- Profile & Agent -->
+            <section class="bg-panel rounded-2xl border border-border-main p-6 shadow-sm">
+                <div class="flex items-center gap-3 mb-6 pb-4 border-b border-border-main/50">
+                    <div class="w-8 h-8 rounded-full bg-primary/20 text-primary flex items-center justify-center">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path></svg>
+                    </div>
+                    <div>
+                        <h2 class="text-sm font-bold uppercase tracking-wider text-text-main">Identity & Localization</h2>
+                        <p class="text-xs text-text-muted">User and Assistant profiles.</p>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                        <label class="block text-xs font-bold text-text-muted uppercase mb-1.5">User Name</label>
+                        <input type="text" id="config-username" data-key="username" class="w-full bg-card border border-border-main rounded-lg px-3 py-2 text-sm text-text-main focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/30 transition shadow-inner">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-text-muted uppercase mb-1.5">Agent Name</label>
+                        <input type="text" id="config-agentName" data-key="agentName" class="w-full bg-card border border-border-main rounded-lg px-3 py-2 text-sm text-text-main focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/30 transition shadow-inner">
+                    </div>
+                    <div class="md:col-span-2">
+                        <label class="block text-xs font-bold text-text-muted uppercase mb-1.5">Language</label>
+                        <select id="config-language" data-key="language" class="w-full md:w-1/2 bg-card border border-border-main rounded-lg px-3 py-2 text-sm text-text-main focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/30 transition cursor-pointer">
+                            <option value="English">English</option>
+                            <option value="Japanese">Japanese (日本語)</option>
+                            <option value="Spanish">Spanish (Español)</option>
+                            <option value="French">French (Français)</option>
+                            <option value="German">German (Deutsch)</option>
+                            <option value="Chinese (Simplified)">Chinese Simplified (简体中文)</option>
+                            <option value="Chinese (Traditional)">Chinese Traditional (繁體中文)</option>
+                            <option value="Korean">Korean (한국어)</option>
+                            <option value="Portuguese">Portuguese (Português)</option>
+                            <option value="Russian">Russian (Русский)</option>
+                            <option value="Arabic">Arabic (العربية)</option>
+                            <option value="Hindi">Hindi (हिन्दी)</option>
+                        </select>
+                    </div>
+                </div>
+            </section>
+
+            <!-- System & LLM -->
+            <section class="bg-panel rounded-2xl border border-border-main p-6 shadow-sm">
+                <div class="flex items-center gap-3 mb-6 pb-4 border-b border-border-main/50">
+                    <div class="w-8 h-8 rounded-full bg-warning/20 text-warning flex items-center justify-center">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+                    </div>
+                    <div>
+                        <h2 class="text-sm font-bold uppercase tracking-wider text-text-main">AI Engine (LLM)</h2>
+                        <p class="text-xs text-text-muted">Configure the autonomous brain of the OS.</p>
+                    </div>
+                </div>
+
+                <div class="space-y-6">
+                    <div>
+                        <label class="block text-xs font-bold text-text-muted uppercase mb-1.5">Model Name</label>
+                        <input type="text" id="config-llm-model" data-key="llm.model" class="w-full font-mono bg-card border border-border-main rounded-lg px-3 py-2 text-sm text-text-main focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/30 transition shadow-inner" placeholder="e.g. gemini-3.1-pro-preview">
+                        <p class="text-[10px] text-text-muted mt-1.5 opacity-80">Requires engine restart or reload to take full effect.</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Appearance (Themes) -->
+            <section class="bg-panel rounded-2xl border border-border-main p-6 shadow-sm">
+                <div class="flex items-center gap-3 mb-6 pb-4 border-b border-border-main/50">
+                    <div class="w-8 h-8 rounded-full bg-success/20 text-success flex items-center justify-center">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01"></path></svg>
+                    </div>
+                    <div>
+                        <h2 class="text-sm font-bold uppercase tracking-wider text-text-main">Appearance</h2>
+                        <p class="text-xs text-text-muted">Customize the visual theme of the interface.</p>
+                    </div>
+                </div>
+
+                <div id="theme-list" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <div class="text-text-muted text-sm animate-pulse">Loading themes...</div>
+                </div>
+            </section>
+
+            <!-- System Info Footer -->
+            <div class="text-center pt-4 pb-8">
+                <p class="text-xs font-bold text-text-main tracking-widest uppercase">Itera OS v4.1</p>
+                <p class="text-[10px] text-text-muted opacity-50 mt-1 font-mono">Kernel: Guest Bridge (window.MetaOS)</p>
+            </div>
+
+        </div>
+    </main>
+
+    <script>
+        let config = {};
+        let oldConfig = {};
+        const DOM = id => document.getElementById(id);
+        
+        // --- Core ---
+        async function loadConfig() {
+            try {
+                const str = await MetaOS.readFile('system/config/config.json');
+                config = JSON.parse(str);
+                oldConfig = JSON.parse(str);
+                
+                // Bind values to UI
+                DOM('config-username').value = config.username || '';
+                DOM('config-agentName').value = config.agentName || '';
+                DOM('config-language').value = config.language || 'English';
+                DOM('config-llm-model').value = config?.llm?.model || '';
+
+                await loadThemes();
+            } catch (e) { console.warn("Failed to load config", e); }
+        }
+
+        async function saveConfig() {
+            const status = DOM('save-status');
+            status.textContent = "Saving...";
+            status.classList.remove('opacity-0');
+            status.classList.add('text-warning');
+
+            try {
+                await MetaOS.saveFile('system/config/config.json', JSON.stringify(config, null, 4));
+                
+                if (window.MetaOS && MetaOS.addEventLog) {
+                    if (config.username !== oldConfig.username) {
+                        MetaOS.addEventLog(`User changed their name to "${config.username}".`, 'config_changed');
+                    }
+                    if (config.agentName !== oldConfig.agentName) {
+                        MetaOS.addEventLog(`User changed the agent's name to "${config.agentName}".`, 'config_changed');
+                    }
+                    if (config.language !== oldConfig.language) {
+                        MetaOS.addEventLog(`User changed the system language to "${config.language}". Please communicate in this language from now on.`, 'config_changed');
+                    }
+                }
+                oldConfig = JSON.parse(JSON.stringify(config));
+
+                status.textContent = "Saved";
+                status.classList.remove('text-warning');
+                status.classList.add('text-success');
+                setTimeout(() => {
+                    status.classList.add('opacity-0');
+                    setTimeout(() => { status.classList.remove('text-success'); status.textContent = ""; }, 300);
+                }, 2000);
+            } catch (e) {
+                status.textContent = "Error";
+                status.classList.add('text-error');
+            }
+        }
+
+        // Deep set object value by string path (e.g. "llm.model")
+        function setNestedValue(obj, path, value) {
+            const keys = path.split('.');
+            let current = obj;
+            for (let i = 0; i < keys.length - 1; i++) {
+                if (!current[keys[i]]) current[keys[i]] = {};
+                current = current[keys[i]];
+            }
+            current[keys[keys.length - 1]] = value;
+        }
+
+        // --- Event Listeners (Auto-Save) ---
+        const handleInput = (e) => {
+            const key = e.target.getAttribute('data-key');
+            if (!key) return;
+            
+            setNestedValue(config, key, e.target.value);
+            
+            // Debounce save (500ms)
+            clearTimeout(window._saveTimer);
+            window._saveTimer = setTimeout(saveConfig, 500);
+        };
+
+        ['config-username', 'config-agentName', 'config-language', 'config-llm-model'].forEach(id => {
+            DOM(id).addEventListener('input', handleInput);
+        });
+
+        // --- Themes ---
+        async function loadThemes() {
+            const container = DOM('theme-list');
+            container.innerHTML = '';
+
+            try {
+                const files = await MetaOS.listFiles('system/themes');
+                const themeFiles = files.filter(f => f.endsWith('.json')).sort();
+
+                for (const path of themeFiles) {
+                    try {
+                        const themeData = JSON.parse(await MetaOS.readFile(path));
+                        const meta = themeData.meta || { name: path.split('/').pop().replace('.json', ''), author: 'System' };
+                        const isActive = config.theme === path;
+                        
+                        const bg = themeData.colors?.bg?.app || '#1a1b26';
+                        const fg = themeData.colors?.text?.main || '#c0caf5';
+                        const accent = themeData.colors?.accent?.primary || '#7aa2f7';
+
+                        const div = document.createElement('div');
+                        div.className = `cursor-pointer p-4 rounded-xl border-2 transition-all relative overflow-hidden group shadow-sm hover:shadow-md ${isActive ? 'border-primary bg-primary/5 ring-4 ring-primary/10' : 'border-border-main hover:border-text-muted bg-card'}`;
+                        div.onclick = () => {
+                            if (config.theme !== path) {
+                                config.theme = path;
+                                saveConfig().then(loadThemes);
+                            }
+                        };
+
+                        div.innerHTML = `
+                            <div class="flex items-center gap-3 relative z-10">
+                                <div class="w-12 h-12 rounded-full border border-gray-600 shadow-inner shrink-0 flex items-center justify-center transition-transform group-hover:scale-105" style="background:${bg}">
+                                    <div class="w-5 h-5 rounded-full shadow-[0_0_10px_rgba(0,0,0,0.5)]" style="background:${accent}"></div>
+                                </div>
+                                <div class="min-w-0 flex-1">
+                                    <div class="font-bold text-sm truncate flex items-center justify-between" style="color:${isActive ? 'rgb(var(--c-accent-primary))' : 'inherit'}">
+                                        ${meta.name}
+                                        ${isActive ? '<svg class="w-4 h-4 text-primary shrink-0 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"></path></svg>' : ''}
+                                    </div>
+                                    <div class="text-[10px] text-text-muted truncate mt-0.5 font-mono opacity-80 uppercase tracking-widest">by ${meta.author}</div>
+                                </div>
+                            </div>
+                        `;
+                        container.appendChild(div);
+
+                    } catch(err) { console.warn("Invalid theme file", path); }
+                }
+            } catch(e) { container.innerHTML = `<div class="text-error text-sm">Failed to load themes.</div>`; }
+        }
+
+        // Boot
+        document.readyState === 'loading' ? document.addEventListener('DOMContentLoaded', loadConfig) : loadConfig();
+    </script>
+</body>
+</html>

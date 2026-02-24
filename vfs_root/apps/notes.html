@@ -1,0 +1,403 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Notes</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <!-- MathJax -->
+    <script>
+    window.MathJax = {
+      tex: { inlineMath: [['$', '$'], ['\\(', '\\)']] },
+      svg: { fontCache: 'global' }
+    };
+    </script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <script src="../system/lib/ui.js"></script>
+    <script src="../system/lib/std.js"></script>
+    <style>
+        /* Markdown Typography overrides for Theme System */
+        .prose h1, .prose h2, .prose h3 { color: rgb(var(--c-text-main)); font-weight: 700; margin-top: 1.5em; margin-bottom: 0.5em; }
+        .prose h1 { font-size: 1.75em; border-bottom: 1px solid rgb(var(--c-border-main)); padding-bottom: 0.3em; }
+        .prose p { margin-bottom: 1em; line-height: 1.7; color: rgb(var(--c-text-main)); opacity: 0.9; }
+        .prose ul { list-style: disc; padding-left: 1.5em; color: rgb(var(--c-text-muted)); }
+        .prose ol { list-style: decimal; padding-left: 1.5em; color: rgb(var(--c-text-muted)); }
+        .prose code { background: rgb(var(--c-bg-hover)); padding: 0.2em 0.4em; border-radius: 0.25em; font-family: monospace; color: rgb(var(--c-accent-primary)); }
+        .prose pre { background: rgb(var(--c-bg-app)); padding: 1em; border-radius: 0.5em; overflow: auto; border: 1px solid rgb(var(--c-border-main)); }
+        .prose blockquote { border-left: 4px solid rgb(var(--c-border-highlight)); padding-left: 1em; color: rgb(var(--c-text-muted)); font-style: italic; }
+        .prose a { color: rgb(var(--c-accent-primary)); text-decoration: underline; }
+    </style>
+</head>
+<body class="bg-app text-text-main h-screen flex overflow-hidden relative">
+
+    <!-- Mobile Overlay for Sidebar -->
+    <div id="sidebar-overlay" onclick="toggleSidebar()" class="fixed inset-0 bg-black/50 z-30 hidden lg:hidden opacity-0 transition-opacity duration-300"></div>
+
+    <!-- Sidebar -->
+    <aside id="sidebar" class="absolute lg:relative w-72 h-full bg-panel border-r border-border-main flex flex-col shrink-0 z-40 transform -translate-x-full lg:translate-x-0 transition-transform duration-300 shadow-2xl lg:shadow-none">
+        <div class="h-14 flex items-center justify-between px-4 border-b border-border-main shrink-0">
+            <div class="flex items-center gap-2">
+                <button onclick="AppUI.home()" class="text-text-muted hover:text-text-main transition p-1 rounded hover:bg-hover"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg></button>
+                <span class="font-bold tracking-tight">Data Tree</span>
+            </div>
+            <div class="flex gap-1">
+                <button onclick="newNote()" class="text-primary hover:text-primary/80 text-sm font-bold bg-primary/10 px-2 py-1 rounded transition">+ New</button>
+                <button onclick="toggleSidebar()" class="lg:hidden text-text-muted hover:text-text-main p-1 rounded hover:bg-hover">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                </button>
+            </div>
+        </div>
+        
+        <!-- Search -->
+        <div class="p-3 border-b border-border-main/50 bg-panel/50 backdrop-blur shrink-0 z-10 sticky top-0">
+            <div class="relative">
+                <svg class="w-4 h-4 absolute left-3 top-2.5 text-text-muted opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+                <input type="text" id="search-input" placeholder="Search files..." class="w-full bg-card border border-border-main rounded-lg pl-9 pr-3 py-2 text-sm text-text-main focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/30 transition-all placeholder-text-muted">
+            </div>
+        </div>
+
+        <div id="file-list" class="flex-1 overflow-y-auto p-2 space-y-0.5 pb-20">
+            <div class="text-xs text-center text-text-muted py-4">Loading tree...</div>
+        </div>
+    </aside>
+
+    <!-- Main Content Area -->
+    <main class="flex-1 flex flex-col bg-app relative min-w-0">
+        <!-- Main Header -->
+        <header class="h-14 border-b border-border-main flex items-center justify-between px-4 bg-panel shrink-0 z-10">
+            <div class="flex items-center gap-3 min-w-0">
+                <button onclick="toggleSidebar()" class="p-1.5 rounded-lg text-text-muted hover:text-text-main hover:bg-hover transition bg-card border border-border-main lg:hidden">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path></svg>
+                </button>
+                <button onclick="toggleSidebar()" class="hidden lg:block p-1.5 rounded-lg text-text-muted hover:text-text-main hover:bg-hover transition" title="Toggle Sidebar">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h7"></path></svg>
+                </button>
+                <h2 id="note-title" class="font-bold truncate text-text-main text-sm">Welcome</h2>
+            </div>
+            
+            <div id="editor-toolbar" class="hidden items-center gap-3 shrink-0 pl-4">
+                <span id="status-indicator" class="text-[10px] text-text-muted font-mono uppercase tracking-widest hidden sm:inline-block">Synced</span>
+                
+                <!-- Toggle View/Edit -->
+                <div class="bg-card border border-border-main rounded-lg p-0.5 flex text-xs font-medium">
+                    <button id="btn-view" onclick="setMode('view')" class="px-3 py-1.5 rounded-md bg-panel text-text-main shadow-sm transition">View</button>
+                    <button id="btn-edit" onclick="setMode('edit')" class="px-3 py-1.5 rounded-md text-text-muted hover:text-text-main transition">Edit</button>
+                </div>
+
+                <button onclick="openInMonaco()" class="text-text-muted hover:text-primary p-1.5 rounded transition" title="Open in Code Editor (Host)">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"></path></svg>
+                </button>
+            </div>
+        </header>
+
+        <!-- Empty State -->
+        <div id="empty-state" class="absolute inset-0 flex items-center justify-center text-text-muted flex-col pointer-events-none mt-14">
+            <svg class="w-16 h-16 mb-4 opacity-20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+            <p class="font-medium">Select a file from the tree</p>
+            <p class="text-xs opacity-60 mt-1">Markdown files in data/ and docs/</p>
+        </div>
+
+        <!-- Content View -->
+        <div id="content-view" class="hidden flex-1 relative overflow-hidden">
+            <!-- Rendered Markdown -->
+            <div id="markdown-viewer" class="absolute inset-0 overflow-y-auto p-4 md:p-8 scroll-smooth">
+                <article id="markdown-body" class="prose max-w-3xl mx-auto pb-20"></article>
+            </div>
+
+            <!-- Raw Textarea -->
+            <div id="markdown-editor-container" class="hidden absolute inset-0 bg-app">
+                <textarea id="markdown-editor" class="w-full h-full bg-transparent text-text-main p-4 md:p-8 focus:outline-none resize-none font-mono text-sm leading-relaxed" spellcheck="false" placeholder="Start writing..."></textarea>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        let currentPath = null;
+        let allFiles = [];
+        let currentMode = 'view';
+        let saveTimeout = null;
+        let fileContent = '';
+
+        function toggleSidebar() {
+            const sidebar = document.getElementById('sidebar');
+            const overlay = document.getElementById('sidebar-overlay');
+            if (window.innerWidth < 1024) {
+                if (sidebar.classList.contains('-translate-x-full')) {
+                    sidebar.classList.remove('-translate-x-full');
+                    overlay.classList.remove('hidden');
+                    setTimeout(() => overlay.classList.remove('opacity-0'), 10);
+                } else {
+                    sidebar.classList.add('-translate-x-full');
+                    overlay.classList.add('opacity-0');
+                    setTimeout(() => overlay.classList.add('hidden'), 300);
+                }
+            } else {
+                if (sidebar.classList.contains('lg:translate-x-0')) {
+                    sidebar.classList.remove('lg:translate-x-0');
+                    sidebar.classList.add('-translate-x-full', 'hidden');
+                } else {
+                    sidebar.classList.remove('-translate-x-full', 'hidden');
+                    sidebar.classList.add('lg:translate-x-0');
+                }
+            }
+        }
+
+        async function init() {
+            await loadList();
+            const pending = localStorage.getItem('metaos_open_note');
+            if(pending) {
+                localStorage.removeItem('metaos_open_note');
+                openNote(pending);
+            }
+        }
+
+        async function loadList() {
+            try {
+                // data と docs の両方を走査
+                const [dataFiles, docsFiles] = await Promise.all([
+                    MetaOS.listFiles('data', { recursive: true }).catch(() => []),
+                    MetaOS.listFiles('docs', { recursive: true }).catch(() => [])
+                ]);
+                
+                const combined = [...dataFiles, ...docsFiles];
+                
+                allFiles = combined.filter(f => {
+                    const pathStr = typeof f === 'object' ? f.path : f;
+                    return pathStr.endsWith('.md') && !pathStr.includes('.git');
+                }).map(f => typeof f === 'object' ? f.path : f).sort();
+                
+                renderTree(allFiles);
+            } catch(e) {
+                document.getElementById('file-list').innerHTML = `<div class="text-error text-xs p-2">Error: ${e.message}</div>`;
+            }
+        }
+
+        function renderTree(files) {
+            const container = document.getElementById('file-list');
+            const query = document.getElementById('search-input').value.toLowerCase();
+            const filtered = files.filter(p => p.toLowerCase().includes(query));
+
+            if (!filtered.length) return container.innerHTML = '<div class="text-text-muted text-xs text-center py-4">No matching files.</div>';
+
+            // フルパスをそのままツリー化（dataとdocsがトップレベルになる）
+            const tree = filtered.reduce((acc, path) => {
+                path.split('/').reduce((node, part, i, arr) => 
+                    node[part] = node[part] ?? (i === arr.length - 1 ? path : {}), acc);
+                return acc;
+            }, {});
+
+            container.innerHTML = '';
+            container.appendChild(renderTreeLevel(tree));
+        }
+
+        function renderTreeLevel(node, depth = 0) {
+            const ul = document.createElement('div');
+            ul.className = depth > 0 ? "border-l border-border-main/50 ml-3 pl-1 space-y-0.5" : "space-y-0.5";
+            
+            const keys = Object.keys(node).sort((a, b) => {
+                const isAFolder = typeof node[a] === 'object';
+                const isBFolder = typeof node[b] === 'object';
+                if (isAFolder && !isBFolder) return -1;
+                if (!isAFolder && isBFolder) return 1;
+                return a.localeCompare(b);
+            });
+
+            keys.forEach(key => {
+                const value = node[key];
+                
+                if (typeof value === 'object') {
+                    const details = document.createElement('details');
+                    
+                    // docsディレクトリは初期状態で閉じておく
+                    let isOpen = depth < 2;
+                    if (depth === 0 && key === 'docs') {
+                        isOpen = false;
+                    }
+                    details.open = isOpen;
+                    
+                    const summary = document.createElement('summary');
+                    summary.className = "cursor-pointer px-2 py-1.5 text-[10px] font-bold text-text-muted hover:text-text-main uppercase tracking-wider flex items-center gap-1.5 select-none group rounded hover:bg-hover";
+                    summary.innerHTML = `
+                        <svg class="w-3 h-3 text-text-muted group-hover:text-text-main transition transform group-open:rotate-90 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
+                        <svg class="w-3.5 h-3.5 text-warning/70 group-hover:text-warning shrink-0" fill="currentColor" viewBox="0 0 24 24"><path d="M4 4c0-1.1.9-2 2-2h4.59L12 4h6c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H6c-1.1 0-2-.9-2-2V4z"/></svg>
+                        <span class="truncate">${key}</span>
+                    `;
+                    details.appendChild(summary);
+                    details.appendChild(renderTreeLevel(value, depth + 1));
+                    ul.appendChild(details);
+                } else {
+                    const path = value;
+                    const isActive = currentPath === path;
+                    const div = document.createElement('div');
+                    div.className = `cursor-pointer px-2 py-1.5 text-[13px] rounded-md truncate transition flex items-center gap-2 mt-0.5 ${isActive ? 'bg-primary/10 text-primary font-medium border border-primary/20' : 'text-text-muted hover:bg-hover hover:text-text-main border border-transparent'}`;
+                    
+                    div.onclick = () => {
+                        openNote(path);
+                        if (window.innerWidth < 1024) toggleSidebar(); 
+                    };
+                    
+                    div.title = key;
+                    div.innerHTML = `
+                        <svg class="w-3.5 h-3.5 opacity-50 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                        <span class="truncate">${key.replace('.md', '')}</span>
+                    `;
+                    ul.appendChild(div);
+                }
+            });
+            return ul;
+        }
+
+        function setMode(mode) {
+            currentMode = mode;
+            const btnView = document.getElementById('btn-view');
+            const btnEdit = document.getElementById('btn-edit');
+            const viewer = document.getElementById('markdown-viewer');
+            const editor = document.getElementById('markdown-editor-container');
+            const textarea = document.getElementById('markdown-editor');
+
+            if (mode === 'edit') {
+                btnView.className = "px-3 py-1.5 rounded-md text-text-muted hover:text-text-main transition";
+                btnEdit.className = "px-3 py-1.5 rounded-md bg-panel text-text-main shadow-sm transition";
+                viewer.classList.add('hidden');
+                editor.classList.remove('hidden');
+                textarea.value = fileContent;
+                textarea.focus();
+            } else {
+                btnEdit.className = "px-3 py-1.5 rounded-md text-text-muted hover:text-text-main transition";
+                btnView.className = "px-3 py-1.5 rounded-md bg-panel text-text-main shadow-sm transition";
+                editor.classList.add('hidden');
+                viewer.classList.remove('hidden');
+                
+                if (textarea.value !== fileContent) {
+                    fileContent = textarea.value;
+                    saveContent(); 
+                }
+                renderMarkdown(fileContent);
+            }
+        }
+
+        async function openNote(path) {
+            currentPath = path;
+            renderTree(allFiles); 
+            
+            document.getElementById('empty-state').classList.add('hidden');
+            document.getElementById('content-view').classList.remove('hidden');
+            document.getElementById('editor-toolbar').classList.remove('hidden');
+            document.getElementById('editor-toolbar').classList.add('flex');
+            document.getElementById('note-title').textContent = path.split('/').pop();
+            
+            const status = document.getElementById('status-indicator');
+            status.textContent = "Loading...";
+            
+            const body = document.getElementById('markdown-body');
+            body.innerHTML = '<div class="animate-pulse space-y-4 pt-4"><div class="h-8 bg-panel rounded w-1/3 mb-6"></div><div class="h-4 bg-panel rounded w-full"></div><div class="h-4 bg-panel rounded w-5/6"></div></div>';
+
+            try {
+                fileContent = await MetaOS.readFile(path);
+                renderMarkdown(fileContent);
+                status.textContent = "Synced";
+
+                if (currentMode === 'edit') {
+                    document.getElementById('markdown-editor').value = fileContent;
+                }
+            } catch(e) {
+                body.innerHTML = `<div class="text-error p-4 border border-error/50 rounded bg-error/10">Failed to load: ${e.message}</div>`;
+                status.textContent = "Error";
+            }
+        }
+
+        function renderMarkdown(content) {
+            const body = document.getElementById('markdown-body');
+            try {
+                const mathBlocks = [];
+                const protectedContent = content.replace(/\$\$([\s\S]+?)\$\$/g, (m) => { mathBlocks.push(m); return `MATHBLOCK${mathBlocks.length-1}END`; })
+                                                .replace(/\$([^\$]+?)\$/g, (m) => { mathBlocks.push(m); return `MATHINLINE${mathBlocks.length-1}END`; });
+
+                let html = marked.parse(protectedContent);
+                
+                html = html.replace(/MATHBLOCK(\d+)END/g, (m, id) => mathBlocks[parseInt(id)])
+                           .replace(/MATHINLINE(\d+)END/g, (m, id) => mathBlocks[parseInt(id)]);
+
+                body.innerHTML = html;
+
+                if (window.MathJax) {
+                    MathJax.typesetPromise([body]).then(() => {});
+                }
+            } catch (e) {
+                body.innerHTML = `<div class="text-error">Markdown render error</div>`;
+            }
+        }
+
+        const setStatus = (msg, state = '') => {
+            const el = document.getElementById('status-indicator');
+            el.textContent = msg;
+            el.className = `text-[10px] font-mono uppercase tracking-widest hidden sm:inline-block ${state === 'warn' ? 'text-warning' : state === 'err' ? 'text-error' : 'text-text-muted'}`;
+        };
+
+        const debounce = (fn, ms) => { let t; return (...args) => { clearTimeout(t); t = setTimeout(() => fn(...args), ms); }; };
+
+        const saveContent = async () => {
+            if (!currentPath) return;
+            setStatus("Saving...", "warn");
+            try {
+                await MetaOS.saveFile(currentPath, fileContent, { silent: true });
+                setStatus("Saved");
+                setTimeout(() => setStatus("Synced"), 2000);
+            } catch { setStatus("Error", "err"); }
+        };
+
+        const autoSave = debounce(saveContent, 1000);
+
+        document.getElementById('markdown-editor').addEventListener('input', e => {
+            fileContent = e.target.value;
+            setStatus("Editing...", "warn");
+            autoSave();
+        });
+
+        document.addEventListener('keydown', (e) => {
+            if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+                e.preventDefault();
+                if (currentMode === 'edit') saveContent();
+            }
+        });
+
+        async function newNote() {
+            // OSネイティブなプロンプトを使用
+            const name = await AppUI.prompt("Enter file name (e.g. 'Meeting.md' or 'projects/Design.md'):", "Untitled.md", "New Note");
+            if(!name) return;
+            
+            let path = name;
+            if (!path.includes('/')) {
+                path = `data/notes/${path}`;
+            } else if (!path.startsWith('data/') && !path.startsWith('docs/')) {
+                path = `data/${path}`;
+            }
+            if (!path.endsWith('.md')) path += '.md';
+
+            await MetaOS.saveFile(path, `# ${path.split('/').pop().replace('.md','')}\n\nStart writing...`);
+            App.logEvent(`User created a new note: "${path}"`, 'note_created');
+        }
+
+        function openInMonaco() {
+            if(currentPath) MetaOS.openFile(currentPath);
+        }
+
+        document.getElementById('search-input').addEventListener('input', () => renderTree(allFiles));
+
+        if (window.MetaOS && MetaOS.on) {
+            MetaOS.on('file_changed', (payload) => {
+                if (payload.path.startsWith('data/') || payload.path.startsWith('docs/')) {
+                     loadList().then(() => {
+                         if(currentPath && payload.path === currentPath) {
+                             openNote(currentPath);
+                         }
+                     });
+                }
+            });
+        }
+
+        init();
+    </script>
+</body>
+</html>

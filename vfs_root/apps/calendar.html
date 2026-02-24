@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Calendar</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="../system/lib/ui.js"></script>
+    <script src="../system/lib/std.js"></script>
+    <style>
+        .calendar-cell { min-height: 80px; }
+        /* スクロールバー非表示用ユーティリティ */
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+    </style>
+</head>
+<body class="bg-app text-text-main h-screen flex flex-col p-6 overflow-hidden select-none">
+
+    <!-- Header -->
+    <header class="flex items-center justify-between mb-6 shrink-0">
+        <div class="flex items-center gap-4">
+            <button onclick="AppUI.home()" class="p-2 -ml-2 rounded-full hover:bg-hover text-text-muted hover:text-text-main transition">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg>
+            </button>
+            <h1 class="text-2xl font-bold tracking-tight" id="month-label">Calendar</h1>
+        </div>
+        <div class="flex gap-2 bg-panel p-1 rounded-lg border border-border-main shadow-sm">
+            <button onclick="changeMonth(-1)" class="p-1 hover:bg-hover rounded text-text-muted hover:text-text-main transition">&lt;</button>
+            <button onclick="today()" class="px-3 text-xs font-bold text-text-main hover:bg-hover rounded transition">Today</button>
+            <button onclick="changeMonth(1)" class="p-1 hover:bg-hover rounded text-text-muted hover:text-text-main transition">&gt;</button>
+        </div>
+    </header>
+
+    <!-- Event Details Modal (Hidden by default) -->
+    <div id="day-modal" class="hidden fixed inset-0 bg-black/50 z-50 flex justify-end backdrop-blur-sm transition-opacity">
+        <div class="bg-panel w-full max-w-sm h-full shadow-2xl border-l border-border-main flex flex-col transform translate-x-full transition-transform duration-300" id="day-modal-content">
+            <!-- Modal Header -->
+            <div class="p-5 border-b border-border-main flex justify-between items-center bg-card/50">
+                <div>
+                    <h3 class="font-bold text-xl tracking-tight" id="modal-date-display">Date</h3>
+                    <p class="text-xs text-text-muted font-mono uppercase tracking-widest mt-0.5" id="modal-weekday-display">Day</p>
+                </div>
+                <button onclick="closeDayModal()" class="p-2 w-8 h-8 flex items-center justify-center rounded-full hover:bg-hover text-text-muted hover:text-text-main transition bg-panel shadow-sm border border-border-main">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                </button>
+            </div>
+            
+            <!-- Event List -->
+            <div class="flex-1 p-4 overflow-y-auto space-y-3" id="modal-event-list">
+                <!-- Events injected here -->
+            </div>
+
+            <!-- Event Form (Hidden by default, used for Add and Edit) -->
+            <div id="event-edit-form" class="hidden flex-1 p-5 overflow-y-auto flex-col space-y-4">
+                <input type="hidden" id="edit-event-id">
+                <input type="hidden" id="edit-event-original-date">
+                
+                <div>
+                    <label class="block text-[10px] font-bold text-text-muted uppercase tracking-wider mb-1">Event Title <span class="text-error">*</span></label>
+                    <input type="text" id="edit-event-title" placeholder="Meeting with client..." class="w-full bg-card border border-border-main rounded-lg p-2.5 focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none text-text-main text-sm transition shadow-inner">
+                </div>
+                
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-[10px] font-bold text-text-muted uppercase tracking-wider mb-1">Date <span class="text-error">*</span></label>
+                        <input type="date" id="edit-event-date" class="w-full bg-card border border-border-main rounded-lg p-2.5 focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none text-text-main text-sm transition cursor-pointer">
+                    </div>
+                    <div>
+                        <label class="block text-[10px] font-bold text-text-muted uppercase tracking-wider mb-1">Time</label>
+                        <input type="time" id="edit-event-time" class="w-full bg-card border border-border-main rounded-lg p-2.5 focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none text-text-main text-sm transition cursor-pointer">
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-[10px] font-bold text-text-muted uppercase tracking-wider mb-1">Notes / Description</label>
+                    <textarea id="edit-event-note" rows="4" placeholder="Zoom link, agenda..." class="w-full bg-card border border-border-main rounded-lg p-2.5 focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none text-text-main text-sm resize-none transition shadow-inner"></textarea>
+                </div>
+
+                <div class="mt-auto flex gap-2 pt-4 border-t border-border-main">
+                    <button onclick="cancelEventForm()" class="flex-1 px-4 py-2.5 rounded-lg text-sm font-medium hover:bg-hover transition text-text-muted hover:text-text-main">Cancel</button>
+                    <button onclick="saveEventForm()" class="flex-1 px-4 py-2.5 rounded-lg bg-primary text-white text-sm font-bold hover:bg-primary/90 shadow transition flex items-center justify-center gap-2">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+                        Save Event
+                    </button>
+                </div>
+            </div>
+
+            <!-- Add Event Button (Visible in list mode) -->
+            <div class="p-4 border-t border-border-main bg-card/50" id="add-event-section">
+                <input type="hidden" id="modal-target-date">
+                <button onclick="openEventForm(null)" class="w-full bg-primary hover:bg-primary/90 text-white font-bold px-4 py-3 rounded-xl transition shadow-md hover:shadow-lg flex items-center justify-center gap-2 group">
+                    <span class="text-xl leading-none group-hover:scale-125 transition-transform">+</span> 
+                    <span>Create New Event</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Calendar -->
+    <div class="flex-1 flex flex-col bg-panel border border-border-main rounded-xl overflow-hidden shadow-sm relative">
+        <!-- Header Row -->
+        <div class="grid grid-cols-7 gap-px bg-border-main text-center py-2 text-xs font-bold text-text-muted uppercase tracking-wider bg-panel shrink-0">
+            <div class="text-error">Sun</div><div>Mon</div><div>Tue</div><div>Wed</div><div>Thu</div><div>Fri</div><div class="text-primary">Sat</div>
+        </div>
+        <!-- Grid Body -->
+        <div id="grid" class="flex-1 grid grid-cols-7 gap-px bg-border-main overflow-y-auto">
+            <!-- Cells injected by JS -->
+        </div>
+    </div>
+
+    <script>
+        let currentDate = new Date();
+        const DOM = id => document.getElementById(id);
+
+        async function render() {
+            const [year, month] = [currentDate.getFullYear(), currentDate.getMonth()];
+            const monthKey = `${year}-${String(month + 1).padStart(2, '0')}`;
+            const todayStr = new Date().toISOString().slice(0, 10);
+            
+            DOM('month-label').textContent = currentDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+            
+            // Show subtle loading state for cells if desired, but usually it's fast enough.
+            const items = await App.getCalendarItems(monthKey).catch(() => []);
+            const [firstDay, daysInMonth] = [new Date(year, month, 1).getDay(), new Date(year, month + 1, 0).getDate()];
+
+            const renderCell = d => {
+                const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+                const badges = items.filter(i => i.date === dateStr).sort((a, b) => (a.time || '').localeCompare(b.time || '')).map(i => {
+                    const color = i.type === 'task' ? 'bg-success/15 text-success border-success/30' : 'bg-primary/15 text-primary border-primary/30';
+                    return `<div class="text-[9px] px-1.5 py-0.5 rounded border ${color} truncate mb-0.5 font-medium tracking-tight">${i.time ? `<span class="opacity-60 font-mono mr-1">${i.time}</span>` : ''}${i.title}</div>`;
+                }).join('');
+
+                const isToday = dateStr === todayStr;
+                const todayStyles = isToday ? 'bg-primary text-white w-6 h-6 flex items-center justify-center rounded-full shadow-lg shadow-primary/30 ring-2 ring-primary/20' : 'text-text-muted';
+                
+                return `<div class="calendar-cell bg-panel hover:bg-hover transition-colors duration-200 p-2 cursor-pointer flex flex-col gap-1 group relative overflow-hidden border-t border-transparent hover:border-primary/30" onclick="openDayModal('${dateStr}')">
+                            <div class="text-xs font-bold ${todayStyles} transition-transform ${!isToday ? 'group-hover:scale-110 group-hover:text-text-main' : ''}">${d}</div>
+                            <div class="flex-1 w-full space-y-0.5 mt-1 overflow-y-auto no-scrollbar">${badges}</div>
+                            <div class="absolute inset-0 border-2 border-primary/0 group-hover:border-primary/20 rounded transition-colors pointer-events-none"></div>
+                        </div>`;
+            };
+
+            DOM('grid').innerHTML = Array(firstDay).fill(`<div class="calendar-cell bg-app/50"></div>`).join('') + 
+                                    Array.from({ length: daysInMonth }, (_, i) => renderCell(i + 1)).join('');
+        }
+
+        function changeMonth(d) {
+            currentDate.setMonth(currentDate.getMonth() + d);
+            render();
+        }
+        function today() {
+            currentDate = new Date();
+            render();
+        }
+
+        // --- Day Modal Logic ---
+        let currentModalDate = '';
+        let currentMonthItems = [];
+
+        async function openDayModal(dateStr) {
+            currentModalDate = dateStr;
+            const targetDate = new Date(dateStr);
+            
+            document.getElementById('modal-date-display').textContent = targetDate.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+            document.getElementById('modal-weekday-display').textContent = targetDate.toLocaleDateString('en-US', { weekday: 'long' });
+            document.getElementById('modal-target-date').value = dateStr;
+
+            // Get events for this day
+            const yearMonth = dateStr.slice(0, 7);
+            try {
+                currentMonthItems = await App.getCalendarItems(yearMonth);
+            } catch(e) {}
+            
+            const dayEvents = currentMonthItems.filter(i => i.date === dateStr);
+            const listContainer = document.getElementById('modal-event-list');
+            
+            if (dayEvents.length === 0) {
+                listContainer.innerHTML = `
+                    <div class="flex flex-col items-center justify-center h-40 text-text-muted opacity-60">
+                        <svg class="w-10 h-10 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+                        <span class="text-sm font-medium">No events for this day</span>
+                        <span class="text-xs mt-1">Enjoy your free time!</span>
+                    </div>
+                `;
+            } else {
+                // Sort by time (All-day first)
+                dayEvents.sort((a, b) => (a.time || '').localeCompare(b.time || ''));
+
+                listContainer.innerHTML = `<div class="relative mt-2">` + dayEvents.map((event, index) => {
+                    const isTask = event.type === 'task';
+                    const icon = isTask ? '✅' : '📅';
+                    const isLast = index === dayEvents.length - 1;
+                    const colorClasses = isTask ? 'bg-success/5 border-success/30 hover:bg-success/10' : 'bg-primary/5 border-primary/30 hover:bg-primary/10 hover:border-primary/50 cursor-pointer';
+                    const dotColor = isTask ? 'bg-success' : 'bg-primary';
+                    const timeText = event.time ? event.time : 'ALL DAY';
+                    const timeClass = event.time ? 'text-text-main font-bold text-sm' : 'text-text-muted font-bold text-[10px] uppercase tracking-wider pt-1';
+
+                    return `
+                        <div class="flex gap-4 group relative" ${!isTask ? `onclick="openEventForm('${event.id}')"` : `title="Tasks must be edited in the Tasks App."`}>
+                            <!-- Timeline Left (Time) -->
+                            <div class="w-14 shrink-0 text-right pt-2">
+                                <span class="font-mono ${timeClass}">${timeText}</span>
+                            </div>
+                            
+                            <!-- Timeline Center (Dot & Line) -->
+                            <div class="flex flex-col items-center relative">
+                                <div class="w-3 h-3 rounded-full ${dotColor} mt-3.5 z-10 shadow-[0_0_8px_currentColor] ring-4 ring-app"></div>
+                                ${!isLast ? `<div class="w-px h-full bg-border-main absolute top-6 bottom-[-24px]"></div>` : ''}
+                            </div>
+                            
+                            <!-- Timeline Right (Content Card) -->
+                            <div class="flex-1 pb-6 pt-1">
+                                <div class="p-3 rounded-xl border ${colorClasses} flex flex-col gap-1 shadow-sm transition">
+                                    <div class="flex items-start justify-between gap-2">
+                                        <div class="text-sm font-bold text-text-main leading-tight">${event.title}</div>
+                                        ${!isTask ? `
+                                        <button onclick="event.stopPropagation(); delEvent('${event.id}', '${dateStr}')" class="p-1.5 -m-1.5 text-text-muted hover:text-error hover:bg-error/10 rounded opacity-0 group-hover:opacity-100 transition shrink-0">
+                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                                        </button>
+                                        ` : ''}
+                                    </div>
+                                    <div class="text-[10px] text-text-muted uppercase tracking-wider font-bold flex items-center gap-1 mt-0.5">
+                                        <span>${icon}</span> ${isTask ? 'Task Deadline' : (event.note ? 'Notes attached' : 'Event')}
+                                    </div>
+                                    ${event.note ? `<div class="text-xs text-text-muted mt-2 bg-card/50 p-2 rounded border border-border-main/50 line-clamp-3">${event.note}</div>` : ''}
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                }).join('') + `</div>`;
+            }
+
+            // Show modal with slide-in animation
+            const modal = document.getElementById('day-modal');
+            const content = document.getElementById('day-modal-content');
+            modal.classList.remove('hidden');
+            // Trigger reflow for transition
+            void modal.offsetWidth; 
+            content.classList.remove('translate-x-full');
+        }
+
+        function closeDayModal() {
+            const modal = document.getElementById('day-modal');
+            const content = document.getElementById('day-modal-content');
+            content.classList.add('translate-x-full');
+            setTimeout(() => {
+                modal.classList.add('hidden');
+                cancelEventForm(); // Reset to list view for next open
+            }, 300);
+        }
+
+        // --- Modal & Form Logic ---
+        function toggleFormView(showForm) {
+            ['modal-event-list', 'add-event-section'].forEach(id => DOM(id).classList.toggle('hidden', showForm));
+            DOM('event-edit-form').classList.toggle('hidden', !showForm);
+            DOM('event-edit-form').classList.toggle('flex', showForm);
+        }
+
+        function openEventForm(id = null) {
+            const e = id ? currentMonthItems.find(e => e.id === id) : {};
+            if (id && !e) return;
+            
+            DOM('edit-event-id').value = e.id || '';
+            DOM('edit-event-original-date').value = e.date || '';
+            DOM('edit-event-title').value = e.title || '';
+            DOM('edit-event-date').value = e.date || DOM('modal-target-date').value;
+            DOM('edit-event-time').value = e.time || '';
+            DOM('edit-event-note').value = e.note || '';
+
+            toggleFormView(true);
+            setTimeout(() => DOM('edit-event-title').focus(), 50);
+        }
+
+        const cancelEventForm = () => toggleFormView(false);
+
+        async function saveEventForm() {
+            const [id, title, date, time, note, originalDate] = ['id','title','date','time','note','original-date'].map(k => DOM(`edit-event-${k}`).value);
+            if (!title.trim() || !date) {
+                AppUI.notify("Event title and date are required.", "warning");
+                return;
+            }
+
+            AppUI.showLoading("Saving event...");
+            id ? await App.updateEvent(id, { title, date, time, note, originalDate }) : await App.addEvent(title, date, time, note);
+            AppUI.hideLoading();
+
+            AppUI.notify(id ? "Event updated" : "Event created", "success");
+            
+            cancelEventForm();
+            await render();
+            openDayModal(date);
+        }
+        
+        async function delEvent(id, dateStr) {
+            if (await AppUI.confirm('Are you sure you want to delete this event?')) {
+                AppUI.showLoading("Deleting...");
+                await App.deleteEvent(id, dateStr);
+                AppUI.hideLoading();
+                AppUI.notify("Event deleted", "info");
+                await render();
+                openDayModal(dateStr);
+            }
+        }
+
+        // Reactive update
+        if (window.MetaOS) {
+            MetaOS.on('file_changed', (payload) => {
+                if (payload.path.startsWith('data/events/') || payload.path.startsWith('data/tasks/')) {
+                    render();
+                }
+            });
+        }
+
+        render();
+    </script>
+</body>
+</html>

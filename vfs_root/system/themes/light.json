@@ -1,0 +1,39 @@
+{
+    "meta": {
+        "name": "Itera Light",
+        "author": "System"
+    },
+    "colors": {
+        "bg": {
+            "app": "#f9fafb",
+            "panel": "#ffffff",
+            "card": "#f3f4f6",
+            "hover": "#e5e7eb",
+            "overlay": "#000000"
+        },
+        "border": {
+            "main": "#e5e7eb",
+            "highlight": "#3b82f6"
+        },
+        "text": {
+            "main": "#1f2937",
+            "muted": "#6b7280",
+            "inverted": "#ffffff",
+            "system": "#2563eb",
+            "tag_attr": "#6b7280",
+            "tag_content": "#374151"
+        },
+        "accent": {
+            "primary": "#2563eb",
+            "success": "#059669",
+            "warning": "#d97706",
+            "error": "#dc2626"
+        },
+        "tags": {
+            "thinking": "#1d4ed8",
+            "plan": "#047857",
+            "report": "#4338ca",
+            "error": "#b91c1c"
+        }
+    }
+}

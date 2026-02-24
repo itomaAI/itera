@@ -1,0 +1,37 @@
+[
+    {
+        "id": "tasks",
+        "name": "Tasks",
+        "icon": "✅",
+        "path": "apps/tasks.html",
+        "description": "Manage daily to-dos"
+    },
+    {
+        "id": "notes",
+        "name": "Notes",
+        "icon": "📝",
+        "path": "apps/notes.html",
+        "description": "Markdown editor"
+    },
+    {
+        "id": "calendar",
+        "name": "Calendar",
+        "icon": "📅",
+        "path": "apps/calendar.html",
+        "description": "Schedule events"
+    },
+    {
+        "id": "othello",
+        "name": "Othello",
+        "icon": "⚫",
+        "path": "apps/othello.html",
+        "description": "Classic board game"
+    },
+    {
+        "id": "settings",
+        "name": "Settings",
+        "icon": "⚙️",
+        "path": "apps/settings.html",
+        "description": "System configuration"
+    }
+]

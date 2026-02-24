@@ -1,0 +1,39 @@
+{
+    "meta": {
+        "name": "Midnight Protocol",
+        "author": "System"
+    },
+    "colors": {
+        "bg": {
+            "app": "#020617",
+            "panel": "#0f172a",
+            "card": "#1e293b",
+            "hover": "#334155",
+            "overlay": "#000000"
+        },
+        "border": {
+            "main": "#1e293b",
+            "highlight": "#6366f1"
+        },
+        "text": {
+            "main": "#e2e8f0",
+            "muted": "#64748b",
+            "inverted": "#020617",
+            "system": "#818cf8",
+            "tag_attr": "#94a3b8",
+            "tag_content": "#cbd5e1"
+        },
+        "accent": {
+            "primary": "#6366f1",
+            "success": "#10b981",
+            "warning": "#f59e0b",
+            "error": "#f43f5e"
+        },
+        "tags": {
+            "thinking": "#312e81",
+            "plan": "#064e3b",
+            "report": "#4338ca",
+            "error": "#881337"
+        }
+    }
+}

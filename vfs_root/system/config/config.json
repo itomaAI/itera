@@ -1,0 +1,11 @@
+{
+    "theme": "system/themes/light.json",
+    "language": "English",
+    "username": "User",
+    "agentName": "Itera",
+    "autoUpdateSystemFiles": true,
+    "llm": {
+        "model": "gemini-3.1-pro-preview",
+        "temperature": 1
+    }
+}

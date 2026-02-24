@@ -1,0 +1,23 @@
+[
+    {
+        "id": "evt_1",
+        "title": "System Boot & Initialization",
+        "date": "2026-02-24",
+        "time": "10:00",
+        "note": "First boot of the Itera OS environment."
+    },
+    {
+        "id": "evt_2",
+        "title": "Blueprint Architecture Review",
+        "date": "2026-02-26",
+        "time": "14:30",
+        "note": "Testing the deployment of background daemons via Markdown blueprints."
+    },
+    {
+        "id": "evt_3",
+        "title": "Deep Focus Session",
+        "date": "2026-02-28",
+        "time": "",
+        "note": "No meetings. Install the Pomodoro Timer blueprint for better focus."
+    }
+]

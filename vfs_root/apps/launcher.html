@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>All Apps</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="../system/lib/ui.js"></script>
+    <script src="../system/lib/std.js"></script>
+</head>
+<body class="bg-app text-text-main min-h-screen p-8">
+
+    <!-- Header -->
+    <div class="max-w-5xl mx-auto mb-8 flex items-center gap-4 animate-fade-in-up">
+        <button onclick="AppUI.home()" class="p-2 -ml-2 rounded-full hover:bg-hover transition text-text-muted hover:text-text-main">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg>
+        </button>
+        <h1 class="text-2xl font-bold tracking-tight">Library</h1>
+    </div>
+
+    <!-- Grid -->
+    <div class="max-w-5xl mx-auto grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-6" id="app-grid">
+        <div class="col-span-full text-center text-text-muted py-10">Loading apps...</div>
+    </div>
+
+    <script>
+        async function loadApps() {
+            const grid = document.getElementById('app-grid');
+            try {
+                const apps = await App.getApps();
+                
+                grid.innerHTML = '';
+                apps.forEach((app, index) => {
+                    const div = document.createElement('div');
+                    div.style.animationDelay = `${index * 50}ms`;
+                    div.className = "group flex flex-col items-center gap-3 p-6 rounded-2xl bg-panel border border-border-main hover:border-primary/50 hover:bg-hover transition-all cursor-pointer hover:-translate-y-1 shadow-lg hover:shadow-primary/10 animate-fade-in-up opacity-0 fill-mode-forwards";
+                    
+                    div.onclick = () => AppUI.go(app.path);
+                    
+                    div.innerHTML = `
+                        <div class="w-14 h-14 rounded-xl bg-card text-text-main flex items-center justify-center text-3xl shadow-inner mb-1 group-hover:scale-110 transition-transform duration-300">
+                            ${app.icon}
+                        </div>
+                        <div class="text-center">
+                            <div class="text-sm font-bold text-text-main">${app.name}</div>
+                            ${app.description ? `<div class="text-[10px] text-text-muted mt-1 line-clamp-1">${app.description}</div>` : ''}
+                        </div>
+                    `;
+                    grid.appendChild(div);
+                });
+            } catch(e) {
+                grid.innerHTML = '<div class="col-span-full text-center text-error">Failed to load apps config.</div>';
+            }
+        }
+        
+        // Simple animation style
+        const style = document.createElement('style');
+        style.textContent = `
+            @keyframes fadeInUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+            .animate-fade-in-up { animation: fadeInUp 0.4s ease-out forwards; }
+            .fill-mode-forwards { animation-fill-mode: forwards; }
+        `;
+        document.head.appendChild(style);
+
+        loadApps();
+    </script>
+</body>
+</html>

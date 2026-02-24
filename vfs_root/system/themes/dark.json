@@ -1,0 +1,39 @@
+{
+    "meta": {
+        "name": "Itera Dark",
+        "author": "System"
+    },
+    "colors": {
+        "bg": {
+            "app": "#0f172a",
+            "panel": "#1e293b",
+            "card": "#334155",
+            "hover": "#475569",
+            "overlay": "#000000"
+        },
+        "border": {
+            "main": "#334155",
+            "highlight": "#3b82f6"
+        },
+        "text": {
+            "main": "#f1f5f9",
+            "muted": "#94a3b8",
+            "inverted": "#0f172a",
+            "system": "#60a5fa",
+            "tag_attr": "#94a3b8",
+            "tag_content": "#cbd5e1"
+        },
+        "accent": {
+            "primary": "#3b82f6",
+            "success": "#10b981",
+            "warning": "#f59e0b",
+            "error": "#ef4444"
+        },
+        "tags": {
+            "thinking": "#1e3a8a",
+            "plan": "#064e3b",
+            "report": "#312e81",
+            "error": "#7f1d1d"
+        }
+    }
+}

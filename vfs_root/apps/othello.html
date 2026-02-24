@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Othello</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="../system/lib/ui.js"></script>
+    <style>
+        .cell {
+            width: 40px; height: 40px; perspective: 1000px;
+        }
+        @media (min-width: 640px) { .cell { width: 50px; height: 50px; } }
+        .disc {
+            width: 80%; height: 80%; border-radius: 50%;
+            transition: transform 0.4s; transform-style: preserve-3d; position: relative;
+        }
+        .disc.black { transform: rotateY(0deg); }
+        .disc.white { transform: rotateY(180deg); }
+        .face {
+            position: absolute; width: 100%; height: 100%; border-radius: 50%;
+            backface-visibility: hidden; box-shadow: inset 0 0 5px rgba(0,0,0,0.5);
+        }
+        .face-front { background: #111; transform: rotateY(0deg); } 
+        .face-back { background: #eee; transform: rotateY(180deg); } 
+        .valid-move::after {
+            content: ''; position: absolute; width: 20%; height: 20%;
+            background: rgba(0, 255, 0, 0.5); border-radius: 50%;
+            top: 50%; left: 50%; transform: translate(-50%, -50%);
+        }
+    </style>
+</head>
+<body class="bg-app text-text-main min-h-screen flex flex-col items-center justify-center p-4">
+
+    <div class="w-full max-w-md">
+        <!-- Header -->
+        <div class="flex justify-between items-center mb-6">
+            <h1 class="text-2xl font-bold text-text-main flex items-center gap-2">
+                <span class="text-3xl">⚫⚪</span> Othello
+            </h1>
+            <button onclick="AppUI.home()" class="text-text-muted hover:text-text-main transition">
+                &times; Close
+            </button>
+        </div>
+
+        <!-- Score Board -->
+        <div class="bg-panel rounded-xl p-4 mb-6 flex justify-between items-center border border-border-main shadow-lg">
+            <div class="text-center w-1/3 transition-opacity duration-300" id="p1-container">
+                <div class="text-xs text-text-muted uppercase font-bold">Black (You)</div>
+                <div class="text-3xl font-bold text-text-main" id="score-black">2</div>
+            </div>
+            <div class="text-center w-1/3">
+                <div id="turn-indicator" class="text-sm font-bold bg-primary text-white px-3 py-1 rounded-full inline-block animate-pulse">
+                    Your Turn
+                </div>
+            </div>
+            <div class="text-center w-1/3 transition-opacity duration-300 opacity-50" id="p2-container">
+                <div class="text-xs text-text-muted uppercase font-bold">White (AI)</div>
+                <div class="text-3xl font-bold text-text-main" id="score-white">2</div>
+            </div>
+        </div>
+
+        <!-- Board (Classic Green) -->
+        <div class="bg-green-800 p-2 rounded-lg shadow-2xl mx-auto w-fit border-4 border-panel">
+            <div id="board" class="grid grid-cols-8 gap-1 bg-green-900 border-2 border-green-900"></div>
+        </div>
+
+        <!-- Controls -->
+        <div class="mt-8 flex justify-between items-center">
+            <button onclick="initGame()" class="text-sm text-text-muted hover:text-text-main transition flex items-center gap-1">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+                Restart Game
+            </button>
+            <div class="text-xs text-text-muted font-mono">v1.1 (Theme Supported)</div>
+        </div>
+    </div>
+
+    <!-- Game Over Modal -->
+    <div id="game-over-modal" class="fixed inset-0 bg-black/80 flex items-center justify-center hidden z-50 backdrop-blur-sm">
+        <div class="bg-panel p-6 rounded-xl border border-border-main shadow-2xl text-center max-w-sm w-full">
+            <h2 class="text-2xl font-bold mb-2 text-text-main" id="game-result-title">Game Over</h2>
+            <p class="text-text-muted mb-6" id="game-result-msg">Black wins!</p>
+            <button onclick="closeModal(); initGame()" class="bg-success hover:bg-success/80 text-white font-bold py-2 px-6 rounded-lg transition transform hover:scale-105">
+                Play Again
+            </button>
+        </div>
+    </div>
+
+    <script>
+        const BOARD_SIZE = 8;
+        const CELL_EMPTY = 0;
+        const CELL_BLACK = 1;
+        const CELL_WHITE = 2;
+
+        let board = [], currentPlayer = CELL_BLACK, gameActive = true;
+        const boardEl = document.getElementById('board');
+        const scoreBlackEl = document.getElementById('score-black');
+        const scoreWhiteEl = document.getElementById('score-white');
+        const turnIndicatorEl = document.getElementById('turn-indicator');
+        const p1Container = document.getElementById('p1-container');
+        const p2Container = document.getElementById('p2-container');
+
+        function initGame() {
+            board = Array(BOARD_SIZE).fill().map(() => Array(BOARD_SIZE).fill(CELL_EMPTY));
+            board[3][3] = CELL_WHITE; board[3][4] = CELL_BLACK;
+            board[4][3] = CELL_BLACK; board[4][4] = CELL_WHITE;
+            currentPlayer = CELL_BLACK; gameActive = true;
+            renderBoard(); updateUI();
+        }
+
+        function renderBoard() {
+            boardEl.innerHTML = '';
+            const validMoves = getValidMoves(currentPlayer);
+            for (let r = 0; r < BOARD_SIZE; r++) {
+                for (let c = 0; c < BOARD_SIZE; c++) {
+                    const cell = document.createElement('div');
+                    cell.className = 'cell bg-green-600 relative cursor-pointer hover:bg-green-500 transition-colors duration-200';
+                    if (board[r][c] !== CELL_EMPTY) {
+                        const disc = document.createElement('div');
+                        disc.className = `disc absolute inset-0 m-auto ${board[r][c] === CELL_BLACK ? 'black' : 'white'}`;
+                        disc.innerHTML = `<div class="face face-front"></div><div class="face face-back"></div>`;
+                        cell.appendChild(disc);
+                    }
+                    if (validMoves.some(m => m.r === r && m.c === c) && currentPlayer === CELL_BLACK) {
+                        cell.classList.add('valid-move');
+                        cell.onclick = () => makeMove(r, c);
+                    }
+                    boardEl.appendChild(cell);
+                }
+            }
+        }
+
+        function getValidMoves(player) {
+            const moves = [];
+            for (let r = 0; r < BOARD_SIZE; r++) for (let c = 0; c < BOARD_SIZE; c++) if (isValidMove(r, c, player)) moves.push({r, c});
+            return moves;
+        }
+
+        function isValidMove(r, c, player) {
+            if (board[r][c] !== CELL_EMPTY) return false;
+            const opponent = player === CELL_BLACK ? CELL_WHITE : CELL_BLACK;
+            const directions = [[-1,-1],[-1,0],[-1,1],[0,-1],[0,1],[1,-1],[1,0],[1,1]];
+            for (const [dr, dc] of directions) {
+                let nr = r + dr, nc = c + dc, flipped = false;
+                while (nr >= 0 && nr < BOARD_SIZE && nc >= 0 && nc < BOARD_SIZE && board[nr][nc] === opponent) { nr += dr; nc += dc; flipped = true; }
+                if (flipped && nr >= 0 && nr < BOARD_SIZE && nc >= 0 && nc < BOARD_SIZE && board[nr][nc] === player) return true;
+            }
+            return false;
+        }
+
+        function makeMove(r, c) {
+            if (!gameActive) return;
+            board[r][c] = currentPlayer;
+            const opponent = currentPlayer === CELL_BLACK ? CELL_WHITE : CELL_BLACK;
+            const directions = [[-1,-1],[-1,0],[-1,1],[0,-1],[0,1],[1,-1],[1,0],[1,1]];
+            for (const [dr, dc] of directions) {
+                let nr = r + dr, nc = c + dc, toFlip = [];
+                while (nr >= 0 && nr < BOARD_SIZE && nc >= 0 && nc < BOARD_SIZE && board[nr][nc] === opponent) { toFlip.push({r: nr, c: nc}); nr += dr; nc += dc; }
+                if (toFlip.length > 0 && nr >= 0 && nr < BOARD_SIZE && nc >= 0 && nc < BOARD_SIZE && board[nr][nc] === currentPlayer) toFlip.forEach(f => board[f.r][f.c] = currentPlayer);
+            }
+            currentPlayer = opponent;
+            renderBoard(); updateUI(); checkTurn();
+        }
+
+        function updateUI() {
+            let black = 0, white = 0;
+            for(let r=0; r<8; r++) for(let c=0; c<8; c++) if(board[r][c]===CELL_BLACK) black++; else if(board[r][c]===CELL_WHITE) white++;
+            scoreBlackEl.textContent = black; scoreWhiteEl.textContent = white;
+            if (currentPlayer === CELL_BLACK) {
+                turnIndicatorEl.textContent = "Your Turn";
+                turnIndicatorEl.className = "text-sm font-bold bg-primary px-3 py-1 rounded-full inline-block animate-pulse text-white";
+                p1Container.style.opacity = 1; p2Container.style.opacity = 0.5;
+            } else {
+                turnIndicatorEl.textContent = "AI Thinking...";
+                turnIndicatorEl.className = "text-sm font-bold bg-card text-text-muted px-3 py-1 rounded-full inline-block border border-border-main";
+                p1Container.style.opacity = 0.5; p2Container.style.opacity = 1;
+            }
+        }
+
+        function checkTurn() {
+            const validMoves = getValidMoves(currentPlayer);
+            if (validMoves.length === 0) {
+                currentPlayer = currentPlayer === CELL_BLACK ? CELL_WHITE : CELL_BLACK;
+                if (getValidMoves(currentPlayer).length === 0) endGame();
+                else {
+                    updateUI();
+                    if (currentPlayer === CELL_WHITE) setTimeout(aiMove, 1000);
+                }
+                return;
+            }
+            if (currentPlayer === CELL_WHITE) setTimeout(aiMove, 800);
+        }
+
+        function aiMove() {
+            if (!gameActive) return;
+            const validMoves = getValidMoves(CELL_WHITE);
+            if (validMoves.length === 0) return;
+            const weights = [
+                [100, -20, 10, 5, 5, 10, -20, 100], [-20, -50, -2, -2, -2, -2, -50, -20],
+                [10, -2, -1, -1, -1, -1, -2, 10], [5, -2, -1, -1, -1, -1, -2, 5],
+                [5, -2, -1, -1, -1, -1, -2, 5], [10, -2, -1, -1, -1, -1, -2, 10],
+                [-20, -50, -2, -2, -2, -2, -50, -20], [100, -20, 10, 5, 5, 10, -20, 100]
+            ];
+            let bestMove = validMoves[0], bestScore = -Infinity;
+            for (const move of validMoves) {
+                const score = weights[move.r][move.c] + Math.random() * 5;
+                if (score > bestScore) { bestScore = score; bestMove = move; }
+            }
+            makeMove(bestMove.r, bestMove.c);
+        }
+
+        function endGame() {
+            gameActive = false;
+            let black = 0, white = 0;
+            for(let r=0; r<8; r++) for(let c=0; c<8; c++) if(board[r][c]===CELL_BLACK) black++; else if(board[r][c]===CELL_WHITE) white++;
+            const title = document.getElementById('game-result-title');
+            if (black > white) { title.textContent = "You Win! 🎉"; title.className = "text-2xl font-bold mb-2 text-success"; }
+            else if (white > black) { title.textContent = "AI Wins 🤖"; title.className = "text-2xl font-bold mb-2 text-error"; }
+            else { title.textContent = "Draw 🤝"; title.className = "text-2xl font-bold mb-2 text-text-muted"; }
+            document.getElementById('game-result-msg').textContent = `Black: ${black} - White: ${white}`;
+            document.getElementById('game-over-modal').classList.remove('hidden');
+        }
+
+        function closeModal() { document.getElementById('game-over-modal').classList.add('hidden'); }
+        initGame();
+    </script>
+</body>
+</html>

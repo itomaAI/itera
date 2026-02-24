@@ -1,0 +1,28 @@
+[
+    {
+        "id": "1700000000001",
+        "title": "Configure Gemini API Key",
+        "status": "pending",
+        "dueDate": "2026-02-24",
+        "priority": "high",
+        "created_at": "2026-02-24T00:00:00.000Z",
+        "description": "Need to input the API key in the top right corner to activate the agent."
+    },
+    {
+        "id": "1700000000002",
+        "title": "Ask AI to change the theme to Midnight",
+        "status": "pending",
+        "dueDate": "2026-02-25",
+        "priority": "medium",
+        "created_at": "2026-02-24T00:00:00.000Z",
+        "description": "Try the natural language command for system configuration."
+    },
+    {
+        "id": "1700000000003",
+        "title": "Read the Itera Codex documentation",
+        "status": "completed",
+        "dueDate": "2026-02-20",
+        "priority": "low",
+        "created_at": "2026-02-24T00:00:00.000Z"
+    }
+]
