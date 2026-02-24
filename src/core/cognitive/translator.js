@@ -39,10 +39,7 @@
             
             const actions = [];
             for (const item of rawActions) {
-                let contentText = this._extractContent(item.content);
-                if (item.tag === 'edit_file' && /<{3,}SEARCH/.test(contentText)) {
-                    contentText = this._escapeRegexReplacement(contentText);
-                }
+                const contentText = this._extractContent(item.content);
                 const action = {
                     type: item.tag,
                     params: { ...item.attributes, content: contentText },
@@ -144,11 +141,6 @@
             if (!content) return "";
             if (Array.isArray(content)) return content.map(c => typeof c === 'string' ? c : "").join("");
             return String(content);
-        }
-        _escapeRegexReplacement(content) {
-            return content.replace(/(<{3,}SEARCH[^\r\n]*\r?\n[\s\S]*?\r?\n[^\r\n]*={3,}[^\r\n]*\r?\n)([\s\S]*?)(\r?\n[^\r\n]*>{3,})/g, (match, prefix, replacement, suffix) => {
-                return prefix + replacement.replace(/\$/g, '$$$$') + suffix;
-            });
         }
         _sortActions(actions) {
             const edits = actions.filter(a => a.type === 'edit_file');

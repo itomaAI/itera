@@ -112,12 +112,51 @@
                 };
             }
 
-            if (/<{3,}SEARCH/.test(content)) {
-                const blockRegex = /<{3,}SEARCH[^\r\n]*\r?\n([\s\S]*?)\r?\n[^\r\n]*={3,}[^\r\n]*\r?\n([\s\S]*?)\r?\n[^\r\n]*>{3,}/g;
-                const blocks = [...content.matchAll(blockRegex)];
+            if (/<{4,}SEARCH/.test(content)) {
+                const blocks = [];
+                const startRegex = /^(<{4,})SEARCH[^\r\n]*$/gm;
+                let startMatch;
+
+                // ステートマシン風に文字列を順次スキャンし、文字数が完全一致するマーカーだけを抽出
+                while ((startMatch = startRegex.exec(content)) !== null) {
+                    const len = startMatch[1].length;
+                    const headerEnd = startMatch.index + startMatch[0].length;
+                    
+                    let contentStart = headerEnd;
+                    if (content[contentStart] === '\r') contentStart++;
+                    if (content[contentStart] === '\n') contentStart++;
+
+                    // 開始マーカーと同じ文字数の '=' だけの行を探す
+                    const midRegex = new RegExp(`^={${len}}$`, 'gm');
+                    midRegex.lastIndex = contentStart;
+                    const midMatch = midRegex.exec(content);
+
+                    if (!midMatch) continue; // みつからなければ次の SEARCH ブロックへ
+
+                    const patternStr = content.substring(contentStart, midMatch.index).replace(/(?:\r?\n)$/, '');
+                    
+                    const midEnd = midMatch.index + midMatch[0].length;
+                    let replaceStart = midEnd;
+                    if (content[replaceStart] === '\r') replaceStart++;
+                    if (content[replaceStart] === '\n') replaceStart++;
+
+                    // 開始マーカーと同じ文字数の '>' だけの行を探す
+                    const endRegex = new RegExp(`^>{${len}}$`, 'gm');
+                    endRegex.lastIndex = replaceStart;
+                    const endMatch = endRegex.exec(content);
+
+                    if (!endMatch) continue;
+
+                    const replaceStr = content.substring(replaceStart, endMatch.index).replace(/(?:\r?\n)$/, '');
+
+                    blocks.push({ patternStr, replaceStr });
+
+                    // 次の検索開始位置を終了マーカーの後に設定
+                    startRegex.lastIndex = endMatch.index + endMatch[0].length;
+                }
 
                 if (blocks.length === 0) {
-                    throw new Error("Invalid edit block format. Ensure you use SEARCH, ====, and >>>> markers correctly.");
+                    throw new Error("Invalid edit block format. Ensure you use SEARCH, ====, and >>>> markers correctly (at least 4 chars, matching lengths, isolated on their own lines).");
                 }
 
                 const isRegex = params.regex === 'true';
@@ -125,8 +164,8 @@
                 let replaceCount = 0;
 
                 for (let i = 0; i < blocks.length; i++) {
-                    let patternStr = blocks[i][1];
-                    let replaceStr = blocks[i][2];
+                    let patternStr = blocks[i].patternStr;
+                    let replaceStr = blocks[i].replaceStr;
 
                     if (!isRegex) {
                         patternStr = patternStr.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -143,7 +182,10 @@
                         throw new Error(`Search pattern not found in ${params.path} for block ${i + 1}. No changes were made to the file.`);
                     }
 
-                    const newContent = currentFileContent.replace(regex, replaceStr);
+                    // $ のエスケープ処理 (置換テキスト内の $ が正規表現の後方参照として誤爆するのを防ぐ)
+                    const safeReplaceStr = replaceStr.replace(/\$/g, '$$$$');
+                    const newContent = currentFileContent.replace(regex, safeReplaceStr);
+
                     if (newContent === currentFileContent) {
                         throw new Error(`Replacement resulted in no change for block ${i + 1}. No changes were made to the file.`);
                     }
