@@ -115,16 +115,16 @@ Attributes:
     - mode (optional): "insert"|"replace"|"delete"|"append" (For line-based editing).
 
 **Mode A: String Replacement (Recommended)**
-Use \`<<<<SEARCH\` block to define the target text (must be unique).
+Use \`<<<<<SEARCH\` block to define the target text (must be unique).
 \`\`\`xml
 <edit_file path="example.js">
-<<<<SEARCH
+<<<<<SEARCH
 const x = 10;
 function test() {
-====
+=====
 const x = 20; // Updated
 function test() {
->>>>
+>>>>>
 </edit_file>
 \`\`\`
 

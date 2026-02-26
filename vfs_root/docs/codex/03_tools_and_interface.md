@@ -39,15 +39,15 @@ Do not rewrite the existence or content of files based on "guesses."
 Before performing **`edit_file`**, **you must execute `read_file`** to load the latest file content into the context.
 
 **Principle 2: Surgical Editing**
-When modifying a huge file, use **`edit_file`** and the **`<<<<SEARCH` block** to pinpoint and replace only the necessary parts instead of overwriting the full text.
+When modifying a huge file, use **`edit_file`** and the **`<<<<<SEARCH` block** to pinpoint and replace only the necessary parts instead of overwriting the full text.
 
 ```xml
 <edit_file path="js/app.js">
-<<<<SEARCH
+<<<<<SEARCH
     const count = 0;
-====
+=====
     let count = 0; // Fixed const error
->>>>
+>>>>>
 </edit_file>
 ```
 

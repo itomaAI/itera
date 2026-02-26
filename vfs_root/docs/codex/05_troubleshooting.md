@@ -34,7 +34,7 @@ If the same error occurs twice, execute the following steps:
 
 1.  **Stop**: Stop repeating the immediate action.
 2.  **Read**: Re-read the target file with `<read_file>`. It is highly likely that "the code in your memory" and "the actual code" are misaligned.
-3.  **Rethink**: Recreate the replacement pattern (`<<<<SEARCH`) based on the latest code read.
+3.  **Rethink**: Recreate the replacement pattern (`<<<<<SEARCH`) based on the latest code read.
 4.  **Ask**: If it still doesn't resolve, do not proceed arbitrarily; use `<ask>` to seek help from the user. It is no shame to ask, "I tried to fix it, but it's not working. Could you fix it manually?"
 
 ### 5.3 Emergency Procedures
