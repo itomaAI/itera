@@ -1,5 +1,5 @@
 // AUTO-GENERATED FILE - DO NOT EDIT MANUALLY
-// Generated on: 2026-02-27T21:57:50Z
+// Generated on: 2026-02-28T02:29:14Z
 
 (function(global) {
     global.Itera = global.Itera || {};
@@ -222,68 +222,70 @@ To learn how to use Itera or how to build your own apps:
 *Itera OS - Recursive Environment-Agent Loop*`.trim(),
 
         "docs/blueprints/itera_link.md": `
-# Itera Blueprint: Itera Link v2.1
+# Itera Blueprint: Itera Link v3.0
 
 > **What is this?**
-> This is an advanced protocol blueprint for P2P communication between Itera OS agents via the Nostr network.
-> **v2.1 Updates**: Features Delta Sync (fetching only new events), Concurrency-safe outbox dispatching, and Agent Busy Fallbacks to ensure zero dropped messages.
+> This is the definitive protocol blueprint for P2P communication between Itera OS agents via the Nostr network.
+> **v3.0 Major Update**: Unifies Inbox and Outbox into a **Symmetric Directory Structure**.
+> This reduces AI cognitive load by treating sent and received messages as identical data structures.
 
 ---
 
 ## 🤖 Instructions for the Itera Agent
-You are currently reading an Itera App Blueprint.
-Please install the Itera Link system by strictly following these phases:
+You are reading the Itera Link v3.0 Blueprint.
+Please execute the installation by strictly following these phases:
 
-1. **Explain & Ask**: Explain to the user: "I will install Itera Link v2.1. This allows me to communicate with your other devices instantly. It includes smart bandwidth optimization and safe remote-trigger capabilities." Seek permission to proceed using the \`<ask>\` tag.
-2. **Deploy Manual**: Create the internal manual so you (the agent) understand the protocol's API and usage.
-3. **Deploy Daemon**: Create the background service that handles networking, smart polling, and concurrent outbox dispatching.
-4. **Deploy UI**: Create the settings and activity log application for the user.
-5. **System Registration**: Update system registries (\`apps.json\`, \`services.json\`) to enable the app and daemon.
-6. **Post-Install**: Report completion and guide the user to open the Itera Link app to generate their device keys.
+1. **Explain & Ask**: Explain to the user: "I will install Itera Link v3.0. This version unifies the data structure for sending and receiving messages, making my operations more stable and accurate." Seek permission via \`<ask>\`.
+2. **Deploy Manual**: Create the internal manual describing the new Directory-Based Messaging protocol.
+3. **Deploy Daemon**: Create the background service that handles the new directory scanning logic and smart polling.
+4. **Deploy UI**: Create the settings application (updated to support the new structure).
+5. **System Registration**: Update system registries (\`apps.json\`, \`services.json\`).
+6. **Post-Install**: Report completion and guide the user to the Itera Link app.
 
 ---
 
 ## Phase 2: Deploy AI Protocol Manual
-Agent, create the following file so you know how to operate the Itera Link protocol. You must follow these specifications when communicating with other Itera instances.
+Agent, create this manual. This is the **most important file** for you to understand how to use the new symmetric protocol.
 
 ### File: \`docs/apps/itera_link_manual.md\`
 \`\`\`markdown
-# Itera Link Protocol v2.1 (Agent Manual)
+# Itera Link Protocol v3.0 (Agent Manual)
 
-Itera Link allows secure P2P communication between Itera agents on different devices via Nostr kind-4 (encrypted DM) events.
+Itera Link v3.0 uses a **Symmetric Directory Structure**. Both outgoing and incoming messages share the exact same format.
 
 ## 📤 How to SEND a Message
-To send data or instructions to another Itera instance, create a unique JSON file in \`data/itera_link/outbox/\` (e.g., \`msg_<timestamp>.json\`).
-**The background daemon will instantly detect this new file and dispatch it safely.**
+Do not create a single JSON file. Instead, **create a directory**.
 
-**JSON Format:**
-\\\`\\\`\\\`json
-{
-  "to": "npub1...", 
-  "content": "Please summarize this document and add it to your task list.",
-  "attachments":[
-    "data/notes/project_draft.md"
-  ],
-  "auto_trigger": true
-}
-\\\`\\\`\\\`
+1.  **Create a Directory**: Make a unique folder in \`data/itera_link/outbox/\` (e.g., \`data/itera_link/outbox/req_8823/\`).
+2.  **Write Metadata**: Create \`meta.json\` inside that folder.
+    \`\`\`json
+    {
+      "to": "npub1...",
+      "auto_trigger": true
+    }
+    \`\`\`
+    *   \`auto_trigger: true\` will wake up the recipient AI immediately.
+3.  **Write Content**: Create \`message.md\` inside that folder with your instructions.
+4.  **Add Attachments (Optional)**: simply \`<copy_file>\` any files you want to send directly into this folder.
 
-**★ Crucial: The \`auto_trigger\` Flag**
-*   **If \`true\`**: When the recipient receives this, their AI agent will **instantly wake up and execute** your \`content\` as a high-priority task. Use this for urgent requests. (If the receiving agent is currently busy, it safely falls back to a high-priority system log).
-*   **If \`false\` (or omitted)**: The message is logged in their chat history as a system event, but their AI will not act until the user interacts with it.
-
-**Size Limit**: Nostr relays limit payloads to ~60KB. Keep attachments small and text-based.
+**Example Action:**
+\`\`\`xml
+<create_file path="data/itera_link/outbox/task_A/meta.json">{"to":"npub...","auto_trigger":true}</create_file>
+<create_file path="data/itera_link/outbox/task_A/message.md">Check this image.</create_file>
+<copy_file path="data/images/chart.png" new_path="data/itera_link/outbox/task_A/chart.png"/>
+\`\`\`
+*The Daemon will detect the directory, pack all files inside, and send them.*
 
 ## 📥 How to RECEIVE a Message
-Incoming messages are unpacked into \`data/itera_link/inbox/<message_id>/\`.
-*   If \`auto_trigger\` was enabled, you will receive an \`<event>\` immediately. Read \`meta.json\` (sender info) and \`message.md\` (the request) and process the task.
-*   **Maintenance**: After processing, use \`<delete_file>\` to remove the specific \`<message_id>\` directory to keep the VFS clean.
+Incoming messages appear in \`data/itera_link/inbox/<message_id>/\` with the **exact same structure**.
+*   **Action**: When notified of a new message, read \`meta.json\` (sender info) and \`message.md\` (content).
+*   **Cleanup**: After processing, use \`<delete_file>\` on the **directory** (e.g., \`data/itera_link/inbox/event_123/\`) to remove the message and all its files.
 \`\`\`
 
 ---
 
 ## Phase 3: Deploy Background Daemon
-Create the robust background daemon.
+Create the daemon. It now scans for *directories* in the outbox instead of just JSON files.
 
 ### File: \`services/itera_link_daemon.html\`
 \`\`\`html
@@ -316,23 +318,24 @@ Create the robust background daemon.
             if (!window.MetaOS) return setTimeout(init, 500);
 
             // Ensure directories
-            for (const dir of[DIRS.outbox, DIRS.inbox]) {
+            for (const dir of [DIRS.outbox, DIRS.inbox]) {
                 try { await MetaOS.listFiles(dir); } catch(e) { await MetaOS.saveFile(\`\${dir}/.keep\`, "", {silent:true}); }
             }
 
-            // Status broadcasting loop for UI
+            // Status Broadcast
             setInterval(() => {
                 MetaOS.broadcast('itera_link_status', { state: isSyncing ? 'Syncing...' : 'Idle', time: Date.now() });
             }, 5000);
 
-            // Concurrency-Safe Instant Send Trigger
+            // Instant Trigger: Watch for changes in outbox
             MetaOS.on('file_changed', (payload) => {
-                if (payload && payload.path && payload.path.startsWith(DIRS.outbox) && payload.path.endsWith('.json') && !payload.path.endsWith('.error')) {
+                // If something changes inside the outbox directory...
+                if (payload && payload.path && payload.path.startsWith(DIRS.outbox)) {
                     if (isSyncing) {
                         needsResync = true;
                     } else {
                         clearTimeout(pollTimer);
-                        setTimeout(poll, 300); // Small debounce
+                        setTimeout(poll, 500); // Debounce and fire
                     }
                 }
             });
@@ -346,7 +349,8 @@ Create the robust background daemon.
             needsResync = false;
 
             try {
-                config = JSON.parse(await MetaOS.readFile(DIRS.config));
+                const confStr = await MetaOS.readFile(DIRS.config);
+                config = JSON.parse(confStr);
             } catch (e) {
                 isSyncing = false;
                 pollTimer = setTimeout(poll, 15000);
@@ -363,12 +367,11 @@ Create the robust background daemon.
                 processedIds = new Set(JSON.parse(await MetaOS.readFile(DIRS.processed)));
             } catch (e) { processedIds = new Set(); }
 
-            // Perform single-shot sync
             await performSync();
             
             isSyncing = false;
 
-            // If a file was added during sync, trigger again immediately
+            // Handle race conditions (files added during sync)
             if (needsResync) {
                 pollTimer = setTimeout(poll, 500);
             } else {
@@ -390,33 +393,65 @@ Create the robust background daemon.
                 await syncInbox(relay, privHex, pubHex);
 
             } catch (e) {
-                console.warn("[IteraLink Daemon] Sync failed:", e);
+                console.warn("[IteraLink] Sync failed:", e);
             } finally {
-                relay.close(); // Immediate disconnect
+                relay.close();
             }
         }
 
+        // --- New Logic: Directory-Based Outbox ---
         async function syncOutbox(relay, privHex, pubHex) {
-            const files = await MetaOS.listFiles(DIRS.outbox);
-            const outboxFiles = (Array.isArray(files) ? files :[]).filter(f => f.endsWith('.json'));
+            // Get all items in outbox
+            const items = await MetaOS.listFiles(DIRS.outbox);
+            
+            // In Itera VFS, we need to identify subdirectories.
+            // Simple heuristic: Get unique top-level folders inside outbox/
+            const messageDirs = new Set();
+            (Array.isArray(items) ? items : []).forEach(path => {
+                if (path === \`\${DIRS.outbox}/.keep\`) return;
+                const relative = path.replace(DIRS.outbox + '/', '');
+                const parts = relative.split('/');
+                if (parts.length > 0) {
+                    messageDirs.add(\`\${DIRS.outbox}/\${parts[0]}\`);
+                }
+            });
 
-            for (const path of outboxFiles) {
+            for (const dirPath of messageDirs) {
                 try {
-                    const msg = JSON.parse(await MetaOS.readFile(path));
-                    const targetPubHex = nip19.decode(msg.to).data;
+                    // 1. Check for meta.json (The lock file effectively)
+                    const metaPath = \`\${dirPath}/meta.json\`;
+                    let metaStr;
+                    try {
+                        metaStr = await MetaOS.readFile(metaPath);
+                    } catch(e) { continue; } // Not ready or not a message dir
 
+                    const meta = JSON.parse(metaStr);
+                    const targetPubHex = nip19.decode(meta.to).data;
+
+                    // 2. Build Payload
                     const payload = {
-                        content: msg.content || "",
-                        auto_trigger: !!msg.auto_trigger,
-                        files:[]
+                        content: "",
+                        auto_trigger: !!meta.auto_trigger,
+                        files: []
                     };
 
-                    if (msg.attachments) {
-                        for (const attPath of msg.attachments) {
-                            payload.files.push({ name: attPath.split('/').pop(), data: await MetaOS.readFile(attPath) });
+                    // 3. Scan directory for content
+                    const dirFiles = await MetaOS.listFiles(dirPath);
+                    for (const filePath of dirFiles) {
+                        const fileName = filePath.split('/').pop();
+                        if (fileName === 'meta.json') continue;
+                        
+                        const fileData = await MetaOS.readFile(filePath);
+                        
+                        if (fileName === 'message.md') {
+                            payload.content = fileData;
+                        } else {
+                            // Any other file is an attachment
+                            payload.files.push({ name: fileName, data: fileData });
                         }
                     }
 
+                    // 4. Encrypt & Send
                     const payloadStr = JSON.stringify(payload);
                     const encrypted = await nip04.encrypt(privHex, targetPubHex, payloadStr);
                     
@@ -430,36 +465,37 @@ Create the robust background daemon.
                     await new Promise(resolve => { 
                         let pub = relay.publish(event);
                         if(pub.on) pub.on('ok', resolve); else if(pub.then) pub.then(resolve).catch(resolve);
-                        setTimeout(resolve, 3000); 
+                        else setTimeout(resolve, 2000);
                     });
 
-                    await MetaOS.deleteFile(path, {silent:true});
-                    await appendHistory('sent', msg.to, msg.content, msg.auto_trigger);
+                    // 5. Cleanup: Delete the entire directory
+                    await MetaOS.deleteFile(dirPath, {silent:true}); // deleteFile handles directories too
+                    await appendHistory('sent', meta.to, payload.content, meta.auto_trigger);
 
                 } catch (e) {
-                    await MetaOS.renameFile(path, path.replace('.json', '.error'), {silent:true});
+                    console.error(\`Failed to send \${dirPath}:\`, e);
+                    // Rename folder to .error to prevent loop
+                    await MetaOS.renameFile(dirPath, \`\${dirPath}_error\`, {silent:true});
                 }
             }
         }
 
         async function syncInbox(relay, privHex, pubHex) {
-            // Delta Sync: Get last sync time to reduce bandwidth
-            let since = Math.floor(Date.now() / 1000) - (24 * 60 * 60); // Default to 24h ago
+            // Delta Sync Logic
+            let since = Math.floor(Date.now() / 1000) - (24 * 60 * 60);
             try {
                 const lastSyncData = JSON.parse(await MetaOS.readFile(DIRS.lastSync));
-                if (lastSyncData.timestamp) {
-                    since = Math.max(since, lastSyncData.timestamp - 60); // Overlap by 1 minute for safety
-                }
+                if (lastSyncData.timestamp) since = Math.max(since, lastSyncData.timestamp - 60);
             } catch(e) {}
 
             let highestTimestamp = since;
 
             const events = await new Promise(resolve => {
-                const evs =[];
+                const evs = [];
                 const sub = relay.sub([{ kinds: [4], '#p': [pubHex], since }]);
                 sub.on('event', e => evs.push(e));
                 sub.on('eose', () => resolve(evs));
-                setTimeout(() => resolve(evs), 10000); // 10s timeout for slower networks
+                setTimeout(() => resolve(evs), 10000);
             });
 
             for (const event of events) {
@@ -473,46 +509,53 @@ Create the robust background daemon.
                     let payload;
                     try { payload = JSON.parse(decrypted); } catch(e) { payload = { content: decrypted }; }
 
+                    // Create Directory for Inbox Message
                     const msgDir = \`\${DIRS.inbox}/\${event.id}\`;
                     await MetaOS.saveFile(\`\${msgDir}/.keep\`, "", {silent:true});
-                    await MetaOS.saveFile(\`\${msgDir}/meta.json\`, JSON.stringify({ id: event.id, sender: senderNpub, timestamp: event.created_at }, null, 2), {silent:true});
+                    
+                    // Unpack Metadata
+                    await MetaOS.saveFile(\`\${msgDir}/meta.json\`, JSON.stringify({ 
+                        id: event.id, sender: senderNpub, timestamp: event.created_at 
+                    }, null, 2), {silent:true});
+                    
+                    // Unpack Content
                     if (payload.content) await MetaOS.saveFile(\`\${msgDir}/message.md\`, payload.content, {silent:true});
                     
+                    // Unpack Attachments
                     if (payload.files) {
-                        for (const file of payload.files) await MetaOS.saveFile(\`\${msgDir}/\${file.name}\`, file.data, {silent:true});
+                        for (const file of payload.files) {
+                            const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+                            await MetaOS.saveFile(\`\${msgDir}/\${safeName}\`, file.data, {silent:true});
+                        }
                     }
 
                     processedIds.add(event.id);
                     await appendHistory('received', senderNpub, payload.content, payload.auto_trigger);
 
-                    // Agent Busy Fallback Mechanism
+                    // Trigger Agent
                     if (payload.auto_trigger) {
                         try {
-                            // This throws an error if Agent is currently generating a response
-                            await MetaOS.agent(\`[Itera Link] New remote request received.\\nFrom: \${senderNpub}\\nPath: \${msgDir}/\\nPlease check meta.json and message.md immediately to fulfill the request.\`, { silent: false });
+                            await MetaOS.agent(\`[Itera Link] Remote Request Received.\\nFrom: \${senderNpub}\\nPath: \${msgDir}/\\nCheck meta.json and message.md inside the directory.\`, { silent: false });
                         } catch (err) {
-                            console.warn("Agent busy, falling back to event log.");
-                            MetaOS.addEventLog(\`⚠️ [Itera Link: Auto-Trigger Skipped] Message received from \${senderNpub.substring(0,12)}, but Agent was busy. Please check \${msgDir}/ manually.\`, 'error');
+                            MetaOS.addEventLog(\`⚠️ [Itera Link] Auto-trigger failed (Agent Busy). Check \${msgDir}/ manually.\`, 'error');
                         }
                     } else {
                         MetaOS.addEventLog(\`[Itera Link] Message received from \${senderNpub.substring(0,12)}...\`, 'itera_link_received');
                     }
 
                 } catch (e) {
-                    processedIds.add(event.id); // Skip un-decryptable or corrupted events
+                    processedIds.add(event.id);
                 }
             }
 
             if (events.length > 0) {
                 await MetaOS.saveFile(DIRS.processed, JSON.stringify([...processedIds]), {silent:true});
             }
-            
-            // Save last sync time
             await MetaOS.saveFile(DIRS.lastSync, JSON.stringify({ timestamp: highestTimestamp }), {silent:true});
         }
 
         async function appendHistory(type, target, content, isAuto) {
-            let history =[];
+            let history = [];
             try { history = JSON.parse(await MetaOS.readFile(DIRS.history)); } catch(e) {}
             history.unshift({
                 type, target, timestamp: Date.now(),
@@ -533,7 +576,7 @@ Create the robust background daemon.
 ---
 
 ## Phase 4: Deploy UI App
-Create a clean UI for users to manage keys, set polling intervals, and view recent logs.
+The UI remains mostly similar but sends messages by creating directories now.
 
 ### File: \`apps/itera_link.html\`
 \`\`\`html
@@ -553,7 +596,7 @@ Create a clean UI for users to manage keys, set polling intervals, and view rece
             <button onclick="AppUI.home()" class="p-2 -ml-2 rounded-full hover:bg-hover text-text-muted hover:text-text-main transition">
                 <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg>
             </button>
-            <h1 class="text-xl font-bold tracking-tight">🔗 Itera Link v2.1</h1>
+            <h1 class="text-xl font-bold tracking-tight">🔗 Itera Link v3.0</h1>
         </div>
         <div class="flex items-center gap-3">
             <span id="save-status" class="text-[10px] text-success font-bold uppercase tracking-widest opacity-0 transition-opacity duration-300">Saved</span>
@@ -562,7 +605,6 @@ Create a clean UI for users to manage keys, set polling intervals, and view rece
     </header>
 
     <main class="flex-1 overflow-y-auto space-y-6 pb-10 max-w-3xl mx-auto w-full">
-        
         <!-- Settings -->
         <section class="bg-panel border border-border-main p-6 rounded-2xl shadow-sm">
             <h2 class="text-sm font-bold text-text-muted uppercase tracking-wider mb-4">Settings</h2>
@@ -596,11 +638,21 @@ Create a clean UI for users to manage keys, set polling intervals, and view rece
             </div>
         </section>
 
+        <!-- Debug Send (Useful for users to test) -->
+        <section class="bg-panel border border-border-main p-6 rounded-2xl shadow-sm">
+            <h2 class="text-sm font-bold text-text-muted uppercase tracking-wider mb-4">Send Message (Debug)</h2>
+            <div class="flex gap-2">
+                <input type="text" id="debug-to" placeholder="To npub..." class="flex-1 bg-card border border-border-main rounded p-2 text-sm">
+                <input type="text" id="debug-msg" placeholder="Message..." class="flex-[2] bg-card border border-border-main rounded p-2 text-sm">
+                <button onclick="sendDebug()" class="bg-card hover:bg-hover border border-border-main px-4 py-2 rounded text-sm transition">Send</button>
+            </div>
+        </section>
+
         <!-- Activity Log -->
         <section class="bg-panel border border-border-main p-6 rounded-2xl shadow-sm">
             <h2 class="text-sm font-bold text-text-muted uppercase tracking-wider mb-4">Recent Activity</h2>
             <div id="history-list" class="space-y-2">
-                <div class="text-xs text-text-muted text-center py-4">No recent activity found.</div>
+                <div class="text-xs text-text-muted text-center py-4">No recent activity.</div>
             </div>
         </section>
     </main>
@@ -612,7 +664,6 @@ Create a clean UI for users to manage keys, set polling intervals, and view rece
 
         async function init() {
             if (!window.MetaOS) return setTimeout(init, 100);
-
             try {
                 const conf = JSON.parse(await MetaOS.readFile(CONFIG_PATH));
                 if (conf.privateKey) {
@@ -623,13 +674,11 @@ Create a clean UI for users to manage keys, set polling intervals, and view rece
             } catch(e) {}
             
             document.getElementById('input-privkey').addEventListener('input', (e) => updatePubkeyDisplay(e.target.value));
-
             MetaOS.on('itera_link_status', (data) => {
                 const el = document.getElementById('daemon-status');
                 el.textContent = data.state;
                 el.className = \`px-2 py-1 rounded text-[10px] font-mono border shadow-sm transition-colors \${data.state === 'Syncing...' ? 'bg-warning/20 text-warning border-warning/30 animate-pulse' : 'bg-success/10 text-success border-success/30'}\`;
             });
-
             MetaOS.on('itera_link_history_updated', loadHistory);
             loadHistory();
         }
@@ -642,7 +691,7 @@ Create a clean UI for users to manage keys, set polling intervals, and view rece
         }
 
         function generateKey() {
-            if(confirm("Generate new random identity? This will change your address.")) {
+            if(confirm("Generate new random identity?")) {
                 const nsec = nip19.nsecEncode(generatePrivateKey());
                 document.getElementById('input-privkey').value = nsec;
                 updatePubkeyDisplay(nsec);
@@ -651,22 +700,35 @@ Create a clean UI for users to manage keys, set polling intervals, and view rece
 
         async function saveConfig() {
             const priv = document.getElementById('input-privkey').value.trim();
-            if(!priv) return AppUI.alert("Private key is required.");
-
+            if(!priv) return AppUI.alert("Private key required.");
             const config = {
                 privateKey: priv,
                 pollIntervalMinutes: parseInt(document.getElementById('input-interval').value),
                 relays: ["wss://relay.damus.io"]
             };
-
             await MetaOS.saveFile(CONFIG_PATH, JSON.stringify(config, null, 2));
             await MetaOS.kill('itera_link_daemon');
             await MetaOS.spawn('services/itera_link_daemon.html', { pid: 'itera_link_daemon', mode: 'background' });
             
-            // Inline save indicator
             const statusEl = document.getElementById('save-status');
             statusEl.classList.remove('opacity-0');
             setTimeout(() => statusEl.classList.add('opacity-0'), 2000);
+        }
+
+        async function sendDebug() {
+            const to = document.getElementById('debug-to').value.trim();
+            const msg = document.getElementById('debug-msg').value.trim();
+            if(!to || !msg) return;
+
+            // v3.0 Logic: Create Folder
+            const id = 'msg_' + Date.now();
+            const dir = \`data/itera_link/outbox/\${id}\`;
+            
+            await MetaOS.saveFile(\`\${dir}/meta.json\`, JSON.stringify({ to: to, auto_trigger: false }));
+            await MetaOS.saveFile(\`\${dir}/message.md\`, msg);
+            
+            AppUI.notify("Message queued via directory.", "success");
+            document.getElementById('debug-msg').value = "";
         }
 
         async function loadHistory() {
@@ -709,10 +771,7 @@ Create a clean UI for users to manage keys, set polling intervals, and view rece
 
 ## Phase 5: System Registration
 
-Agent, please update the system configuration files.
-
 **1. \`system/config/apps.json\`**
-Append this object to the array:
 \`\`\`json
     {
         "id": "itera_link",
@@ -724,7 +783,6 @@ Append this object to the array:
 \`\`\`
 
 **2. \`system/config/services.json\`**
-Append this object to the array:
 \`\`\`json
     {
         "pid": "itera_link_daemon",
@@ -735,12 +793,10 @@ Append this object to the array:
 ---
 
 ## Phase 6: Post-Installation
-Once all files are created and registered:
 1. Use \`<spawn pid="itera_link_daemon" path="services/itera_link_daemon.html">\` to start the daemon immediately.
-2. Tell the user: "Installation complete! Please open the Itera Link app from your Library to generate your device's unique Nostr key and set your preferred sync interval."
+2. Report success to the user.
 
-**End of Blueprint.**
-`.trim(),
+**End of Blueprint.**`.trim(),
 
         "docs/blueprints/pomodoro.md": `
 # Itera Blueprint: Pomodoro Timer v1.1
