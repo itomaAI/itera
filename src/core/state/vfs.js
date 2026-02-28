@@ -235,7 +235,7 @@
                 if (this.exists(newP)) throw new Error(`Destination ${newP} already exists.`);
                 this.files[newP] = this.files[oldP];
                 delete this.files[oldP];
-                this._emit('change', { type: 'rename', from: oldP, to: newP, usage: this.getUsage() });
+                this._emit('change', { type: 'rename', path: newP, from: oldP, to: newP, usage: this.getUsage() });
                 return `Renamed: ${oldP} -> ${newP}`;
             }
 
@@ -252,7 +252,7 @@
                     this.files[dest] = this.files[k];
                     delete this.files[k];
                 });
-                this._emit('change', { type: 'rename_dir', from: oldP, to: newP, usage: this.getUsage() });
+                this._emit('change', { type: 'rename_dir', path: newP, from: oldP, to: newP, usage: this.getUsage() });
                 return `Moved directory: ${oldP} -> ${newP}`;
             }
 

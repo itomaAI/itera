@@ -393,6 +393,7 @@
 			vfs.on('change', (payload) => {
 				this._updateStorageUI(payload.usage);
 				this._triggerAutoSave();
+				this.windowing.processManager.broadcast('file_changed', payload);
 			});
 			history.on('change', () => this._triggerAutoSave());
 		}
@@ -488,6 +489,18 @@
 				message,
 				title
 			}) => console.log(`[Notification] ${title}: ${message}`));
+
+			bridge.registerHandler('copy_to_clipboard', async ({ text }) => {
+				try {
+					await navigator.clipboard.writeText(text);
+				} catch (e) {
+					console.error("[Bridge] Clipboard write failed:", e);
+				}
+			});
+
+			bridge.registerHandler('open_external', ({ url }) => {
+				window.open(url, '_blank', 'noopener,noreferrer');
+			});
 
 			bridge.registerHandler('open_file', ({
 				path
