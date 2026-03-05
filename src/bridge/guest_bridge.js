@@ -33,6 +33,12 @@
             const evt = new CustomEvent('metaos:' + data.event, { detail: data.payload });
             window.dispatchEvent(evt);
         }
+
+        // Route Synchronization (Host -> Guest)
+        if (data.type === 'ITERA_ROUTE_CHANGED') {
+            const evt = new CustomEvent('metaos:route_changed', { detail: data.path });
+            window.dispatchEvent(evt);
+        }
     });
 
     // --- RPC Sender ---
@@ -87,6 +93,12 @@
         copyToClipboard: (text) => post('copy_to_clipboard', { text }),
         openExternal: (url) => post('open_external', { url }),
         
+        // State Synchronization (Guest -> Host)
+        pushState: (newQueryOrHash) => {
+            window.history.pushState(null, '', newQueryOrHash);
+            post('update_address_bar', { path: newQueryOrHash });
+        },
+
         // AI Interaction
         ask: (text, attachments) => post('agent_trigger', { instruction: text, options: { attachments } }),
         agent: (instruction, options) => post('agent_trigger', { instruction, options }),

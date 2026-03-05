@@ -525,6 +525,21 @@
 					visible: !options?.silent
 				});
 			});
+
+			bridge.registerHandler('update_address_bar', ({ path }) => {
+				const pm = this.windowing.processManager;
+				const proc = pm.processes.get('main');
+				if (proc) {
+					// クエリ/ハッシュのみの更新なので、現在のベースパスと結合する
+					const currentBase = proc.path.split(/[?#]/)[0];
+					const newPath = currentBase + path;
+					proc.path = newPath;
+					
+					// UI更新 (ProcessManagerのメソッドを利用)
+					if (pm._updateAddressBar) pm._updateAddressBar(newPath);
+				}
+			});
+
 			bridge.registerHandler('view_ready', () => {});
 		}
 

@@ -64,6 +64,34 @@
 			// pid が 'main' の場合は強制的に foreground
 			if (pid === 'main') mode = 'foreground';
 
+			// Check for Soft Navigation (Query/Hash change only)
+			const existingProc = this.processes.get(pid);
+			if (existingProc && existingProc.iframe) {
+				const currentBase = existingProc.path.split(/[?#]/)[0];
+				const newBase = path.split(/[?#]/)[0];
+
+				if (currentBase === newBase && existingProc.mode === mode) {
+					console.log(`[ProcessManager] Soft Navigation [${pid}] -> ${path}`);
+					
+					// Update State
+					existingProc.path = path;
+					
+					// Update UI
+					if (mode === 'foreground') {
+						this._updateAddressBar(path);
+					}
+
+					// Notify Guest
+					if (existingProc.iframe.contentWindow) {
+						existingProc.iframe.contentWindow.postMessage({
+							type: 'ITERA_ROUTE_CHANGED',
+							path: path
+						}, '*');
+					}
+					return;
+				}
+			}
+
 			// 既存の同名プロセスがあれば安全に破棄
 			this.kill(pid);
 

@@ -264,10 +264,14 @@ window.addEventListener('message', async (e) => {
 					const { basePath, search, hash } = this._parsePath(val);
 					const suffix = search + hash;
 
-					if (urlMap[basePath]) {
-						el.setAttribute(attr, urlMap[basePath] + suffix);
+					// 空パス（?queryのみ等）の場合は現在のファイル自身を指す
+					const targetPath = basePath === '' ? currentFilePath : basePath;
+
+					if (urlMap[targetPath]) {
+						el.setAttribute(attr, urlMap[targetPath] + suffix);
 						return;
 					}
+					
 					const resolved = resolvePath(basePath);
 					if (resolved && urlMap[resolved]) {
 						el.setAttribute(attr, urlMap[resolved] + suffix);
