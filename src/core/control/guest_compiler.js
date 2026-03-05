@@ -159,13 +159,30 @@ window.addEventListener('message', async (e) => {
 				}
 
 				// 1.5 Initial State Injection (Query / Hash)
-				// Blob URLに直接クエリを付与するとブラウザがロードを拒否するため、
-				// HTML内にスクリプトを注入してロード直後にURL状態を復元させるハック。
+				// Blob URLでは history.replaceState がセキュリティエラーになるため、
+				// URLSearchParams をポリフィルして、クエリがあたかも存在するかのように偽装する。
 				if (path === parsedEntry.basePath && (parsedEntry.search || parsedEntry.hash)) {
-					// シングルクォートをエスケープして安全に埋め込む
 					const safeQuery = (parsedEntry.search + parsedEntry.hash).replace(/'/g, "\\'");
-					// history.replaceStateを使って、リロードを発生させずにURL（見かけ上のパス）だけ書き換える
-					const injectState = `<script>try { window.history.replaceState(null, '', '${safeQuery}'); } catch(e) { console.warn('Failed to inject state:', e); }</script>\n`;
+					
+					// URLSearchParamsを継承し、引数が空（または location.search そのまま）の場合に
+					// 注入されたクエリを返すように挙動を上書きするハック。
+					const injectState = `
+<script>
+(function() {
+    const INJECTED = '${safeQuery}';
+    const Original = window.URLSearchParams;
+    window.URLSearchParams = class extends Original {
+        constructor(init) {
+            // 引数が空、または window.location.search (Blobでは空文字) の場合、注入されたクエリを使う
+            if (init === undefined || init === '' || init === window.location.search) {
+                super(INJECTED);
+            } else {
+                super(init);
+            }
+        }
+    };
+})();
+</script>\n`;
 					
 					if (htmlContent.includes('<head>')) {
 						htmlContent = htmlContent.replace('<head>', '<head>\n' + injectState);

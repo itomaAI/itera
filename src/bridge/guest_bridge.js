@@ -95,7 +95,12 @@
         
         // State Synchronization (Guest -> Host)
         pushState: (newQueryOrHash) => {
-            window.history.pushState(null, '', newQueryOrHash);
+            // Blob URLでは pushState が失敗する場合があるため保護する
+            try {
+                window.history.pushState(null, '', newQueryOrHash);
+            } catch(e) {
+                // 無視する (URLバーは更新できないが、アプリの動作は継続させる)
+            }
             post('update_address_bar', { path: newQueryOrHash });
         },
 
