@@ -158,6 +158,22 @@ window.addEventListener('message', async (e) => {
 					htmlContent = "<!DOCTYPE html>\n" + htmlContent;
 				}
 
+				// 1.5 Initial State Injection (Query / Hash)
+				// Blob URLに直接クエリを付与するとブラウザがロードを拒否するため、
+				// HTML内にスクリプトを注入してロード直後にURL状態を復元させるハック。
+				if (path === parsedEntry.basePath && (parsedEntry.search || parsedEntry.hash)) {
+					// シングルクォートをエスケープして安全に埋め込む
+					const safeQuery = (parsedEntry.search + parsedEntry.hash).replace(/'/g, "\\'");
+					// history.replaceStateを使って、リロードを発生させずにURL（見かけ上のパス）だけ書き換える
+					const injectState = `<script>try { window.history.replaceState(null, '', '${safeQuery}'); } catch(e) { console.warn('Failed to inject state:', e); }</script>\n`;
+					
+					if (htmlContent.includes('<head>')) {
+						htmlContent = htmlContent.replace('<head>', '<head>\n' + injectState);
+					} else {
+						htmlContent = htmlContent.replace(/(<!DOCTYPE\s+html>)/i, `$1\n${injectState}`);
+					}
+				}
+
 				// 2. Bridgeの注入
 				if (global.Itera.Bridge && global.Itera.Bridge.GuestCode) {
 					const bridgeScript = `<script>${global.Itera.Bridge.GuestCode}</script>\n`;
@@ -188,9 +204,11 @@ window.addEventListener('message', async (e) => {
 				urlMap[path] = url;
 				blobUrls.push(url);
 
-				// パラメータを除いたベースパスで一致判定を行い、URL生成時にパラメータを付与する
+				// パラメータを除いたベースパスで一致判定を行う
 				if (path === parsedEntry.basePath) {
-					entryPointUrl = url + parsedEntry.search + parsedEntry.hash;
+					// 実際のBlob URLにはクエリを付与しない（ロードエラー回避のため）
+					// クエリ情報は上記の "1.5 Initial State Injection" でHTML内に埋め込まれている
+					entryPointUrl = url;
 				}
 			}
 
