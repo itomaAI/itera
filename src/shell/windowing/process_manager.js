@@ -243,7 +243,12 @@
 
 		_updateAddressBar(path) {
 			if (this.els.ADDRESS_BAR) {
-				this.els.ADDRESS_BAR.textContent = `metaos://view/${path}`;
+				try {
+					// クエリパラメータを含むパスをデコードして表示する
+					this.els.ADDRESS_BAR.textContent = `metaos://view/${decodeURI(path)}`;
+				} catch (e) {
+					this.els.ADDRESS_BAR.textContent = `metaos://view/${path}`;
+				}
 			}
 		}
 	}

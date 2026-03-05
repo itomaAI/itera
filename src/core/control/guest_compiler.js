@@ -10,6 +10,34 @@
 			this.assetCache = new Map();
 		}
 
+		/**
+		 * Helper: パス文字列を { basePath, search, hash } に分解する
+		 * @param {string} path 
+		 */
+		_parsePath(path) {
+			if (!path) return { basePath: '', search: '', hash: '' };
+
+			let basePath = path;
+			let search = '';
+			let hash = '';
+
+			// 1. Extract Hash first (e.g., #section)
+			const hashIdx = basePath.indexOf('#');
+			if (hashIdx !== -1) {
+				hash = basePath.substring(hashIdx);
+				basePath = basePath.substring(0, hashIdx);
+			}
+
+			// 2. Extract Query (e.g., ?foo=bar)
+			const queryIdx = basePath.indexOf('?');
+			if (queryIdx !== -1) {
+				search = basePath.substring(queryIdx);
+				basePath = basePath.substring(0, queryIdx);
+			}
+
+			return { basePath, search, hash };
+		}
+
 		_getScreenshotHelperCode(pid) {
 			return `
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html-to-image/1.11.11/html-to-image.min.js"></script>
@@ -51,6 +79,9 @@ window.addEventListener('message', async (e) => {
 		 * @returns {Promise<{ entryUrl: string, blobUrls: string[] }>}
 		 */
 		async compile(vfs, entryPath, pid = 'main') {
+			// エントリーパスの解析 (クエリパラメータ対応)
+			const parsedEntry = this._parsePath(entryPath);
+
 			const filePaths = vfs.listFiles({
 				recursive: true
 			});
@@ -157,8 +188,9 @@ window.addEventListener('message', async (e) => {
 				urlMap[path] = url;
 				blobUrls.push(url);
 
-				if (path === entryPath) {
-					entryPointUrl = url;
+				// パラメータを除いたベースパスで一致判定を行い、URL生成時にパラメータを付与する
+				if (path === parsedEntry.basePath) {
+					entryPointUrl = url + parsedEntry.search + parsedEntry.hash;
 				}
 			}
 
@@ -227,13 +259,18 @@ window.addEventListener('message', async (e) => {
 				doc.querySelectorAll(selector).forEach(el => {
 					const val = el.getAttribute(attr);
 					if (!val) return;
-					if (urlMap[val]) {
-						el.setAttribute(attr, urlMap[val]);
+
+					// パラメータを分離して純粋なパスで解決を試みる
+					const { basePath, search, hash } = this._parsePath(val);
+					const suffix = search + hash;
+
+					if (urlMap[basePath]) {
+						el.setAttribute(attr, urlMap[basePath] + suffix);
 						return;
 					}
-					const resolved = resolvePath(val);
+					const resolved = resolvePath(basePath);
 					if (resolved && urlMap[resolved]) {
-						el.setAttribute(attr, urlMap[resolved]);
+						el.setAttribute(attr, urlMap[resolved] + suffix);
 					}
 				});
 			};
