@@ -41,9 +41,9 @@
 				this.els.BTN_REFRESH.onclick = () => {
 					const mainProc = this.processes.get('main');
 					if (mainProc && mainProc.path) {
-						this.spawn('main', mainProc.path, 'foreground');
+						this.spawn('main', mainProc.path, 'foreground', true);
 					} else {
-						this.spawn('main', 'index.html', 'foreground');
+						this.spawn('main', 'index.html', 'foreground', true);
 					}
 				};
 			}
@@ -59,8 +59,9 @@
 		 * @param {string} pid - プロセスID ('main' は Foreground 専用)
 		 * @param {string} path - 実行する VFS 上のパス
 		 * @param {string} mode - 'foreground' | 'background'
+		 * @param {boolean} forceReload - キャッシュを無視して強制的に再コンパイル・リロードするかどうか
 		 */
-		async spawn(pid, path, mode = 'background') {
+		async spawn(pid, path, mode = 'background', forceReload = false) {
 			// pid が 'main' の場合は強制的に foreground
 			if (pid === 'main') mode = 'foreground';
 
@@ -70,7 +71,7 @@
 				const currentBase = existingProc.path.split(/[?#]/)[0];
 				const newBase = path.split(/[?#]/)[0];
 
-				if (currentBase === newBase && existingProc.mode === mode) {
+				if (!forceReload && currentBase === newBase && existingProc.mode === mode) {
 					console.log(`[ProcessManager] Soft Navigation [${pid}] -> ${path}`);
 					
 					// Update State

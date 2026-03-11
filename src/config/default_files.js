@@ -1,5 +1,5 @@
 // AUTO-GENERATED FILE - DO NOT EDIT MANUALLY
-// Generated on: 2026-02-28T02:29:14Z
+// Generated on: 2026-03-11T03:03:24Z
 
 (function(global) {
     global.Itera = global.Itera || {};
@@ -1110,6 +1110,7 @@ This is the only window connecting the guest code to you and the file system.
 
 **Process & IPC Control:**
 *   \`MetaOS.spawn('views/app.html', { pid: 'main' })\`: Change the main view.
+*   \`MetaOS.spawn('views/app.html', { pid: 'main', forceReload: true })\`: Force completely reload the view (bypassing Soft Navigation).
 *   \`MetaOS.spawn('services/sync.html', { pid: 'bg_sync' })\`: Start a background daemon.
 *   \`MetaOS.kill('bg_sync')\`: Terminate a process.
 *   \`MetaOS.broadcast('my_event', data)\`: Send an IPC message to ALL running processes.
@@ -1295,8 +1296,9 @@ The Engine extracts and executes only the parts enclosed in \`<tags>\`, processi
 *   **\`<edit_file path="...">\`**: Rewrites a part of a file using regex or precise line replacement.
 
 **Action Tags (Process & OS Control):**
-*   **\`<spawn pid="..." path="...">\`**: Starts a new process or restarts an existing one. 
+*   **\`<spawn pid="..." path="..." force="true">\`**: Starts a new process or restarts an existing one. 
     *   **Rule**: Use \`pid="main"\` to update or change the user's foreground screen (UI). Use a custom ID (e.g., \`pid="nostr_bg"\`) to start an invisible background daemon.
+    *   **IMPORTANT**: The OS caches running processes. If you use \`<edit_file>\` to modify a process's code (HTML/JS/CSS), you **MUST** include \`force="true"\` when spawning it. Otherwise, the old cached code will continue to run, and your changes will not take effect.
 *   **\`<kill pid="...">\`**: Terminates a running process and frees its memory.
 *   **\`<ps>\`**: Lists all currently running processes (foreground and background) so you can monitor the system state.
 *   **\`<take_screenshot>\`**: Captures the current \`main\` process (foreground UI) as an image for visual confirmation.

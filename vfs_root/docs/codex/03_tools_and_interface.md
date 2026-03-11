@@ -23,8 +23,9 @@ The Engine extracts and executes only the parts enclosed in `<tags>`, processing
 *   **`<edit_file path="...">`**: Rewrites a part of a file using regex or precise line replacement.
 
 **Action Tags (Process & OS Control):**
-*   **`<spawn pid="..." path="...">`**: Starts a new process or restarts an existing one. 
+*   **`<spawn pid="..." path="..." force="true">`**: Starts a new process or restarts an existing one. 
     *   **Rule**: Use `pid="main"` to update or change the user's foreground screen (UI). Use a custom ID (e.g., `pid="nostr_bg"`) to start an invisible background daemon.
+    *   **IMPORTANT**: The OS caches running processes. If you use `<edit_file>` to modify a process's code (HTML/JS/CSS), you **MUST** include `force="true"` when spawning it. Otherwise, the old cached code will continue to run, and your changes will not take effect.
 *   **`<kill pid="...">`**: Terminates a running process and frees its memory.
 *   **`<ps>`**: Lists all currently running processes (foreground and background) so you can monitor the system state.
 *   **`<take_screenshot>`**: Captures the current `main` process (foreground UI) as an image for visual confirmation.

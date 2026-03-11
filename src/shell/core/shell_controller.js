@@ -462,7 +462,8 @@
 			}) => {
 				const pid = (options && options.pid) ? options.pid : 'main';
 				const mode = (options && options.mode) ? options.mode : (pid === 'main' ? 'foreground' : 'background');
-				await this.windowing.processManager.spawn(pid, path, mode);
+				const forceReload = (options && options.forceReload) ? true : false;
+				await this.windowing.processManager.spawn(pid, path, mode, forceReload);
 				if (mode === 'foreground') this._closeMobileDrawers();
 			});
 
@@ -660,7 +661,8 @@
 
 		async refreshPreview(path) {
 			// mainプロセスとして起動するショートカット
-			await this.windowing.processManager.spawn('main', path || 'index.html', 'foreground');
+			const currentPath = this.windowing.processManager.processes.get('main')?.path || 'index.html';
+			await this.windowing.processManager.spawn('main', path || currentPath, 'foreground', true);
 		}
 
 		async captureScreenshot() {

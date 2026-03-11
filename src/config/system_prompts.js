@@ -177,7 +177,10 @@ Attributes:
     - pid: Process ID. Use "main" for the foreground UI. For background daemons, use a custom ID.
     - path: Path to the HTML file in VFS.
     - mode (optional): "foreground" or "background" (defaults based on pid).
-Rule: Use pid="main" to change the user's current screen or refresh the UI after code edits.
+    - force (optional): "true" or "false".
+Rule: 
+    - Use pid="main" to change the user's current screen or refresh the UI.
+    - IMPORTANT: If you edited the source code of a process, you MUST include force="true" to apply the new code (e.g., <spawn pid="main" path="..." force="true" />). Otherwise, the system will keep running the cached old version.
 </define_tag>
 
 <define_tag name="kill">
