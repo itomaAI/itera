@@ -12,11 +12,12 @@
 			const pid = params.pid || 'main';
 			const path = params.path || 'index.html';
 			const mode = params.mode || (pid === 'main' ? 'foreground' : 'background');
+			const forceReload = params.force === 'true';
 
 			if (context.shell && context.shell.windowing && context.shell.windowing.processManager) {
-				await context.shell.windowing.processManager.spawn(pid, path, mode);
+				await context.shell.windowing.processManager.spawn(pid, path, mode, forceReload);
 				return {
-					log: `[spawn] Process '${pid}' started at ${path} (${mode} mode).`,
+					log: `[spawn] Process '${pid}' started at ${path} (${mode} mode, forceReload=${forceReload}).`,
 					ui: `🚀 Spawned [${pid}]`
 				};
 			}

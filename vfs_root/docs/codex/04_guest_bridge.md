@@ -18,6 +18,7 @@ This is the only window connecting the guest code to you and the file system.
 
 **Process & IPC Control:**
 *   `MetaOS.spawn('views/app.html', { pid: 'main' })`: Change the main view.
+*   `MetaOS.spawn('views/app.html', { pid: 'main', forceReload: true })`: Force completely reload the view (bypassing Soft Navigation).
 *   `MetaOS.spawn('services/sync.html', { pid: 'bg_sync' })`: Start a background daemon.
 *   `MetaOS.kill('bg_sync')`: Terminate a process.
 *   `MetaOS.broadcast('my_event', data)`: Send an IPC message to ALL running processes.

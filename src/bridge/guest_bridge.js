@@ -72,6 +72,7 @@
     // --- Public API (MetaOS Compatible) ---
     global.MetaOS = {
         // Process Management (New)
+        // options: { pid?: string, mode?: 'foreground'|'background', forceReload?: boolean }
         spawn: (path, options = {}) => post('spawn_process', { path, options }),
         kill: (pid) => post('kill_process', { pid }),
         broadcast: (eventName, payload) => post('broadcast_event', { eventName, payload }),
