@@ -334,13 +334,26 @@
 					const uiText = item.output.ui || item.output.log || "";
 					if (item.output.ui) {
 						const span = document.createElement('span');
-						span.className = "text-system font-bold";
-						span.textContent = uiText;
+						// ブロック要素(<pre>)を内包可能にするため block クラスを追加
+						span.className = "text-system font-bold block";
+						span.innerHTML = this._formatSystemMessage(uiText);
 						div.appendChild(span);
 					} else {
-						div.textContent = uiText;
+						div.innerHTML = this._formatSystemMessage(uiText);
 					}
 					container.appendChild(div);
+
+					// DOM追加後にMathJaxで数式をレンダリング
+					if (window.MathJax) {
+						MathJax.typesetPromise([div]).catch(e => console.warn("MathJax Error:", e));
+					}
+
+					// DOM追加後にHighlight.jsでコードをハイライト
+					if (window.hljs) {
+						div.querySelectorAll('pre code').forEach((block) => {
+							hljs.highlightElement(block);
+						});
+					}
 
                     // Handle Tool Output Images
                     if (item.output.media) {
@@ -397,6 +410,27 @@
                 container.appendChild(div);
             }
         }
+
+		_formatSystemMessage(text) {
+			if (!text) return "";
+			// 1. HTMLエスケープ (XSS対策)
+			let safeText = text.replace(/&/g, '&amp;')
+							   .replace(/</g, '&lt;')
+							   .replace(/>/g, '&gt;');
+			
+			// 2. コードブロック (```) の置換
+			safeText = safeText.replace(/```(?:([a-zA-Z0-9_]+)\n)?([\s\S]*?)```/g, (match, lang, code) => {
+				const langClass = lang ? `language-${lang}` : 'language-plaintext';
+				return `<pre class="bg-card border border-border-main p-2 rounded mt-1 mb-1 overflow-x-auto text-text-main font-mono text-[10px] leading-relaxed font-normal"><code class="${langClass}">${code}</code></pre>`;
+			});
+
+			// 3. インラインコード (`) の置換
+			safeText = safeText.replace(/`([^`]+)`/g, (match, code) => {
+				return `<code class="bg-app text-primary px-1 rounded font-mono text-[11px] font-normal">${code}</code>`;
+			});
+
+			return safeText;
+		}
 
 		_appendMedia(container, base64, mimeType) {
 			let mime = mimeType || 'image/png';
