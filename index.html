@@ -24,6 +24,18 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.45.0/min/vs/loader.min.js"></script>
     
+    <!-- MathJax -->
+    <script>
+    window.MathJax = {
+      tex: { inlineMath: [['$', '$'], ['\\(', '\\)']] },
+      svg: { fontCache: 'global' }
+    };
+    </script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+
+    <!-- Highlight.js -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+    
     <!-- Tailwind Configuration -->
     <script>
         tailwind.config = {
@@ -103,6 +115,17 @@
         }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
         .pb-safe { padding-bottom: env(safe-area-inset-bottom); }
+
+        /* Highlight.js Theme (Dynamic OS Colors) */
+        .hljs { color: rgb(var(--c-text-main)); background: transparent; }
+        .hljs-keyword, .hljs-selector-tag, .hljs-addition { color: rgb(var(--c-accent-primary)); }
+        .hljs-string, .hljs-meta .hljs-meta-string, .hljs-doctag, .hljs-regexp { color: rgb(var(--c-accent-success)); }
+        .hljs-title, .hljs-section, .hljs-name, .hljs-selector-id, .hljs-selector-class { color: rgb(var(--c-accent-warning)); font-weight: bold; }
+        .hljs-attr, .hljs-attribute, .hljs-variable, .hljs-template-variable, .hljs-class .hljs-title, .hljs-type { color: rgb(var(--c-text-system)); }
+        .hljs-symbol, .hljs-bullet, .hljs-subst, .hljs-meta, .hljs-meta .hljs-keyword, .hljs-selector-attr, .hljs-selector-pseudo, .hljs-link { color: rgb(var(--c-text-system)); }
+        .hljs-built_in, .hljs-deletion { color: rgb(var(--c-accent-error)); }
+        .hljs-comment, .hljs-quote { color: rgb(var(--c-text-muted)); font-style: italic; }
+        .hljs-number, .hljs-literal { color: rgb(var(--c-accent-warning)); }
 
         /* Fallback for FOUC prevention */
         :root {
