@@ -152,7 +152,7 @@
         <div id="mobile-overlay" class="fixed inset-0 bg-black/60 z-30 hidden md:hidden backdrop-blur-[2px] transition-opacity"></div>
 
         <!-- 1. LEFT SIDEBAR -->
-        <div id="sidebar" class="bg-panel flex flex-col shrink-0 md:relative fixed inset-y-0 left-0 z-40 w-[260px] transition-transform duration-300 -translate-x-full md:translate-x-0 border-r border-border-main shadow-2xl md:shadow-none h-full pt-12 md:pt-0">
+        <div id="sidebar" class="bg-panel flex flex-col shrink-0 md:relative fixed inset-y-0 left-0 z-40 w-[260px] transition-transform duration-300 -translate-x-full md:translate-x-0 border-r border-border-main shadow-2xl md:shadow-none h-full">
             <!-- Controls -->
             <div class="h-10 bg-app border-b border-border-main flex items-center justify-between px-3 shrink-0">
                 <div class="flex items-center gap-2">
@@ -238,7 +238,7 @@
                     </div>
                 </div>
                 <!-- Editor Overlay -->
-                <div id="editor-overlay" class="absolute inset-0 bg-app hidden z-30 flex flex-col pt-12 md:pt-0">
+                <div id="editor-overlay" class="absolute inset-0 bg-app hidden z-30 flex flex-col">
                     <div class="h-9 bg-panel flex justify-between items-center px-4 border-b border-border-main shrink-0">
                         <div class="flex items-center gap-2 overflow-hidden">
                             <svg class="w-4 h-4 text-primary shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"></path></svg>
@@ -252,8 +252,8 @@
                     <div id="code-editor" class="flex-1 bg-app overflow-hidden pb-14 md:pb-0"></div>
                 </div>
                 <!-- Media Overlay -->
-                <div id="media-overlay" class="absolute inset-0 bg-app/95 hidden z-40 flex flex-col items-center justify-center backdrop-blur-sm pt-12 md:pt-0">
-                    <div class="absolute top-0 left-0 right-0 h-10 bg-panel/80 flex justify-between items-center px-4 border-b border-border-main pt-12 md:pt-0">
+                <div id="media-overlay" class="absolute inset-0 bg-app/95 hidden z-40 flex flex-col items-center justify-center backdrop-blur-sm">
+                    <div class="absolute top-0 left-0 right-0 h-10 bg-panel/80 flex justify-between items-center px-4 border-b border-border-main">
                         <span id="media-filename" class="text-xs font-mono text-text-muted">file</span>
                         <button id="btn-close-media" class="text-text-muted hover:text-text-main text-lg leading-none p-2">✕</button>
                     </div>
@@ -276,7 +276,7 @@
         <div id="chat-resizer" class="resizer hidden md:block"></div>
 
         <!-- 3. RIGHT SIDEBAR (Chat) -->
-        <div id="chat-panel" class="bg-panel flex flex-col shrink-0 md:relative fixed inset-y-0 right-0 z-40 w-full sm:w-96 md:w-[400px] transition-transform duration-300 translate-x-full md:translate-x-0 border-l border-border-main shadow-2xl md:shadow-none h-full pt-12 md:pt-0">
+        <div id="chat-panel" class="bg-panel flex flex-col shrink-0 md:relative fixed inset-y-0 right-0 z-40 w-full sm:w-96 md:w-[400px] transition-transform duration-300 translate-x-full md:translate-x-0 border-l border-border-main shadow-2xl md:shadow-none h-full">
              <div class="h-10 border-b border-border-main flex items-center justify-between px-3 bg-panel shrink-0">
                 <div class="flex items-center gap-2">
                     <span class="text-[10px] font-bold text-text-muted uppercase tracking-wider">Itera Agent</span>
