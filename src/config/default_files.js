@@ -1,5 +1,5 @@
 // AUTO-GENERATED FILE - DO NOT EDIT MANUALLY
-// Generated on: 2026-03-11T03:03:24Z
+// Generated on: 2026-03-19T02:49:53Z
 
 (function(global) {
     global.Itera = global.Itera || {};
@@ -2306,6 +2306,9 @@ Unlike traditional chatbots, Itera has a **Body (UI)** and **Memory (VFS)**. It 
             darkMode: 'class',
             theme: {
                 extend: {
+                    fontFamily: {
+                        sans:['Inter', 'system-ui', '-apple-system', 'BlinkMacSystemFont', '"Segoe UI"', 'Roboto', '"Helvetica Neue"', 'Arial', '"Noto Sans"', 'sans-serif', '"Apple Color Emoji"', '"Segoe UI Emoji"', '"Segoe UI Symbol"', '"Noto Color Emoji"']
+                    },
                     colors: {
                         app: 'rgb(var(--c-bg-app) / <alpha-value>)',
                         panel: 'rgb(var(--c-bg-panel) / <alpha-value>)',
@@ -2337,7 +2340,7 @@ Unlike traditional chatbots, Itera has a **Body (UI)** and **Memory (VFS)**. It 
     // ==========================================
     const style = document.createElement('style');
     style.textContent = \`
-        body { font-family: 'Inter', system-ui, sans-serif; }
+        body { font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji"; }
         ::-webkit-scrollbar { width: 6px; height: 6px; }
         ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background: rgb(var(--c-bg-hover)); border-radius: 3px; }

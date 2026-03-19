@@ -89,6 +89,16 @@
 		_loadAndApply() {
 			let themeData = this.defaultTheme;
 
+			// 言語設定を <html> の lang 属性に反映
+			const config = this.configManager.get();
+			const langName = config.language || 'English';
+			const langMap = {
+				'English': 'en', 'Japanese': 'ja', 'Spanish': 'es', 'French': 'fr',
+				'German': 'de', 'Chinese (Simplified)': 'zh-Hans', 'Chinese (Traditional)': 'zh-Hant',
+				'Korean': 'ko', 'Portuguese': 'pt', 'Russian': 'ru', 'Arabic': 'ar', 'Hindi': 'hi'
+			};
+			document.documentElement.lang = langMap[langName] || 'en';
+
 			try {
 				if (this.vfs && this.vfs.exists(this.currentThemePath)) {
 					const content = this.vfs.readFile(this.currentThemePath);

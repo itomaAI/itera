@@ -158,6 +158,16 @@ window.addEventListener('message', async (e) => {
 					htmlContent = "<!DOCTYPE html>\n" + htmlContent;
 				}
 
+				// 1.2 言語の同期 (HostのlangをGuestに反映)
+				const hostLang = document.documentElement.lang || 'en';
+				htmlContent = htmlContent.replace(/<html[^>]*>/i, (match) => {
+					if (match.includes('lang=')) {
+						return match.replace(/lang=(['"]).*?\1/i, `lang="${hostLang}"`);
+					} else {
+						return match.replace('<html', `<html lang="${hostLang}"`);
+					}
+				});
+
 				// 1.5 Initial State Injection (Query / Hash)
 				// Blob URLでは history.replaceState がセキュリティエラーになるため、
 				// URLSearchParams をポリフィルして、クエリがあたかも存在するかのように偽装する。
