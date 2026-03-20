@@ -1,491 +1,584 @@
 // src/ui/components/explorer.js
 
 (function(global) {
-    global.Itera = global.Itera || {};
-    global.Itera.Shell = global.Itera.Shell || {};
-    global.Itera.Shell.Panels = global.Itera.Shell.Panels || {};
+	global.Itera = global.Itera || {};
+	global.Itera.Shell = global.Itera.Shell || {};
+	global.Itera.Shell.Panels = global.Itera.Shell.Panels || {};
 
-    const DOM_IDS = {
-        CONTAINER: 'file-explorer',
-        CONTEXT_MENU: 'context-menu',
-        SIDEBAR: 'sidebar',
-        RESIZER: 'explorer-resizer',
-        RESIZE_OVERLAY: 'resize-overlay',
-        PREVIEW_FRAME: 'preview-frame',
-        
-        // Upload Inputs
-        INPUT_FOLDER: 'folder-upload',
-        INPUT_FILES: 'files-upload',
-        INPUT_CONTEXT: 'context-upload-input',
-        
-        // Backup / Restore
-        BTN_IMPORT: 'btn-import-backup',
-        INPUT_IMPORT: 'import-backup-input',
-        BTN_DOWNLOAD: 'btn-download'
-    };
+	const DOM_IDS = {
+		CONTAINER: 'file-explorer',
+		CONTEXT_MENU: 'context-menu',
+		SIDEBAR: 'sidebar',
+		RESIZER: 'explorer-resizer',
+		RESIZE_OVERLAY: 'resize-overlay',
+		PREVIEW_FRAME: 'preview-frame',
 
-    class Explorer {
-        constructor(vfs) {
-            this.vfs = vfs;
-            this.events = {};
-            this.els = {};
-            this.currentContextUploadPath = "";
+		// Upload Inputs
+		INPUT_FOLDER: 'folder-upload',
+		INPUT_FILES: 'files-upload',
+		INPUT_CONTEXT: 'context-upload-input',
 
-            this._initElements();
-            
-            this.treeView = new global.Itera.Shell.Panels.TreeView(
-                this.els.CONTAINER, 
-                this.els.CONTEXT_MENU
-            );
+		// Backup / Restore
+		BTN_IMPORT: 'btn-import-backup',
+		INPUT_IMPORT: 'import-backup-input',
+		BTN_DOWNLOAD: 'btn-download'
+	};
 
-            this._bindVFS();
-            this._bindTreeEvents();
-            this._bindUploads();
-            this._bindSidebarDnD();
-            this._initResizer();
-        }
+	class Explorer {
+		constructor(vfs) {
+			this.vfs = vfs;
+			this.events = {};
+			this.els = {};
+			this.currentContextUploadPath = "";
 
-        on(event, callback) {
-            this.events[event] = callback;
-        }
+			this._initElements();
 
-        _initElements() {
-            Object.entries(DOM_IDS).forEach(([key, id]) => {
-                this.els[key] = document.getElementById(id);
-            });
-        }
+			this.treeView = new global.Itera.Shell.Panels.TreeView(
+				this.els.CONTAINER,
+				this.els.CONTEXT_MENU
+			);
 
-        _bindVFS() {
-            this.vfs.on('change', () => {
-                this.treeView.render(this.vfs.getTree());
-            });
-            this.treeView.render(this.vfs.getTree());
-        }
+			this._bindVFS();
+			this._bindTreeEvents();
+			this._bindUploads();
+			this._bindSidebarDnD();
+			this._initResizer();
+		}
 
-        // --- TreeView Interactions ---
+		on(event, callback) {
+			this.events[event] = callback;
+		}
 
-        _bindTreeEvents() {
-            this.treeView.on('open', (path) => {
-                try {
-                    const content = this.vfs.readFile(path);
-                    if (this.events['open_file']) this.events['open_file'](path, content);
-                } catch (e) {
-                    console.error("Read failed:", e);
-                }
-            });
+		_initElements() {
+			Object.entries(DOM_IDS).forEach(([key, id]) => {
+				this.els[key] = document.getElementById(id);
+			});
+		}
 
-            this.treeView.on('create_file', (path) => {
-                try {
-                    this.vfs.writeFile(path, "");
-                    this._emitHistory('file_created', `User created empty file: ${path}`);
-                    if (this.events['open_file']) this.events['open_file'](path, "");
-                } catch (e) { alert(e.message); }
-            });
+		_bindVFS() {
+			this.vfs.on('change', () => {
+				this.treeView.render(this.vfs.getTree());
+			});
+			this.treeView.render(this.vfs.getTree());
+		}
 
-            this.treeView.on('create_folder', (path) => {
-                try {
-                    this.vfs.createDirectory(path);
-                    this._emitHistory('folder_created', `User created folder: ${path}`);
-                } catch (e) { alert(e.message); }
-            });
+		// --- TreeView Interactions ---
 
-            this.treeView.on('duplicate', (path) => {
-                try {
-                    const dotIndex = path.lastIndexOf('.');
-                    let base = dotIndex !== -1 ? path.substring(0, dotIndex) : path;
-                    let ext = dotIndex !== -1 ? path.substring(dotIndex) : "";
-                    let newPath = `${base}_copy${ext}`;
-                    let counter = 1;
-                    while (this.vfs.exists(newPath)) {
-                        newPath = `${base}_copy${counter}${ext}`;
-                        counter++;
-                    }
-                    this.vfs.copyFile(path, newPath);
-                    this._emitHistory('file_created', `User duplicated file: ${path} -> ${newPath}`);
-                } catch (e) { alert(e.message); }
-            });
+		_bindTreeEvents() {
+			this.treeView.on('open', (path) => {
+				try {
+					const content = this.vfs.readFile(path);
+					if (this.events['open_file']) this.events['open_file'](path, content);
+				} catch (e) {
+					console.error("Read failed:", e);
+				}
+			});
 
-            this.treeView.on('rename', (oldPath, newPath) => {
-                try {
-                    this.vfs.rename(oldPath, newPath);
-                    this._emitHistory('file_moved', `User renamed: ${oldPath} -> ${newPath}`);
-                } catch (e) { alert(e.message); }
-            });
+			this.treeView.on('create_file', (path) => {
+				try {
+					this.vfs.writeFile(path, "");
+					this._emitHistory('file_created', `User created empty file: ${path}`);
+					if (this.events['open_file']) this.events['open_file'](path, "");
+				} catch (e) {
+					alert(e.message);
+				}
+			});
 
-            this.treeView.on('move', (srcPath, destPath) => {
-                try {
-                    this.vfs.rename(srcPath, destPath);
-                    this._emitHistory('file_moved', `User moved file: ${srcPath} -> ${destPath}`);
-                } catch (e) { alert(e.message); }
-            });
+			this.treeView.on('create_folder', (path) => {
+				try {
+					this.vfs.createDirectory(path);
+					this._emitHistory('folder_created', `User created folder: ${path}`);
+				} catch (e) {
+					alert(e.message);
+				}
+			});
 
-            this.treeView.on('delete', (path) => {
-                try {
-                    this.vfs.deleteFile(path);
-                    this._emitHistory('file_deleted', `User deleted: ${path}`);
-                } catch (e) { alert(e.message); }
-            });
+			this.treeView.on('duplicate', (path) => {
+				try {
+					const dotIndex = path.lastIndexOf('.');
+					let base = dotIndex !== -1 ? path.substring(0, dotIndex) : path;
+					let ext = dotIndex !== -1 ? path.substring(dotIndex) : "";
+					let newPath = `${base}_copy${ext}`;
+					let counter = 1;
+					while (this.vfs.exists(newPath)) {
+						newPath = `${base}_copy${counter}${ext}`;
+						counter++;
+					}
+					this.vfs.copyFile(path, newPath);
+					this._emitHistory('file_created', `User duplicated file: ${path} -> ${newPath}`);
+				} catch (e) {
+					alert(e.message);
+				}
+			});
 
-            this.treeView.on('download', (path) => {
-                try {
-                    this._downloadFile(path);
-                } catch (e) { alert(e.message); }
-            });
+			this.treeView.on('rename', (oldPath, newPath) => {
+				try {
+					this.vfs.rename(oldPath, newPath);
+					this._emitHistory('file_moved', `User renamed: ${oldPath} -> ${newPath}`);
+				} catch (e) {
+					alert(e.message);
+				}
+			});
 
-            this.treeView.on('upload_request', (path) => {
-                this.currentContextUploadPath = path;
-                if (this.els.INPUT_CONTEXT) {
-                    this.els.INPUT_CONTEXT.value = "";
-                    this.els.INPUT_CONTEXT.click();
-                }
-            });
-        }
+			this.treeView.on('move', (srcPath, destPath) => {
+				try {
+					this.vfs.rename(srcPath, destPath);
+					this._emitHistory('file_moved', `User moved file: ${srcPath} -> ${destPath}`);
+				} catch (e) {
+					alert(e.message);
+				}
+			});
 
-        // --- Upload & Backup Handling ---
+			this.treeView.on('delete', (path) => {
+				try {
+					this.vfs.deleteFile(path);
+					this._emitHistory('file_deleted', `User deleted: ${path}`);
+				} catch (e) {
+					alert(e.message);
+				}
+			});
 
-        _bindUploads() {
-            if (this.els.INPUT_FOLDER) {
-                this.els.INPUT_FOLDER.onchange = (e) => this._handleUploadAppend(e, true, "");
-            }
-            if (this.els.INPUT_FILES) {
-                this.els.INPUT_FILES.onchange = (e) => this._handleUploadAppend(e, false, "");
-            }
-            if (this.els.INPUT_CONTEXT) {
-                this.els.INPUT_CONTEXT.onchange = (e) => {
-                    this._handleUploadAppend(e, false, this.currentContextUploadPath);
-                    this.currentContextUploadPath = "";
-                };
-            }
+			this.treeView.on('download', (path) => {
+				try {
+					this._downloadFile(path);
+				} catch (e) {
+					alert(e.message);
+				}
+			});
 
-            if (this.els.BTN_IMPORT && this.els.INPUT_IMPORT) {
-                this.els.BTN_IMPORT.onclick = () => {
-                    this.els.INPUT_IMPORT.value = "";
-                    this.els.INPUT_IMPORT.click();
-                };
-                this.els.INPUT_IMPORT.onchange = async (e) => this._handleZipRestore(e);
-            }
+			this.treeView.on('upload_request', (path) => {
+				this.currentContextUploadPath = path;
+				if (this.els.INPUT_CONTEXT) {
+					this.els.INPUT_CONTEXT.value = "";
+					this.els.INPUT_CONTEXT.click();
+				}
+			});
+		}
 
-            if (this.els.BTN_DOWNLOAD) {
-                this.els.BTN_DOWNLOAD.onclick = () => this._handleZipDownload();
-            }
-        }
+		// --- Upload & Backup Handling ---
 
-        async _handleUploadAppend(e, isFolder, targetDir = "") {
-            const files = Array.from(e.target.files);
-            if (files.length === 0) return;
+		_bindUploads() {
+			if (this.els.INPUT_FOLDER) {
+				this.els.INPUT_FOLDER.onchange = (e) => this._handleUploadAppend(e, true, "");
+			}
+			if (this.els.INPUT_FILES) {
+				this.els.INPUT_FILES.onchange = (e) => this._handleUploadAppend(e, false, "");
+			}
+			if (this.els.INPUT_CONTEXT) {
+				this.els.INPUT_CONTEXT.onchange = (e) => {
+					this._handleUploadAppend(e, false, this.currentContextUploadPath);
+					this.currentContextUploadPath = "";
+				};
+			}
 
-            const uploadedPaths = [];
-            for (const file of files) {
-                let relPath = targetDir 
-                    ? `${targetDir}/${file.name}` 
-                    : (isFolder && file.webkitRelativePath ? file.webkitRelativePath : file.name);
-                
-                relPath = relPath.replace(/^\/+/, '');
+			if (this.els.BTN_IMPORT && this.els.INPUT_IMPORT) {
+				this.els.BTN_IMPORT.onclick = () => {
+					this.els.INPUT_IMPORT.value = "";
+					this.els.INPUT_IMPORT.click();
+				};
+				this.els.INPUT_IMPORT.onchange = async (e) => this._handleZipRestore(e);
+			}
 
-                try {
-                    let content = await this._readFileContent(file);
-                    this.vfs.writeFile(relPath, content);
-                    uploadedPaths.push(relPath);
-                } catch (err) {
-                    console.error(err);
-                }
-            }
+			if (this.els.BTN_DOWNLOAD) {
+				this.els.BTN_DOWNLOAD.onclick = () => this._handleZipDownload();
+			}
+		}
 
-            if (uploadedPaths.length > 0) {
-                const summary = uploadedPaths.slice(0, 3).join(', ') + (uploadedPaths.length > 3 ? '...' : '');
-                this._emitHistory('file_created', `User uploaded ${uploadedPaths.length} files to "${targetDir || 'root'}": ${summary}`);
-            }
-            e.target.value = "";
-        }
+		async _handleUploadAppend(e, isFolder, targetDir = "") {
+			const files = Array.from(e.target.files);
+			if (files.length === 0) return;
 
-        async _handleZipRestore(e) {
-            const file = e.target.files[0];
-            if (!file) return;
+			const uploadedPaths = [];
+			for (const file of files) {
+				let relPath = targetDir ?
+					`${targetDir}/${file.name}` :
+					(isFolder && file.webkitRelativePath ? file.webkitRelativePath : file.name);
 
-            if (typeof JSZip === 'undefined') {
-                alert("System Error: JSZip library not loaded.");
-                return;
-            }
+				relPath = relPath.replace(/^\/+/, '');
 
-            if (!confirm(`CAUTION: This will ERASE all current files and restore from "${file.name}".\n\nContinue?`)) {
-                e.target.value = "";
-                return;
-            }
+				try {
+					let content = await this._readFileContent(file);
+					this.vfs.writeFile(relPath, content);
+					uploadedPaths.push(relPath);
+				} catch (err) {
+					console.error(err);
+				}
+			}
 
-            try {
-                const zip = await JSZip.loadAsync(file);
-                const restoredFiles = {};
-                let count = 0;
-                const promises = [];
-                zip.forEach((relativePath, zipEntry) => {
-                    if (zipEntry.dir) return;
-                    if (relativePath.startsWith('__MACOSX') || relativePath.includes('.DS_Store')) return;
+			if (uploadedPaths.length > 0) {
+				const summary = uploadedPaths.slice(0, 3).join(', ') + (uploadedPaths.length > 3 ? '...' : '');
+				this._emitHistory('file_created', `User uploaded ${uploadedPaths.length} files to "${targetDir || 'root'}": ${summary}`);
+			}
+			e.target.value = "";
+		}
 
-                    promises.push((async () => {
-                        const isBinary = this._isBinaryFilename(relativePath);
-                        let content;
-                        if (isBinary) {
-                            const base64 = await zipEntry.async("base64");
-                            const mime = this._guessMimeType(relativePath);
-                            content = `data:${mime};base64,${base64}`;
-                        } else {
-                            content = await zipEntry.async("string");
-                        }
-                        const cleanPath = relativePath.replace(/^\/+/, '');
-                        restoredFiles[cleanPath] = content;
-                        count++;
-                    })());
-                });
+		async _handleZipRestore(e) {
+			const file = e.target.files[0];
+			if (!file) return;
 
-                await Promise.all(promises);
-                this.vfs.loadFiles(restoredFiles);
-                this._emitHistory('project_imported', `Restored backup: ${file.name} (${count} files).`);
-                alert(`Restore Complete: ${count} files loaded.`);
+			if (typeof JSZip === 'undefined') {
+				alert("System Error: JSZip library not loaded.");
+				return;
+			}
 
-            } catch (err) {
-                console.error(err);
-                alert(`Restore Failed: ${err.message}`);
-            }
-            e.target.value = "";
-        }
+			if (!confirm(`CAUTION: This will ERASE all current files and restore from "${file.name}".\n\nContinue?`)) {
+				e.target.value = "";
+				return;
+			}
 
-        async _handleZipDownload() {
-            if (typeof JSZip === 'undefined') {
-                alert("System Error: JSZip library not loaded.");
-                return;
-            }
+			try {
+				const zip = await JSZip.loadAsync(file);
+				const restoredFiles = {};
+				let count = 0;
+				const promises = [];
+				zip.forEach((relativePath, zipEntry) => {
+					if (zipEntry.dir) return;
+					if (relativePath.startsWith('__MACOSX') || relativePath.includes('.DS_Store')) return;
 
-            const zip = new JSZip();
-            const files = this.vfs.files;
+					promises.push((async () => {
+						const isBinary = this._isBinaryFilename(relativePath);
+						let content;
+						if (isBinary) {
+							const base64 = await zipEntry.async("base64");
+							const mime = this._guessMimeType(relativePath);
+							content = `data:${mime};base64,${base64}`;
+						} else {
+							content = await zipEntry.async("string");
+						}
+						const cleanPath = relativePath.replace(/^\/+/, '');
+						restoredFiles[cleanPath] = content;
+						count++;
+					})());
+				});
 
-            Object.keys(files).forEach(path => {
-                if (path.startsWith('.sample/') || path.includes('/.git/')) return;
-                const fileData = files[path];
-                const content = fileData.content;
+				await Promise.all(promises);
+				this.vfs.loadFiles(restoredFiles);
+				this._emitHistory('project_imported', `Restored backup: ${file.name} (${count} files).`);
+				alert(`Restore Complete: ${count} files loaded.`);
 
-                if (content.startsWith('data:')) {
-                    const parts = content.split(',');
-                    if (parts.length > 1) {
-                        zip.file(path, parts[1], { base64: true });
-                    }
-                } else {
-                    zip.file(path, content);
-                }
-            });
+			} catch (err) {
+				console.error(err);
+				alert(`Restore Failed: ${err.message}`);
+			}
+			e.target.value = "";
+		}
 
-            try {
-                const blob = await zip.generateAsync({ type: 'blob' });
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url;
-                const timestamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-');
-                a.download = `itera_backup_${timestamp}.zip`;
-                document.body.appendChild(a);
-                a.click();
-                document.body.removeChild(a);
-                setTimeout(() => URL.revokeObjectURL(url), 100);
-                this._emitHistory('project_exported', `User downloaded system backup.`);
-            } catch (e) {
-                console.error("Export failed:", e);
-                alert("Export Failed: " + e.message);
-            }
-        }
+		async _handleZipDownload() {
+			if (typeof JSZip === 'undefined') {
+				alert("System Error: JSZip library not loaded.");
+				return;
+			}
 
-        _bindSidebarDnD() {
-            const sidebar = this.els.SIDEBAR;
-            if (!sidebar) return;
+			const zip = new JSZip();
+			const files = this.vfs.files;
 
-            ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
-                sidebar.addEventListener(eventName, (e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                }, false);
-            });
+			Object.keys(files).forEach(path => {
+				if (path.startsWith('.sample/') || path.includes('/.git/')) return;
+				const fileData = files[path];
+				const content = fileData.content;
 
-            sidebar.addEventListener('dragover', (e) => {
-                if (!e.dataTransfer.types.includes('application/itera-file')) {
-                    e.dataTransfer.dropEffect = 'copy';
-                    // bg-gray-700 -> bg-hover
-                    sidebar.classList.add('bg-hover');
-                }
-            });
+				if (content.startsWith('data:')) {
+					const parts = content.split(',');
+					if (parts.length > 1) {
+						zip.file(path, parts[1], {
+							base64: true
+						});
+					}
+				} else {
+					zip.file(path, content);
+				}
+			});
 
-            sidebar.addEventListener('dragleave', () => {
-                // bg-gray-700 -> bg-hover
-                sidebar.classList.remove('bg-hover');
-            });
+			try {
+				const blob = await zip.generateAsync({
+					type: 'blob'
+				});
+				const url = URL.createObjectURL(blob);
+				const a = document.createElement('a');
+				a.href = url;
+				const timestamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-');
+				a.download = `itera_backup_${timestamp}.zip`;
+				document.body.appendChild(a);
+				a.click();
+				document.body.removeChild(a);
+				setTimeout(() => URL.revokeObjectURL(url), 100);
+				this._emitHistory('project_exported', `User downloaded system backup.`);
+			} catch (e) {
+				console.error("Export failed:", e);
+				alert("Export Failed: " + e.message);
+			}
+		}
 
-            sidebar.addEventListener('drop', async (e) => {
-                // bg-gray-700 -> bg-hover
-                sidebar.classList.remove('bg-hover');
-                
-                if (e.dataTransfer.types.includes('application/itera-file')) return;
+		_bindSidebarDnD() {
+			const sidebar = this.els.SIDEBAR;
+			if (!sidebar) return;
 
-                const items = e.dataTransfer.items;
-                if (!items) return;
+			['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+				sidebar.addEventListener(eventName, (e) => {
+					e.preventDefault();
+					e.stopPropagation();
+				}, false);
+			});
 
-                const promises = [];
-                for (let i = 0; i < items.length; i++) {
-                    const item = items[i].webkitGetAsEntry ? items[i].webkitGetAsEntry() : null;
-                    if (item) {
-                        promises.push(this._traverseFileTree(item, ""));
-                    }
-                }
-                
-                const fileEntries = (await Promise.all(promises)).flat();
-                if (fileEntries.length > 0) {
-                    await this._batchWriteFiles(fileEntries);
-                }
-            });
-        }
+			sidebar.addEventListener('dragover', (e) => {
+				if (!e.dataTransfer.types.includes('application/itera-file')) {
+					e.dataTransfer.dropEffect = 'copy';
+					// bg-gray-700 -> bg-hover
+					sidebar.classList.add('bg-hover');
+				}
+			});
 
-        _traverseFileTree(item, path) {
-            return new Promise((resolve) => {
-                path = path || "";
-                if (item.isFile) {
-                    item.file((file) => {
-                        file.fullPath = path + file.name;
-                        resolve([file]);
-                    });
-                } else if (item.isDirectory) {
-                    const dirReader = item.createReader();
-                    const entries = [];
-                    const readEntries = () => {
-                        dirReader.readEntries(async (results) => {
-                            if (!results.length) {
-                                const childPromises = entries.map(entry => 
-                                    this._traverseFileTree(entry, path + item.name + "/")
-                                );
-                                resolve((await Promise.all(childPromises)).flat());
-                            } else {
-                                entries.push(...results);
-                                readEntries();
-                            }
-                        });
-                    };
-                    readEntries();
-                }
-            });
-        }
+			sidebar.addEventListener('dragleave', () => {
+				// bg-gray-700 -> bg-hover
+				sidebar.classList.remove('bg-hover');
+			});
 
-        async _batchWriteFiles(files) {
-            const uploadedPaths = [];
-            for (const file of files) {
-                let relPath = (file.fullPath || file.name).replace(/^\/+/, '');
-                if (relPath.startsWith('.git/') || relPath.includes('/.git/') || relPath.endsWith('.DS_Store')) continue;
+			sidebar.addEventListener('drop', async (e) => {
+				// bg-gray-700 -> bg-hover
+				sidebar.classList.remove('bg-hover');
 
-                try {
-                    let content = await this._readFileContent(file);
-                    this.vfs.writeFile(relPath, content);
-                    uploadedPaths.push(relPath);
-                } catch (err) {
-                    console.error(`Import failed: ${relPath}`, err);
-                }
-            }
-            if (uploadedPaths.length > 0) {
-                const summary = uploadedPaths.slice(0, 3).join(', ') + (uploadedPaths.length > 3 ? '...' : '');
-                this._emitHistory('file_created', `User dropped files: ${summary}`);
-            }
-        }
+				if (e.dataTransfer.types.includes('application/itera-file')) return;
 
-        _initResizer() {
-            const resizer = this.els.RESIZER;
-            const sidebar = this.els.SIDEBAR;
-            const overlay = this.els.RESIZE_OVERLAY;
-            const iframe = this.els.PREVIEW_FRAME;
+				const items = e.dataTransfer.items;
+				if (!items) return;
 
-            if (!resizer || !sidebar) return;
+				const promises = [];
+				for (let i = 0; i < items.length; i++) {
+					const item = items[i].webkitGetAsEntry ? items[i].webkitGetAsEntry() : null;
+					if (item) {
+						promises.push(this._traverseFileTree(item, ""));
+					}
+				}
 
-            let isResizing = false;
+				const fileEntries = (await Promise.all(promises)).flat();
+				if (fileEntries.length > 0) {
+					await this._batchWriteFiles(fileEntries);
+				}
+			});
+		}
 
-            const start = (e) => {
-                isResizing = true;
-                document.body.style.cursor = 'col-resize';
-                resizer.classList.add('resizing');
-                if (overlay) overlay.classList.remove('hidden');
-                if (iframe) iframe.style.pointerEvents = 'none';
-                e.preventDefault();
-            };
+		_traverseFileTree(item, path) {
+			return new Promise((resolve) => {
+				path = path || "";
+				if (item.isFile) {
+					item.file((file) => {
+						file.fullPath = path + file.name;
+						resolve([file]);
+					});
+				} else if (item.isDirectory) {
+					const dirReader = item.createReader();
+					const entries = [];
+					const readEntries = () => {
+						dirReader.readEntries(async (results) => {
+							if (!results.length) {
+								const childPromises = entries.map(entry =>
+									this._traverseFileTree(entry, path + item.name + "/")
+								);
+								resolve((await Promise.all(childPromises)).flat());
+							} else {
+								entries.push(...results);
+								readEntries();
+							}
+						});
+					};
+					readEntries();
+				}
+			});
+		}
 
-            const stop = () => {
-                if (!isResizing) return;
-                isResizing = false;
-                document.body.style.cursor = '';
-                resizer.classList.remove('resizing');
-                if (overlay) overlay.classList.add('hidden');
-                if (iframe) iframe.style.pointerEvents = '';
-            };
+		async _batchWriteFiles(files) {
+			const uploadedPaths = [];
+			for (const file of files) {
+				let relPath = (file.fullPath || file.name).replace(/^\/+/, '');
+				if (relPath.startsWith('.git/') || relPath.includes('/.git/') || relPath.endsWith('.DS_Store')) continue;
 
-            const move = (e) => {
-                if (!isResizing) return;
-                const newWidth = e.clientX;
-                if (newWidth > 150 && newWidth < 600) {
-                    sidebar.style.width = `${newWidth}px`;
-                }
-                e.preventDefault();
-            };
+				try {
+					let content = await this._readFileContent(file);
+					this.vfs.writeFile(relPath, content);
+					uploadedPaths.push(relPath);
+				} catch (err) {
+					console.error(`Import failed: ${relPath}`, err);
+				}
+			}
+			if (uploadedPaths.length > 0) {
+				const summary = uploadedPaths.slice(0, 3).join(', ') + (uploadedPaths.length > 3 ? '...' : '');
+				this._emitHistory('file_created', `User dropped files: ${summary}`);
+			}
+		}
 
-            resizer.addEventListener('mousedown', start);
-            document.addEventListener('mousemove', move);
-            document.addEventListener('mouseup', stop);
-            window.addEventListener('blur', stop);
-        }
+		_initResizer() {
+			const resizer = this.els.RESIZER;
+			const sidebar = this.els.SIDEBAR;
+			const overlay = this.els.RESIZE_OVERLAY;
+			const iframe = this.els.PREVIEW_FRAME;
 
-        _readFileContent(file) {
-            return new Promise((resolve, reject) => {
-                const isBinary = this._isBinaryFilename(file.name) || file.type.startsWith('image/') || file.type === 'application/pdf';
-                const reader = new FileReader();
-                reader.onload = () => resolve(reader.result);
-                reader.onerror = reject;
-                if (isBinary) reader.readAsDataURL(file);
-                else reader.readAsText(file);
-            });
-        }
+			if (!resizer || !sidebar) return;
 
-        _downloadFile(path) {
-            const content = this.vfs.readFile(path);
-            let blob;
-            if (content.startsWith('data:')) {
-                const parts = content.split(',');
-                const mime = parts[0].split(':')[1].split(';')[0];
-                const byteString = atob(parts[1]);
-                const ab = new ArrayBuffer(byteString.length);
-                const ia = new Uint8Array(ab);
-                for (let i = 0; i < byteString.length; i++) ia[i] = byteString.charCodeAt(i);
-                blob = new Blob([ab], { type: mime });
-            } else {
-                blob = new Blob([content], { type: 'text/plain' });
-            }
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = path.split('/').pop();
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            URL.revokeObjectURL(url);
-        }
+			let isResizing = false;
 
-        _isBinaryFilename(name) {
-            return !!name.match(/\.(png|jpg|jpeg|gif|webp|svg|ico|bmp|pdf|woff|woff2|ttf|eot|otf|zip|tar|gz|7z|rar|mp3|wav|mp4|webm|ogg)$/i);
-        }
+			const start = (e) => {
+				isResizing = true;
+				document.body.style.cursor = 'col-resize';
+				resizer.classList.add('resizing');
+				if (overlay) overlay.classList.remove('hidden');
+				if (iframe) iframe.style.pointerEvents = 'none';
+				e.preventDefault();
+			};
 
-        _guessMimeType(filename) {
-            const ext = filename.split('.').pop().toLowerCase();
-            const map = {
-                'png': 'image/png', 'jpg': 'image/jpeg', 'jpeg': 'image/jpeg',
-                'gif': 'image/gif', 'webp': 'image/webp', 'svg': 'image/svg+xml',
-                'pdf': 'application/pdf', 'zip': 'application/zip',
-                'mp3': 'audio/mpeg', 'mp4': 'video/mp4'
-            };
-            return map[ext] || 'application/octet-stream';
-        }
+			const stop = () => {
+				if (!isResizing) return;
+				isResizing = false;
+				document.body.style.cursor = '';
+				resizer.classList.remove('resizing');
+				if (overlay) overlay.classList.add('hidden');
+				if (iframe) iframe.style.pointerEvents = '';
+			};
 
-        _emitHistory(type, desc) {
-            if (this.events['history_event']) this.events['history_event'](type, desc);
-        }
-    }
+			const move = (e) => {
+				if (!isResizing) return;
+				const newWidth = e.clientX;
+				if (newWidth > 150 && newWidth < 600) {
+					sidebar.style.width = `${newWidth}px`;
+				}
+				e.preventDefault();
+			};
 
-    global.Itera.Shell.Panels.Explorer = Explorer;
+			resizer.addEventListener('mousedown', start);
+			document.addEventListener('mousemove', move);
+			document.addEventListener('mouseup', stop);
+			window.addEventListener('blur', stop);
+		}
+
+		_readFileContent(file) {
+			return new Promise((resolve, reject) => {
+				const isBinary = this._isBinaryFilename(file.name) || file.type.startsWith('image/') || file.type === 'application/pdf';
+				const reader = new FileReader();
+				reader.onload = () => resolve(reader.result);
+				reader.onerror = reject;
+				if (isBinary) reader.readAsDataURL(file);
+				else reader.readAsText(file);
+			});
+		}
+
+		_downloadFile(path) {
+			if (this.vfs.isDirectory(path)) {
+				this._downloadDirectory(path);
+				return;
+			}
+
+			const content = this.vfs.readFile(path);
+			let blob;
+			if (content.startsWith('data:')) {
+				const parts = content.split(',');
+				const mime = parts[0].split(':')[1].split(';')[0];
+				const byteString = atob(parts[1]);
+				const ab = new ArrayBuffer(byteString.length);
+				const ia = new Uint8Array(ab);
+				for (let i = 0; i < byteString.length; i++) ia[i] = byteString.charCodeAt(i);
+				blob = new Blob([ab], {
+					type: mime
+				});
+			} else {
+				blob = new Blob([content], {
+					type: 'text/plain'
+				});
+			}
+			const url = URL.createObjectURL(blob);
+			const a = document.createElement('a');
+			a.href = url;
+			a.download = path.split('/').pop();
+			document.body.appendChild(a);
+			a.click();
+			document.body.removeChild(a);
+			URL.revokeObjectURL(url);
+		}
+
+		async _downloadDirectory(dirPath) {
+			if (typeof JSZip === 'undefined') {
+				alert("System Error: JSZip library not loaded.");
+				return;
+			}
+
+			const zip = new JSZip();
+			const files = this.vfs.listFiles({
+				path: dirPath,
+				recursive: true
+			});
+
+			if (files.length === 0) {
+				alert("Directory is empty.");
+				return;
+			}
+
+			const prefix = dirPath ? (dirPath.endsWith('/') ? dirPath : dirPath + '/') : "";
+
+			files.forEach(path => {
+				if (!this.vfs.exists(path)) return;
+
+				const fileData = this.vfs.files[path];
+				const content = fileData.content;
+
+				const zipPath = path.substring(prefix.length);
+				if (!zipPath) return;
+
+				if (content.startsWith('data:')) {
+					const parts = content.split(',');
+					if (parts.length > 1) {
+						zip.file(zipPath, parts[1], {
+							base64: true
+						});
+					}
+				} else {
+					zip.file(zipPath, content);
+				}
+			});
+
+			try {
+				const blob = await zip.generateAsync({
+					type: 'blob'
+				});
+				const url = URL.createObjectURL(blob);
+				const a = document.createElement('a');
+				a.href = url;
+				const dirName = dirPath ? dirPath.split('/').filter(Boolean).pop() : 'archive';
+				a.download = `${dirName}.zip`;
+				document.body.appendChild(a);
+				a.click();
+				document.body.removeChild(a);
+				setTimeout(() => URL.revokeObjectURL(url), 100);
+				this._emitHistory('project_exported', `User downloaded directory: ${dirPath}`);
+			} catch (e) {
+				console.error("Directory export failed:", e);
+				alert("Export Failed: " + e.message);
+			}
+		}
+
+		_isBinaryFilename(name) {
+			return !!name.match(/\.(png|jpg|jpeg|gif|webp|svg|ico|bmp|pdf|woff|woff2|ttf|eot|otf|zip|tar|gz|7z|rar|mp3|wav|mp4|webm|ogg)$/i);
+		}
+
+		_guessMimeType(filename) {
+			const ext = filename.split('.').pop().toLowerCase();
+			const map = {
+				'png': 'image/png',
+				'jpg': 'image/jpeg',
+				'jpeg': 'image/jpeg',
+				'gif': 'image/gif',
+				'webp': 'image/webp',
+				'svg': 'image/svg+xml',
+				'pdf': 'application/pdf',
+				'zip': 'application/zip',
+				'mp3': 'audio/mpeg',
+				'mp4': 'video/mp4'
+			};
+			return map[ext] || 'application/octet-stream';
+		}
+
+		_emitHistory(type, desc) {
+			if (this.events['history_event']) this.events['history_event'](type, desc);
+		}
+	}
+
+	global.Itera.Shell.Panels.Explorer = Explorer;
 
 })(window);
