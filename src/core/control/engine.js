@@ -115,6 +115,34 @@
 			});
 		}
 
+		/**
+		 * システムからの非同期割り込みイベントを注入する（タイマーやデーモンからの通知など）
+		 */
+		injectSystemEvent(actionType, message, meta = {}) {
+			const turnMeta = {
+				type: TurnType.TOOL_EXECUTION,
+				trigger_llm: true, // システムからの割り込みなのでデフォルトで発火させる
+				...meta
+			};
+
+			// UIでツール結果と同じようにリッチに描画させるためのフォーマット
+			const turnContent = [{
+				actionType: actionType,
+				output: {
+					// HTMLタグを含めず、プレーンテキストとして渡す
+					ui: `⏰ ${message}`,
+					log: `[ASYNC EVENT: ${actionType}] ${message}`
+				}
+			}];
+
+			const turn = this.state.history.append(Role.SYSTEM, turnContent, turnMeta);
+
+			this._emit('turn_end', {
+				role: Role.SYSTEM,
+				turn
+			});
+		}
+
 		async _ping() {
 			this.isRunning = true;
 			this.abortController = new AbortController();
@@ -221,6 +249,7 @@
 				vfs: this.state.vfs,
 				config: this.state.configManager,
 				history: this.state.history,
+				engine: this, // ツール内からUI更新や割り込みができるように自身を渡す
 				...this.extraContext
 			};
 

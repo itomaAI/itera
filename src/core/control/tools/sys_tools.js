@@ -44,12 +44,9 @@
 
 			// 裏で非同期にタイマーを走らせる
 			setTimeout(() => {
-				if (context.history) {
-					// USERレベルのトリガーとしてHistoryに追記し、確実にLLMを起床させる
-					context.history.append('user', `[TIMER ALERT]\n${message}`, {
-						type: 'timer_alert',
-						trigger_llm: true
-					});
+				if (context.engine) {
+					// システムからの非同期割り込みとして注入
+					context.engine.injectSystemEvent('timer_alert', message);
 				}
 			}, delay * 1000);
 
