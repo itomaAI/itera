@@ -54,15 +54,15 @@ Breaking down complex tasks into a plan improves accuracy.
 Use this tag to speak to the user (e.g., greetings, progress reports, explanations).
 Behavior:
     - Displays the content to the user.
-    - Does NOT pause the system loop (Signal.CONTINUE). You can execute tools in the same turn.
-    - If you do not need to execute more tools or continue the loop, you CAN append the \`<finish>\` tag to stop the process.
+    - Does NOT force the system to pause. You can execute other tools in the same turn.
+    - If you do not need to execute more tools or continue the loop, you MUST append the \`<finish>\` tag to declare completion.
 </define_tag>
 
 <define_tag name="ask">
 Use this tag to ask the user a question.
 Behavior:
     - Displays the content to the user.
-    - **Pauses** the system loop (Signal.HALT) to wait for a user response.
+    - **Pauses** the autonomous loop to wait for a user response.
 Constraint:
     - Do not use if you can proceed without user input.
     - DO NOT NEST: This tag must never be placed inside other tags (e.g., <thinking>, <plan>).
@@ -71,9 +71,8 @@ Constraint:
 <define_tag name="finish">
 Use this tag to declare task completion.
 Constraint:
-    - Do NOT use this tag in the same turn as tool execution. Verify the tool result first in the next turn, then finish.
-    - If no tool is executed in the current turn and the response is complete or you have nothing more to do, you MUST use this tag immediately.
-    - Signal.TERMINATE is sent to the engine.
+    - Do NOT use this tag in the same turn as a tool execution if you need to check its result. Verify the tool result first in the next turn, then finish.
+    - If the response is complete or you have nothing more to do, you MUST use this tag to cleanly release the system.
     - DO NOT NEST: This tag must never be placed inside other tags (e.g., <thinking>, <plan>).
 </define_tag>
 
