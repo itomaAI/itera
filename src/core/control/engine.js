@@ -223,21 +223,30 @@
 				...this.extraContext
 			};
 
-			// 1つの共有SystemターンをHistoryに作成（最初は空）
-			// trigger_llmは一旦falseにし、ツールの結果が出た時点でtrueに更新して発火させる
-			const sharedTurn = this.state.history.append(Role.SYSTEM, [], {
+			// 初期状態のプレースホルダーを作成
+			const combinedResults = actions.map(action => ({
+				actionType: action.type,
+				output: {
+					log: `[Pending] Executing ${action.type}...`,
+					ui: `<span class="animate-spin inline-block">⚙️</span> Executing ${action.type}...`,
+					trigger_llm: false // 実行中は発火要因にしない
+				}
+			}));
+
+			// 1つの共有SystemターンをHistoryに作成
+			const sharedTurn = this.state.history.append(Role.SYSTEM, combinedResults, {
 				type: TurnType.TOOL_EXECUTION,
 				trigger_llm: false
 			});
 
 			const sharedTurnId = sharedTurn.id;
-			const combinedResults = [];
 
 			// ターン全体の発火フラグを動的に計算するヘルパー
 			const calcTurnTrigger = () => {
 				let willTrigger = false;
 				let isHalted = false;
 				combinedResults.forEach(r => {
+					// Pending状態のものは trigger_llm === false なので発火要因にならない
 					if (r.output.trigger_llm !== false) willTrigger = true;
 					if (r.output.halt_loop === true) isHalted = true;
 				});
@@ -245,15 +254,19 @@
 			};
 
 			// 各アクションを非同期に並行実行
-			actions.forEach(async (action) => {
+			actions.forEach(async (action, index) => {
 				try {
 					const result = await this.registry.execute(action, context);
-					if (!result) return; // 何も返さないツールは無視
 
-					combinedResults.push({
-						actionType: action.type,
-						output: result
-					});
+					if (!result) {
+						// 何も返さないツール（thinking等、事前にフィルタされているはずだが念のため）は空にして隠す
+						combinedResults[index].output = {
+							log: "",
+							trigger_llm: false
+						};
+					} else {
+						combinedResults[index].output = result;
+					}
 
 					// Historyの共有ターンを更新
 					const updatedTurn = this.state.history.update(sharedTurnId, combinedResults, {
@@ -267,13 +280,11 @@
 					});
 
 				} catch (err) {
-					combinedResults.push({
-						actionType: action.type,
-						output: {
-							log: `Error: ${err.message}`,
-							error: true
-						}
-					});
+					combinedResults[index].output = {
+						log: `Error: ${err.message}`,
+						error: true,
+						trigger_llm: true // エラー時はリカバリーさせるため基本発火させる
+					};
 
 					const updatedTurn = this.state.history.update(sharedTurnId, combinedResults, {
 						type: TurnType.ERROR,
