@@ -54,7 +54,6 @@
 		}
 
 		_onHistoryChange(payload) {
-			// append だけでなく update（ツールの結果追記）時にもトリガーする
 			if ((payload.type === 'append' || payload.type === 'update') && payload.turn) {
 				const turn = payload.turn;
 
@@ -62,26 +61,44 @@
 					this.continuousToolCount = 0;
 				}
 
-				// LLMをトリガーすべきでないログは無視
-				if (turn.meta && turn.meta.trigger_llm === false) return;
-
-				// 自分自身の発言はトリガーしない
+				// 自分自身の思考更新はトリガー要因にしない
 				if (turn.role === Role.MODEL) return;
 
+				// どんな履歴の変更であれ、一旦保留イベントとしてスケジュールする
+				// 実際に発火するかどうかの評価は _ping 実行時に一括して行う
 				this.hasPendingEvents = true;
 				this._schedulePing();
 			}
 		}
 
 		_schedulePing() {
-			// 思考中であってもイベントを取りこぼさないよう、フラグは立ったままにする
 			if (this.isRunning) return;
 
 			clearTimeout(this.debounceTimer);
 			this.debounceTimer = setTimeout(() => {
-				this.hasPendingEvents = false; // 実行直前にフラグを倒す
+				this.hasPendingEvents = false;
 				this._ping();
-			}, 1500); // 1.5秒のデバウンス
+			}, 1500);
+		}
+
+		/**
+		 * 起床判定ロジック：直近の履歴を評価し、LLMを発火させるべきか判断する
+		 */
+		_evaluateWakeUp() {
+			const historyTurns = this.state.history.get();
+			const lastModelIdx = historyTurns.findLastIndex(t => t.role === Role.MODEL && t.meta && t.meta.type === TurnType.MODEL_THOUGHT);
+
+			// 自分が最後に思考を開始して以降のターンを抽出
+			const recentTurns = lastModelIdx === -1 ? historyTurns : historyTurns.slice(lastModelIdx + 1);
+
+			// 【最強トリガー】 ユーザーの入力があれば、他の状況 (finish等) に関わらず問答無用で発火する
+			if (recentTurns.some(t => t.role === Role.USER)) {
+				return true;
+			}
+
+			// 【通常トリガー】 ツールの実行結果など、trigger_llm が true のターンが1つでもあれば発火する
+			// (※ finish ツール等により箱全体が trigger_llm: false になった場合は発火しない)
+			return recentTurns.some(t => t.meta && t.meta.trigger_llm === true);
 		}
 
 		async injectUserTurn(inputContent, meta = {}) {
@@ -96,7 +113,6 @@
 				role: Role.USER,
 				turn
 			});
-			// 非同期イベントにより自動で _ping() がスケジュールされるため、await run() は不要
 		}
 
 		async _ping() {
@@ -104,6 +120,11 @@
 			this.abortController = new AbortController();
 
 			try {
+				// ★ 最終発火チェック
+				if (!this._evaluateWakeUp()) {
+					return; // 起床条件を満たさない（finish で終わった、またはパッシブなログのみ）ため静かに待機
+				}
+
 				// 暴走チェック
 				if (this.continuousToolCount >= this.MAX_CONTINUOUS_TOOLS) {
 					this.state.history.append(Role.SYSTEM, `System Alert: Max continuous tool executions (${this.MAX_CONTINUOUS_TOOLS}) reached. Auto-trigger paused.`, {
