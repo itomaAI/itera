@@ -53,7 +53,7 @@
 
 		_bindEvents() {
 			const handleSend = () => {
-				if (this.isProcessing) return;
+				// 思考中・ツール実行中であっても横槍（割り込み）を許可するためガードを削除
 				const text = this.els.INPUT ? this.els.INPUT.value.trim() : "";
 				if (!text && this.pendingUploads.length === 0) return;
 				if (this.events['send']) this.events['send'](text, [...this.pendingUploads]);
@@ -176,12 +176,20 @@
 
 		setProcessing(processing) {
 			this.isProcessing = processing;
-			if (this.els.BTN_SEND) this.els.BTN_SEND.classList.toggle('hidden', processing);
+			// 送信ボタンは常に表示し、横槍を許可する
+			// if (this.els.BTN_SEND) this.els.BTN_SEND.classList.toggle('hidden', processing);
+
 			if (this.els.BTN_STOP) this.els.BTN_STOP.classList.toggle('hidden', !processing);
-			if (this.els.AI_TYPING) this.els.AI_TYPING.classList.toggle('hidden', !processing);
-			if (this.els.INPUT) {
-				this.els.INPUT.disabled = processing;
-				if (!processing) this.els.INPUT.focus();
+			if (this.els.AI_TYPING) {
+				this.els.AI_TYPING.classList.toggle('hidden', !processing);
+				// ツール実行中か思考中かを区別できればベストだが、一旦は共有
+				if (processing) {
+					this.els.AI_TYPING.innerHTML = `<span class="animate-pulse">●</span> Processing...`;
+				}
+			}
+			// 入力欄のロックを解除
+			if (this.els.INPUT && !processing) {
+				this.els.INPUT.focus();
 			}
 		}
 
@@ -248,8 +256,10 @@
 
 			history.forEach(turn => this._appendTurn(turn));
 
+			// 全再描画時にストリーミング状態を無理に末尾に復元すると横槍の順序が壊れるため、
+			// 復元処理は一旦削除し、ストリーミング中の全再描画（履歴クリア時など）はリセット扱いとする
 			if (this.isProcessing && this.currentStreamContent !== "") {
-				this._createStreamElement();
+				// 意図的な履歴操作が起きた場合はストリーム表示を追従しない
 			}
 
 			this._scrollToBottom(true);
@@ -268,7 +278,16 @@
 		_appendTurn(turn) {
 			if (turn.meta && turn.meta.visible === false) return;
 
-			const div = document.createElement('div');
+			let div = document.getElementById(`turn-${turn.id}`);
+			let isUpdate = !!div;
+
+			if (!div) {
+				div = document.createElement('div');
+				div.id = `turn-${turn.id}`;
+			} else {
+				div.innerHTML = ''; // Updateの場合は中身を一度クリアして再構築する
+			}
+
 			const role = turn.role;
 			let baseClass = "relative group p-3 rounded-lg text-sm mb-2 border transition";
 
@@ -312,7 +331,10 @@
 			}
 
 			div.appendChild(body);
-			this.els.HISTORY.appendChild(div);
+
+			if (!isUpdate) {
+				this.els.HISTORY.appendChild(div);
+			}
 		}
 
 		_renderArrayContent(container, contentArray, role) {
@@ -326,9 +348,9 @@
 						div.textContent = item.text;
 					}
 					container.appendChild(div);
-				} 
-                // ★ Tool Execution Log/UI
-                else if (item.output) {
+				}
+				// ★ Tool Execution Log/UI
+				else if (item.output) {
 					const div = document.createElement('div');
 					div.className = "mb-1 whitespace-pre-wrap";
 					const uiText = item.output.ui || item.output.log || "";
@@ -355,69 +377,69 @@
 						});
 					}
 
-                    // Handle Tool Output Images
-                    if (item.output.media) {
-                        this._renderMediaFromVfs(container, item.output.media);
-                    } else if (item.output.image) {
-                        // Legacy support
-                        this._appendMedia(container, item.output.image, item.output.mimeType);
-                    }
-				} 
-                // ★ User Input Media (New)
-                else if (item.media) {
-                    this._renderMediaFromVfs(container, item.media);
-                }
-                // ★ User Input Inline (Legacy)
-                else if (item.inlineData) {
+					// Handle Tool Output Images
+					if (item.output.media) {
+						this._renderMediaFromVfs(container, item.output.media);
+					} else if (item.output.image) {
+						// Legacy support
+						this._appendMedia(container, item.output.image, item.output.mimeType);
+					}
+				}
+				// ★ User Input Media (New)
+				else if (item.media) {
+					this._renderMediaFromVfs(container, item.media);
+				}
+				// ★ User Input Inline (Legacy)
+				else if (item.inlineData) {
 					this._appendMedia(container, item.inlineData.data, item.inlineData.mimeType);
 				}
 			});
 		}
 
-        /**
-         * VFSからメディアを読み込んで表示する
-         * @param {HTMLElement} container 
-         * @param {Object} mediaObj - { path, mimeType, ... }
-         */
-        _renderMediaFromVfs(container, mediaObj) {
-            if (!this.vfs) {
-                // VFSがまだセットされていない場合はプレースホルダー
-                const div = document.createElement('div');
-                div.className = "text-xs text-text-muted italic border border-border-main p-2 rounded mt-2";
-                div.textContent = `[Loading media: ${mediaObj.path}]`;
-                container.appendChild(div);
-                return;
-            }
+		/**
+		 * VFSからメディアを読み込んで表示する
+		 * @param {HTMLElement} container 
+		 * @param {Object} mediaObj - { path, mimeType, ... }
+		 */
+		_renderMediaFromVfs(container, mediaObj) {
+			if (!this.vfs) {
+				// VFSがまだセットされていない場合はプレースホルダー
+				const div = document.createElement('div');
+				div.className = "text-xs text-text-muted italic border border-border-main p-2 rounded mt-2";
+				div.textContent = `[Loading media: ${mediaObj.path}]`;
+				container.appendChild(div);
+				return;
+			}
 
-            try {
-                if (this.vfs.exists(mediaObj.path)) {
-                    // readFileは DataURL (data:...) を返すと仮定
-                    const content = this.vfs.readFile(mediaObj.path);
-                    this._appendMedia(container, content, mediaObj.mimeType);
-                } else {
-                    // ファイルが存在しない場合 (削除された等)
-                    const div = document.createElement('div');
-                    div.className = "flex items-center gap-2 text-xs text-text-muted bg-error/10 border border-error/20 p-2 rounded mt-2";
-                    div.innerHTML = `<span class="text-error">⚠️</span> <span class="line-through opacity-70">${mediaObj.path}</span> <span class="text-[10px] ml-auto">(File not found)</span>`;
-                    div.title = "This file was deleted or the cache was cleared.";
-                    container.appendChild(div);
-                }
-            } catch (e) {
-                console.error("Failed to render media from VFS:", e);
-                const div = document.createElement('div');
-                div.className = "text-xs text-error p-2";
-                div.textContent = `Error loading image: ${e.message}`;
-                container.appendChild(div);
-            }
-        }
+			try {
+				if (this.vfs.exists(mediaObj.path)) {
+					// readFileは DataURL (data:...) を返すと仮定
+					const content = this.vfs.readFile(mediaObj.path);
+					this._appendMedia(container, content, mediaObj.mimeType);
+				} else {
+					// ファイルが存在しない場合 (削除された等)
+					const div = document.createElement('div');
+					div.className = "flex items-center gap-2 text-xs text-text-muted bg-error/10 border border-error/20 p-2 rounded mt-2";
+					div.innerHTML = `<span class="text-error">⚠️</span> <span class="line-through opacity-70">${mediaObj.path}</span> <span class="text-[10px] ml-auto">(File not found)</span>`;
+					div.title = "This file was deleted or the cache was cleared.";
+					container.appendChild(div);
+				}
+			} catch (e) {
+				console.error("Failed to render media from VFS:", e);
+				const div = document.createElement('div');
+				div.className = "text-xs text-error p-2";
+				div.textContent = `Error loading image: ${e.message}`;
+				container.appendChild(div);
+			}
+		}
 
 		_formatSystemMessage(text) {
 			if (!text) return "";
 			// 1. HTMLエスケープ (XSS対策)
 			let safeText = text.replace(/&/g, '&amp;')
-							   .replace(/</g, '&lt;')
-							   .replace(/>/g, '&gt;');
-			
+				.replace(/</g, '&lt;')
+				.replace(/>/g, '&gt;');
+
 			// 2. コードブロック (```) の置換
 			safeText = safeText.replace(/```(?:([a-zA-Z0-9_]+)\n)?([\s\S]*?)```/g, (match, lang, code) => {
 				const langClass = lang ? `language-${lang}` : 'language-plaintext';

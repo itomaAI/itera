@@ -1,5 +1,5 @@
 // AUTO-GENERATED FILE - DO NOT EDIT MANUALLY
-// Generated on: 2026-03-19T02:49:53Z
+// Generated on: 2026-03-20T16:13:18Z
 
 (function(global) {
     global.Itera = global.Itera || {};
@@ -1573,7 +1573,8 @@ The Chat Panel (Right) is where you give instructions to Itera.
     *   "Change the theme to Light mode."
     *   "Fix the bug in \`script.js\`."
 *   **Attachments**: You can upload text files or images for the AI to analyze using the paperclip icon.
-*   **Stop**: If the AI gets stuck in a loop, press the "Stop" button.
+*   **Asynchronous Collaboration**: Itera runs on a non-blocking, event-driven engine. This means **you can type and send new messages even while the AI is thinking or executing tools**. The AI will read your new messages and adapt its workflow dynamically.
+*   **Stop**: If the AI gets stuck in an infinite loop, press the "Stop" button to halt its autonomous triggers.
 
 ---
 **Next Step:** Proceed to [02_architecture.md](02_architecture.md) to understand the internal structure of Itera.`.trim(),
@@ -2340,7 +2341,11 @@ Unlike traditional chatbots, Itera has a **Body (UI)** and **Memory (VFS)**. It 
     // ==========================================
     const style = document.createElement('style');
     style.textContent = \`
-        body { font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji"; }
+        body { 
+            font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans JP", "Noto Sans", "Hiragino Kaku Gothic ProN", "Hiragino Sans", Meiryo, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji"; 
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
         ::-webkit-scrollbar { width: 6px; height: 6px; }
         ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background: rgb(var(--c-bg-hover)); border-radius: 3px; }

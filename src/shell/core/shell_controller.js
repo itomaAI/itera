@@ -300,7 +300,8 @@
 			explorer.on('history_event', (type, desc) => {
 				const lpml = `<event type="${type}">\n${desc}\n</event>`;
 				const turn = history.append(global.Itera.Role.SYSTEM, lpml, {
-					type: 'event_log'
+					type: 'event_log',
+					trigger_llm: false // ログとして残すが即座に発火させない
 				});
 				chat.appendTurn(turn);
 			});
@@ -312,7 +313,10 @@
 					this.refreshPreview();
 
                     const lpml = `<event type="file_edited">\nUser edited file manually: ${path}\n</event>`;
-                    const turn = history.append(global.Itera.Role.SYSTEM, lpml, { type: 'event_log' });
+                    const turn = history.append(global.Itera.Role.SYSTEM, lpml, { 
+						type: 'event_log',
+						trigger_llm: false
+					});
                     chat.appendTurn(turn);
 
 				} catch (e) {
@@ -377,13 +381,8 @@
                 if (chat.currentStreamEl) chat.finalizeStreaming();
                 chat.setProcessing(false);
 
-                // エラーで停止した場合、履歴に追加されたエラーメッセージを表示する
                 if (data && data.reason === 'error') {
-                    const lastTurn = history.getLast();
-                    if (lastTurn) {
-                        chat.appendTurn(lastTurn);
-                        console.error("[MainController] Loop stopped due to error:", data.error);
-                    }
+                    console.error("[MainController] Loop stopped due to error:", data.error);
                 }
 
                 this._triggerAutoSave();
@@ -410,7 +409,8 @@
 				if (options && options.silent === false) {
 					const lpml = `<event type="${type}">\n${desc}\n</event>`;
 					const turn = history.append(global.Itera.Role.SYSTEM, lpml, {
-						type: 'event_log'
+						type: 'event_log',
+						trigger_llm: false
 					});
 					chat.appendTurn(turn);
 				}
@@ -481,7 +481,8 @@
 			}) => {
 				const lpml = `<event type="${type || 'app_event'}">\n${message}\n</event>`;
 				const turn = this.state.history.append(global.Itera.Role.SYSTEM, lpml, {
-					type: 'event_log'
+					type: 'event_log',
+					trigger_llm: false // 明示的にAgent(ask)を呼ばない限りは非発火とする
 				});
 				this.panels.chat.appendTurn(turn);
 			});
@@ -515,7 +516,7 @@
 				instruction,
 				options
 			}) => {
-				if (this.engine.isRunning) throw new Error("Agent is busy.");
+				// 忙しくてもキューに入るためエラーは出さない
 				let text = `[INTERNAL AGENT TRIGGER]\n${instruction}`;
 				if (options?.context) text += `\n\nContext: ${JSON.stringify(options.context)}`;
 				this._refreshEngineConfig();

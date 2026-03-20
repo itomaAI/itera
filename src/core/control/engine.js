@@ -28,7 +28,7 @@
 			this.registry = registry;
 			this.extraContext = extraContext;
 
-			this.isRunning = false;
+			this.isRunning = false; // 現在思考中(ストリーミング中)かどうか
 			this.abortController = null;
 			this.listeners = {
 				'turn_start': [],
@@ -36,6 +36,13 @@
 				'turn_end': [],
 				'loop_stop': []
 			};
+
+			this.debounceTimer = null;
+			this.continuousToolCount = 0;
+			this.MAX_CONTINUOUS_TOOLS = 50;
+
+			// Historyの変更を監視し、非同期でトリガーする
+			this.state.history.on('change', (payload) => this._onHistoryChange(payload));
 		}
 
 		on(event, callback) {
@@ -46,14 +53,41 @@
 			if (this.listeners[event]) this.listeners[event].forEach(cb => cb(data));
 		}
 
-		async injectUserTurn(inputContent, meta = {}) {
-			if (this.isRunning) {
-				console.warn("Engine is already running.");
-				return;
-			}
+		_onHistoryChange(payload) {
+			// append だけでなく update（ツールの結果追記）時にもトリガーする
+			if ((payload.type === 'append' || payload.type === 'update') && payload.turn) {
+				const turn = payload.turn;
 
+				if (payload.type === 'append' && turn.role === Role.USER) {
+					this.continuousToolCount = 0;
+				}
+
+				// LLMをトリガーすべきでないログは無視
+				if (turn.meta && turn.meta.trigger_llm === false) return;
+
+				// 自分自身の発言はトリガーしない
+				if (turn.role === Role.MODEL) return;
+
+				this.hasPendingEvents = true;
+				this._schedulePing();
+			}
+		}
+
+		_schedulePing() {
+			// 思考中であってもイベントを取りこぼさないよう、フラグは立ったままにする
+			if (this.isRunning) return;
+
+			clearTimeout(this.debounceTimer);
+			this.debounceTimer = setTimeout(() => {
+				this.hasPendingEvents = false; // 実行直前にフラグを倒す
+				this._ping();
+			}, 1500); // 1.5秒のデバウンス
+		}
+
+		async injectUserTurn(inputContent, meta = {}) {
 			const turnMeta = {
 				type: TurnType.USER_INPUT,
+				trigger_llm: true,
 				...meta
 			};
 			const turn = this.state.history.append(Role.USER, inputContent, turnMeta);
@@ -62,143 +96,89 @@
 				role: Role.USER,
 				turn
 			});
-			await this.run();
+			// 非同期イベントにより自動で _ping() がスケジュールされるため、await run() は不要
 		}
 
-		async run() {
+		async _ping() {
 			this.isRunning = true;
 			this.abortController = new AbortController();
 
-			let currentSignal = Signal.CONTINUE;
-			let loopCount = 0;
-			const MAX_LOOPS = 200;
-			let lastTurnHadError = false;
-
 			try {
-				while (currentSignal === Signal.CONTINUE) {
-					// 1. ループ制限
-					if (loopCount >= MAX_LOOPS) {
-						this.state.history.append(Role.SYSTEM, `System Alert: Max turn limit (${MAX_LOOPS}) reached.`, {
-							type: TurnType.ERROR
-						});
-						currentSignal = Signal.HALT;
-						break;
-					}
-					loopCount++;
-
-					// 2. 思考 (L1)
-                    // ★ Modified: Added await for async projector (File API upload)
-					const messages = await this.projector.createContext(this.state);
-					
-                    this._emit('turn_start', {
-						role: Role.MODEL
+				// 暴走チェック
+				if (this.continuousToolCount >= this.MAX_CONTINUOUS_TOOLS) {
+					this.state.history.append(Role.SYSTEM, `System Alert: Max continuous tool executions (${this.MAX_CONTINUOUS_TOOLS}) reached. Auto-trigger paused.`, {
+						type: TurnType.ERROR,
+						trigger_llm: false
 					});
+					this._emit('loop_stop', {
+						reason: 'max_tools'
+					});
+					return;
+				}
 
-					let rawResponse = "";
+				const messages = await this.projector.createContext(this.state);
+
+				// 空のMODELターンをHistoryに追加（横槍の順序担保のため）。自己トリガーを防ぐため trigger_llm: false。
+				const modelTurn = this.state.history.append(Role.MODEL, "", {
+					type: TurnType.MODEL_THOUGHT,
+					trigger_llm: false
+				});
+
+				this._emit('turn_start', {
+					role: Role.MODEL,
+					turnId: modelTurn.id
+				});
+
+				let rawResponse = "";
+				let streamError = null;
+
+				try {
 					await this.llm.generateStream(messages, (chunk) => {
 						rawResponse += chunk;
-						this._emit('stream_chunk', chunk);
+						this._emit('stream_chunk', chunk); // UI互換性のためchunkのみ渡す
 					}, this.abortController.signal);
+				} catch (err) {
+					streamError = err;
+				}
 
-					const modelTurn = this.state.history.append(Role.MODEL, rawResponse, {
-						type: TurnType.MODEL_THOUGHT
-					});
+				// 思考完了後、履歴のコンテンツを更新
+				const updatedTurn = this.state.history.update(modelTurn.id, rawResponse, {
+					status: streamError ? 'error' : 'completed'
+				});
+				this._emit('turn_end', {
+					role: Role.MODEL,
+					turn: updatedTurn
+				});
 
-                    // モデルのターン終了イベントを発火
-                    this._emit('turn_end', {
-                        role: Role.MODEL,
-                        turn: modelTurn
-                    });
+				if (streamError) throw streamError;
 
-					// 3. 解釈 (L1 -> L2)
-					const actions = this.translator.parse(rawResponse);
+				// 解釈とアクションのフィルタリング
+				const actions = this.translator.parse(rawResponse);
+				// thinking や plan などの実体がないタグを除外
+				const validActions = actions.filter(a => a.type !== 'thinking' && a.type !== 'plan');
 
-					if (actions.length === 0) {
-						if (lastTurnHadError) {
-							const retryMsg = "System: Previous tool failed. Retry required.";
-							this.state.history.append(Role.SYSTEM, retryMsg, {
-								type: TurnType.ERROR
-							});
-							this._emit('turn_end', {
-								role: Role.SYSTEM,
-								results: [{
-									actionType: 'system_retry',
-									output: {
-										ui: "⚠️ Retry Requested"
-									}
-								}]
-							});
-							lastTurnHadError = false;
-							continue;
-						} else {
-							currentSignal = Signal.HALT;
-							break;
-						}
-					}
-
-					this._emit('turn_start', {
-						role: Role.SYSTEM
-					});
-
-					// 4. 実行 (L2)
-					const context = {
-						vfs: this.state.vfs,
-						config: this.state.configManager,
-						...this.extraContext
-					};
-
-					const results = [];
-					let dominantSignal = Signal.CONTINUE;
-					let hasError = false;
-
-					for (const action of actions) {
-						const {
-							result,
-							signal
-						} = await this.registry.execute(action, context);
-						results.push({
-							actionType: action.type,
-							output: result
-						});
-						if (result && result.error) hasError = true;
-
-						if (signal === Signal.TERMINATE) dominantSignal = Signal.TERMINATE;
-						else if (signal === Signal.HALT && dominantSignal !== Signal.TERMINATE) dominantSignal = Signal.HALT;
-					}
-
-					if (hasError && dominantSignal === Signal.TERMINATE) {
-						dominantSignal = Signal.CONTINUE;
-						results.push({
-							actionType: 'system_override',
-							output: {
-								log: "System Notice: <finish> cancelled due to error.",
-								ui: "🚫 Finish Cancelled"
-							}
-						});
-					}
-
-					lastTurnHadError = hasError;
-
-					this.state.history.append(Role.SYSTEM, results, {
-						type: TurnType.TOOL_EXECUTION
-					});
-					this._emit('turn_end', {
-						role: Role.SYSTEM,
-						results
-					});
-
-					currentSignal = dominantSignal;
-					await new Promise(r => setTimeout(r, 1000));
+				if (validActions.length > 0) {
+					this.continuousToolCount++;
+					this._dispatchActions(validActions);
+				} else {
+					this.continuousToolCount = 0; // 実行すべきツールがなければ対話終了
 				}
 
 			} catch (error) {
 				if (error.name === 'AbortError') {
 					console.log('[Engine] Aborted.');
-					this._emit('loop_stop', { reason: 'abort' });
+					this._emit('loop_stop', {
+						reason: 'abort'
+					});
 				} else {
 					console.error('[Engine] Error:', error);
-					this.state.history.append(Role.SYSTEM, `System Error: ${error.message}`, {
-						type: TurnType.ERROR
+					const errTurn = this.state.history.append(Role.SYSTEM, `System Error: ${error.message}`, {
+						type: TurnType.ERROR,
+						trigger_llm: false
+					});
+					this._emit('turn_end', {
+						role: Role.SYSTEM,
+						turn: errTurn
 					});
 					this._emit('loop_stop', {
 						reason: 'error',
@@ -208,13 +188,82 @@
 			} finally {
 				this.isRunning = false;
 				this.abortController = null;
-				if (currentSignal === Signal.HALT) this._emit('loop_stop', {
-					reason: 'halt'
-				});
-				else if (currentSignal === Signal.TERMINATE) this._emit('loop_stop', {
-					reason: 'terminate'
-				});
+				// 思考中に新たなイベントが来ていた場合は再度スケジュール
+				if (this.hasPendingEvents) {
+					this._schedulePing();
+				}
 			}
+		}
+
+		_dispatchActions(actions) {
+			const context = {
+				vfs: this.state.vfs,
+				config: this.state.configManager,
+				...this.extraContext
+			};
+
+			// 1つの共有SystemターンをHistoryに作成（最初は空）
+			// trigger_llmは一旦falseにし、ツールの結果が出た時点でtrueに更新して発火させる
+			const sharedTurn = this.state.history.append(Role.SYSTEM, [], {
+				type: TurnType.TOOL_EXECUTION,
+				trigger_llm: false
+			});
+
+			const sharedTurnId = sharedTurn.id;
+			const combinedResults = [];
+
+			// ターン全体の発火フラグを動的に計算するヘルパー
+			const calcTurnTrigger = () => {
+				let willTrigger = false;
+				let isHalted = false;
+				combinedResults.forEach(r => {
+					if (r.output.trigger_llm !== false) willTrigger = true;
+					if (r.output.halt_loop === true) isHalted = true;
+				});
+				return isHalted ? false : willTrigger;
+			};
+
+			// 各アクションを非同期に並行実行
+			actions.forEach(async (action) => {
+				try {
+					const result = await this.registry.execute(action, context);
+					if (!result) return; // 何も返さないツールは無視
+
+					combinedResults.push({
+						actionType: action.type,
+						output: result
+					});
+
+					// Historyの共有ターンを更新
+					const updatedTurn = this.state.history.update(sharedTurnId, combinedResults, {
+						trigger_llm: calcTurnTrigger()
+					});
+
+					// UIに更新を通知
+					this._emit('turn_end', {
+						role: Role.SYSTEM,
+						turn: updatedTurn
+					});
+
+				} catch (err) {
+					combinedResults.push({
+						actionType: action.type,
+						output: {
+							log: `Error: ${err.message}`,
+							error: true
+						}
+					});
+
+					const updatedTurn = this.state.history.update(sharedTurnId, combinedResults, {
+						type: TurnType.ERROR,
+						trigger_llm: calcTurnTrigger()
+					});
+					this._emit('turn_end', {
+						role: Role.SYSTEM,
+						turn: updatedTurn
+					});
+				}
+			});
 		}
 
 		stop() {
