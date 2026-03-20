@@ -201,6 +201,15 @@ Use this to check layout or rendering results.
 Returns the current system time.
 </define_tag>
 
+<define_tag name="set_timer">
+Sets a timer that triggers you asynchronously after a specified delay.
+Attributes:
+    - delay: Time in seconds to wait.
+    - message (optional): The message you will receive when the timer expires.
+Behavior:
+    - The timer runs in the background. When it expires, you will receive the message as a forced user interruption.
+</define_tag>
+
 <!-- ================================================================= -->
 <!-- 4. IDENTITY & PURPOSE                                             -->
 <!-- ================================================================= -->
