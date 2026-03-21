@@ -324,7 +324,7 @@
 					else body.textContent = turn.content;
 				} else {
 					body.className += " whitespace-pre-wrap";
-					body.textContent = turn.content;
+					body.innerHTML = this._formatSystemMessage(turn.content);
 				}
 			} else if (Array.isArray(turn.content)) {
 				this._renderArrayContent(body, turn.content, role);
@@ -334,6 +334,16 @@
 
 			if (!isUpdate) {
 				this.els.HISTORY.appendChild(div);
+			}
+
+			// DOM追加後にターン全体へMathJaxとHighlight.jsを一括適用
+			if (window.MathJax) {
+				MathJax.typesetPromise([body]).catch(e => console.warn("MathJax Error:", e));
+			}
+			if (window.hljs) {
+				body.querySelectorAll('pre code').forEach((block) => {
+					hljs.highlightElement(block);
+				});
 			}
 		}
 
@@ -345,7 +355,7 @@
 						div.innerHTML = this.renderer.formatStream(item.text);
 					} else {
 						div.className = "whitespace-pre-wrap";
-						div.textContent = item.text;
+						div.innerHTML = this._formatSystemMessage(item.text);
 					}
 					container.appendChild(div);
 				}
@@ -364,18 +374,6 @@
 						div.innerHTML = this._formatSystemMessage(uiText);
 					}
 					container.appendChild(div);
-
-					// DOM追加後にMathJaxで数式をレンダリング
-					if (window.MathJax) {
-						MathJax.typesetPromise([div]).catch(e => console.warn("MathJax Error:", e));
-					}
-
-					// DOM追加後にHighlight.jsでコードをハイライト
-					if (window.hljs) {
-						div.querySelectorAll('pre code').forEach((block) => {
-							hljs.highlightElement(block);
-						});
-					}
 
 					// Handle Tool Output Images
 					if (item.output.media) {
