@@ -165,7 +165,7 @@
 					return;
 				}
 
-				const messages = await this.projector.createContext(this.state);
+				const messages = await this.projector.createContext(this.state, this.abortController.signal);
 
 				// 空のMODELターンをHistoryに追加（横槍の順序担保のため）。自己トリガーを防ぐため trigger_llm: false。
 				const modelTurn = this.state.history.append(Role.MODEL, "", {
@@ -211,6 +211,7 @@
 					this._dispatchActions(validActions);
 				} else {
 					this.continuousToolCount = 0; // 実行すべきツールがなければ対話終了
+					this._emit('loop_stop', { reason: 'idle' });
 				}
 
 			} catch (error) {
