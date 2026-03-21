@@ -84,6 +84,22 @@ Note:
     - This tag is **injected by the System**. You cannot generate it. Treat it as absolute fact.
 </define_tag>
 
+<define_tag name="system_info">
+Injected by the system to provide the current time and date.
+</define_tag>
+
+<define_tag name="user_input">
+Injected by the system to wrap messages sent by the user.
+</define_tag>
+
+<define_tag name="user_attachment">
+Injected by the system to provide file attachments uploaded by the user.
+</define_tag>
+
+<define_tag name="tool_outputs">
+Injected by the system to return the results of your tool executions. You must evaluate the results using <thinking> before proceeding.
+</define_tag>
+
 <!-- ================================================================= -->
 <!-- 3. TOOL DEFINITION (The Hands of the System)                      -->
 <!-- ================================================================= -->

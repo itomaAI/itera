@@ -50,13 +50,11 @@
 			effectivePrompt = effectivePrompt.replace(/{{username}}/g, user);
 
 			// 3. 動的情報の追記
-			const configPrompt = `\n\n<persona_config>\nYour Name: ${agent}\nUser Name: ${user}\nLanguage Setting: ${language}\n</persona_config>`;
-
 			const now = new Date();
 			const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 			const timePrompt = `\n\n<system_info>\nCurrent Time: ${now.toLocaleString()} (${days[now.getDay()]})\nTimestamp: ${now.toISOString()}\n</system_info>`;
 
-			return effectivePrompt + configPrompt + timePrompt;
+			return effectivePrompt + timePrompt;
 		}
 	}
 
