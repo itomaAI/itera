@@ -407,9 +407,17 @@
     <script src="src/core/control/engine.js"></script>
     <script src="src/core/control/guest_compiler.js"></script>
     
-    <!-- Bridge -->
-    <script src="src/bridge/guest_bridge.js"></script>
-    <script src="src/bridge/host_bridge.js"></script>
+    <!-- IPC Infrastructure -->
+    <script src="src/ipc/message.js"></script>
+    <script src="src/ipc/rpc_manager.js"></script>
+    <script src="src/ipc/host_transport.js"></script>
+    <script src="src/ipc/guest_transport.js"></script>
+
+    <!-- API Routing -->
+    <script src="src/api/guest/metaos_core.js"></script>
+    <script src="src/api/guest/legacy_wrapper.js"></script>
+    <script src="src/api/guest/guest_builder.js"></script>
+    <script src="src/api/host/api_router.js"></script>
     
     <!-- Shell (Desktop Environment) -->
     <script src="src/shell/services/lpml_renderer.js"></script>

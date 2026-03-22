@@ -84,10 +84,18 @@
 
 					// Notify Guest
 					if (existingProc.iframe.contentWindow) {
-						existingProc.iframe.contentWindow.postMessage({
-							type: 'ITERA_ROUTE_CHANGED',
-							path: path
-						}, '*');
+						const IpcMessage = global.Itera.Ipc?.IpcMessage;
+						if (IpcMessage) {
+							// 新しいIPC規格でのルート変更通知
+							const msg = IpcMessage.createEvent('host', pid, 'route_changed', { path });
+							existingProc.iframe.contentWindow.postMessage(msg, '*');
+						} else {
+							// 後方互換フォールバック
+							existingProc.iframe.contentWindow.postMessage({
+								type: 'ITERA_ROUTE_CHANGED',
+								path: path
+							}, '*');
+						}
 					}
 					return;
 				}
@@ -109,6 +117,7 @@
 				let iframe;
 				if (mode === 'foreground') {
 					iframe = this.els.FRAME_MAIN;
+					iframe.name = pid; // ★ プロセスIDを伝達
 					if (entryUrl) {
 						await this._loadIframe(iframe, entryUrl);
 						this._updateAddressBar(path);
@@ -118,6 +127,7 @@
 				} else {
 					iframe = document.createElement('iframe');
 					iframe.id = `proc-${pid}`;
+					iframe.name = pid; // ★ プロセスIDを伝達
 					// バックグラウンドプロセス用のサンドボックス
 					iframe.sandbox = "allow-scripts allow-forms allow-same-origin";
 					if (this.els.BG_CONTAINER) {
@@ -174,6 +184,12 @@
 			}
 
 			this.processes.delete(pid);
+			
+			// プロセス終了イベントを発火 (ToolRegistry等のクリーンアップ用)
+			if (this.events['process_killed']) {
+				this.events['process_killed'](pid);
+			}
+
 			console.log(`[ProcessManager] Killed [${pid}]`);
 			return true;
 		}
@@ -188,13 +204,21 @@
 		 * 全プロセスにイベントを一斉送信する (IPC)
 		 */
 		broadcast(eventName, payload) {
+			const IpcMessage = global.Itera.Ipc?.IpcMessage;
 			for (const proc of this.processes.values()) {
 				if (proc.iframe && proc.iframe.contentWindow) {
-					proc.iframe.contentWindow.postMessage({
-						type: 'ITERA_EVENT',
-						event: eventName,
-						payload: payload
-					}, '*');
+					if (IpcMessage) {
+						// 新しいIPC規格でのイベント送信
+						const msg = IpcMessage.createEvent('host', proc.pid, eventName, payload);
+						proc.iframe.contentWindow.postMessage(msg, '*');
+					} else {
+						// 後方互換フォールバック
+						proc.iframe.contentWindow.postMessage({
+							type: 'ITERA_EVENT',
+							event: eventName,
+							payload: payload
+						}, '*');
+					}
 				}
 			}
 		}

@@ -48,22 +48,26 @@ To interact with the system, apps use the global `window.MetaOS` client library.
 
 ### Core API Methods
 
-All file operations are asynchronous and return a `Promise`.
+The API is divided into namespaces. All methods are asynchronous (`Promise`).
 
-*   **File System**:
-    *   `await MetaOS.saveFile(path, content)`: Writes a file.
-    *   `await MetaOS.readFile(path)`: Reads a file as a string.
-    *   `await MetaOS.listFiles(path, options)`: Returns a list of files.
-    *   `await MetaOS.deleteFile(path)`: Deletes a file.
+*   **File System (`MetaOS.fs`)**:
+    *   `await MetaOS.fs.write(path, content)`: Writes a file.
+    *   `await MetaOS.fs.read(path)`: Reads a file as a string.
+    *   `await MetaOS.fs.list(path, options)`: Returns a list of files.
+    *   `await MetaOS.fs.delete(path)`: Deletes a file.
 
-*   **Navigation & UI**:
-    *   `MetaOS.switchView(path)`: Navigates the main window to another HTML file (e.g., `apps/notes.html`).
-    *   `MetaOS.openFile(path)`: Opens the Host's code editor for the specified file.
-    *   `MetaOS.notify(message, title)`: Sends a system notification.
+*   **System & IPC (`MetaOS.system`)**:
+    *   `await MetaOS.system.spawn(path, { pid: 'main' })`: Navigates the main window or starts a daemon.
+    *   `await MetaOS.system.broadcast(event, payload)`: Emits an IPC event.
+    
+*   **Host UI (`MetaOS.host`)**:
+    *   `await MetaOS.host.openEditor(path)`: Opens the Host's code editor.
+    *   `await MetaOS.host.notify(message, title)`: Sends a system notification.
 
-*   **AI Interaction**:
-    *   `MetaOS.agent(instruction, options)`: Triggers the AI to perform a background task.
-    *   `MetaOS.ask(text)`: Posts a message to the chat panel as the user.
+*   **AI Interaction (`MetaOS.ai`)**:
+    *   `await MetaOS.ai.task(instruction, context, options)`: Triggers the AI to perform a background task.
+    *   `await MetaOS.ai.ask(text)`: Posts a message to the chat panel as the user.
+    *   `await MetaOS.ai.log(message, type)`: Silently adds an event to the AI's history.
 
 ---
 

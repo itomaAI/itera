@@ -20,7 +20,7 @@ Use the system libraries (`ui.js` and `std.js`) to inherit the OS theme and stan
     <script>
         // Use MetaOS API to read/write files
         async function saveData() {
-            await MetaOS.saveFile('data/my_app.txt', 'Hello', { silent: true });
+            await MetaOS.fs.write('data/my_app.txt', 'Hello', { silent: true });
         }
     </script>
 </body>
@@ -37,12 +37,13 @@ Daemons are invisible HTML/JS files that run continuously in the background. The
 <script>
     // Runs every 10 minutes
     setInterval(() => {
-        MetaOS.addEventLog("System is running fine.", "health_check");
+        MetaOS.ai.log("System is running fine.", "health_check");
         // Notify the UI if it's open
-        MetaOS.broadcast('system_health', { status: 'OK' });
+        MetaOS.system.broadcast('system_health', { status: 'OK' });
     }, 10 * 60 * 1000);
 </script>
 ```
+>>>>>
 
 ### Auto-Starting Daemons
 To make your daemon start automatically when Itera OS boots, add it to `system/config/services.json`:
@@ -61,25 +62,45 @@ Itera allows completely decoupled communication between your daemons and your UI
 
 **In Daemon (Sender):**
 ```javascript
-MetaOS.broadcast('data_fetched', { newItems: 5 });
+MetaOS.system.broadcast('data_fetched', { newItems: 5 });
 ```
 
 **In UI App (Receiver):**
 ```javascript
 if (window.MetaOS) {
-    MetaOS.on('data_fetched', (payload) => {
+    MetaOS.system.on('data_fetched', (payload) => {
         alert(`Received ${payload.newItems} items from background!`);
         refreshUI();
     });
 }
 ```
 
-## 4. Best Practices
+## 4. Exposing Dynamic Tools to the AI
+
+Guest apps can expose custom JS functions to the AI using `MetaOS.tools.register()`.
+
+```javascript
+MetaOS.tools.register({
+    name: "edit_cell",
+    description: "Edits a cell in the spreadsheet",
+    definition: "<define_tag name=\"edit_cell\">Use this to edit a cell. Attributes: row, col</define_tag>",
+    handler: async (params) => {
+        document.getElementById(`cell-${params.row}${params.col}`).value = params.content;
+        return { ui: `Edited ${params.row}${params.col}`, log: "Cell updated." };
+    }
+}).then(() => {
+    // Teach the AI about the tool by logging its definition to history
+    MetaOS.ai.log("<define_tag name=\"edit_cell\">...</define_tag>\\nTool is now available.", "tool_available");
+});
+```
+When the app is closed, tools registered by its PID are automatically removed.
+
+## 5. Best Practices
 1. **Semantic Colors**: Always use `bg-app`, `text-text-main`, `bg-panel` etc. (See 03_design_system.md).
-2. **Context Awareness**: Use `MetaOS.addEventLog()` when the user performs an important action so the AI knows what's happening.
+2. **Context Awareness**: Use `MetaOS.ai.log()` when the user performs an important action so the AI knows what's happening.
 3. **Write Manuals**: When you build a complex app, write a `.md` manual in `docs/apps/` so both you and the AI understand how to use it.
 
-## 5. Application Template
+## 6. Application Template
 
 ```html
 <!DOCTYPE html>

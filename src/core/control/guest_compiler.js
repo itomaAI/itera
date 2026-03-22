@@ -201,9 +201,11 @@ window.addEventListener('message', async (e) => {
 					}
 				}
 
-				// 2. Bridgeの注入
-				if (global.Itera.Bridge && global.Itera.Bridge.GuestCode) {
-					const bridgeScript = `<script>${global.Itera.Bridge.GuestCode}</script>\n`;
+				// 2. Bridgeの注入 (Blob URL経由の外部スクリプト読み込み)
+				if (global.Itera.Api && global.Itera.Api.GuestBuilder) {
+					const bridgeUrl = global.Itera.Api.GuestBuilder.getBlobUrl();
+					// type="module" はBlob URL間の相対パス解決が壊れるため通常のスクリプトとして読み込む
+					const bridgeScript = `<script src="${bridgeUrl}"></script>\n`;
 					if (htmlContent.includes('<head>')) {
 						htmlContent = htmlContent.replace('<head>', '<head>\n' + bridgeScript);
 					} else {
