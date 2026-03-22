@@ -55,7 +55,12 @@
             off: (eventName, handler) => {
                 const listeners = transport.eventListeners.get(eventName);
                 if (listeners) {
-                    transport.eventListeners.set(eventName, listeners.filter(cb => cb !== handler));
+                    const filtered = listeners.filter(cb => cb !== handler);
+                    if (filtered.length === 0) {
+                        transport.eventListeners.delete(eventName);
+                    } else {
+                        transport.eventListeners.set(eventName, filtered);
+                    }
                 }
             },
             capture: async (pid) => transport.requestHost('sys:capture', { pid })
@@ -70,7 +75,22 @@
             updateAddressBar: async (path) => transport.requestHost('host:address_bar', { path })
         },
 
-        // 5. 動的ツール提供 (双方向RPC用)
+        // 5. ネットワークアクセス (CORS回避・ダウンロード・認証代行)
+        net: {
+            fetch: async (url, options = {}) => transport.requestHost('net:fetch', { url, options }),
+            download: async (url, destPath, options = {}) => transport.requestHost('net:download', { url, destPath, options }),
+            oauth: async (providerId, authUrl, instructions) => transport.requestHost('net:oauth', { providerId, authUrl, instructions })
+        },
+
+        // 6. デバイス・ハードウェア制御
+        device: {
+            getLocation: async (options = {}) => transport.requestHost('dev:location', { options }),
+            takePhoto: async (options = {}) => transport.requestHost('dev:photo', { options }),
+            recordAudio: async (options = {}) => transport.requestHost('dev:audio', { options }),
+            vibrate: async (pattern) => transport.requestHost('dev:vibrate', { pattern })
+        },
+
+        // 7. 動的ツール提供 (双方向RPC用)
         tools: {
             register: async (toolDef) => {
                 if (!toolDef || !toolDef.name || typeof toolDef.handler !== 'function') {

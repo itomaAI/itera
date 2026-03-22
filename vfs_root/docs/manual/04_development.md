@@ -95,12 +95,30 @@ MetaOS.tools.register({
 ```
 When the app is closed, tools registered by its PID are automatically removed.
 
-## 5. Best Practices
+## 5. Network & Hardware Access
+
+Browser iframes are usually restricted by CORS and permission policies. MetaOS provides high-level APIs to bypass these safely via the Host OS.
+
+**Fetching External APIs (CORS Bypass)**
+```javascript
+// The Host will route this through a public proxy to avoid CORS errors.
+const res = await MetaOS.net.fetch('https://api.example.com/data', { useProxy: true, responseType: 'json' });
+console.log(res.data);
+```
+
+**Using the Camera**
+```javascript
+// Opens a beautiful, OS-native full-screen camera modal.
+// Returns the image as a Base64 Data URL once the user snaps the photo.
+const imageBase64 = await MetaOS.device.takePhoto({ facingMode: 'environment' });
+```
+
+## 6. Best Practices
 1. **Semantic Colors**: Always use `bg-app`, `text-text-main`, `bg-panel` etc. (See 03_design_system.md).
 2. **Context Awareness**: Use `MetaOS.ai.log()` when the user performs an important action so the AI knows what's happening.
 3. **Write Manuals**: When you build a complex app, write a `.md` manual in `docs/apps/` so both you and the AI understand how to use it.
 
-## 6. Application Template
+## 7. Application Template
 
 ```html
 <!DOCTYPE html>

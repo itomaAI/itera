@@ -43,7 +43,10 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html-to-image/1.11.11/html-to-image.min.js"></script>
 <script>
 window.addEventListener('message', async (e) => {
-    if (e.data.action === 'CAPTURE') {
+    const isLegacy = e.data.action === 'CAPTURE';
+    const isIpc = e.data.type === 'req' && e.data.action === 'capture_screenshot' && e.data.target === '${pid}';
+    
+    if (isLegacy || isIpc) {
         try {
             let attempts = 0;
             while (typeof htmlToImage === 'undefined' && attempts < 20) {
@@ -61,9 +64,36 @@ window.addEventListener('message', async (e) => {
                     return true;
                 }
             });
-            parent.postMessage({ type: 'SCREENSHOT_RESULT', pid: '${pid}', data }, '*');
+            
+            if (isIpc) {
+                parent.postMessage({
+                    protocol: e.data.protocol,
+                    type: 'res',
+                    id: e.data.id,
+                    source: e.data.target,
+                    target: e.data.source,
+                    action: e.data.action,
+                    payload: data,
+                    error: null
+                }, '*');
+            } else {
+                parent.postMessage({ type: 'SCREENSHOT_RESULT', pid: '${pid}', data }, '*');
+            }
         } catch (err) {
-            parent.postMessage({ type: 'SCREENSHOT_ERROR', pid: '${pid}', message: String(err) }, '*');
+            if (isIpc) {
+                parent.postMessage({
+                    protocol: e.data.protocol,
+                    type: 'res',
+                    id: e.data.id,
+                    source: e.data.target,
+                    target: e.data.source,
+                    action: e.data.action,
+                    payload: null,
+                    error: String(err)
+                }, '*');
+            } else {
+                parent.postMessage({ type: 'SCREENSHOT_ERROR', pid: '${pid}', message: String(err) }, '*');
+            }
         }
     }
 });
