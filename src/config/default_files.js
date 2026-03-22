@@ -1,5 +1,5 @@
 // AUTO-GENERATED FILE - DO NOT EDIT MANUALLY
-// Generated on: 2026-03-20T16:13:18Z
+// Generated on: 2026-03-22T11:55:59Z
 
 (function(global) {
     global.Itera = global.Itera || {};
@@ -798,6 +798,252 @@ The UI remains mostly similar but sends messages by creating directories now.
 
 **End of Blueprint.**`.trim(),
 
+        "docs/blueprints/mindmap.md": `
+# Itera Blueprint: AI MindMap v1.0
+
+> **What is this?**
+> A dynamic brainstorming application. When this app is opened, it provides the AI with "Physical Hands" (Dynamic Tools) to visually map out ideas on a canvas.
+> This demonstrates the power of Itera OS's Universal IPC and Dynamic Tool Routing.
+
+---
+
+## 🤖 Instructions for the Itera Agent
+You are reading an Itera App Blueprint.
+Please safely install this application into the user's environment by strictly following these phases:
+
+1. **Explain & Ask**: Explain to the user that this app allows you and the user to collaboratively build visual mind maps. Ask for permission to begin installation.
+2. **Deploy Code**: Create the app HTML file in the VFS.
+3. **Register App**: Update \`system/config/apps.json\` to add the app to the launcher.
+4. **Post-Install Setup**: Suggest the user to open the app and try asking you: *"Let's brainstorm about the future of AI."*
+
+---
+
+## Phase 2: Deploy Source Code
+
+### File: \`apps/mindmap.html\`
+\`\`\`html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI MindMap</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="../system/lib/ui.js"></script>
+    <style>
+        .node {
+            position: absolute;
+            transform: translate(-50%, -50%);
+            cursor: grab;
+            user-select: none;
+            transition: box-shadow 0.2s, transform 0.1s;
+        }
+        .node:active {
+            cursor: grabbing;
+            transform: translate(-50%, -50%) scale(1.05);
+            z-index: 50;
+        }
+        #svg-layer {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            pointer-events: none;
+        }
+        line {
+            stroke: rgb(var(--c-border-highlight));
+            stroke-width: 2;
+            opacity: 0.6;
+        }
+    </style>
+</head>
+<body class="bg-app text-text-main h-screen flex flex-col p-6 overflow-hidden select-none">
+
+    <!-- Header -->
+    <header class="flex items-center justify-between mb-4 shrink-0 z-10">
+        <div class="flex items-center gap-4">
+            <button onclick="AppUI.home()" class="p-2 -ml-2 rounded-full hover:bg-hover text-text-muted hover:text-text-main transition">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg>
+            </button>
+            <h1 class="text-2xl font-bold tracking-tight flex items-center gap-2">🧠 AI MindMap</h1>
+        </div>
+        <div class="flex items-center gap-3">
+            <span id="status-indicator" class="text-[10px] text-text-muted font-mono border border-border-main px-2 py-1 rounded bg-card">Initializing...</span>
+            <button onclick="clearMap()" class="px-3 py-1 bg-card hover:bg-error/20 text-text-muted hover:text-error border border-border-main rounded text-xs font-bold transition">Clear</button>
+        </div>
+    </header>
+
+    <!-- Canvas Area -->
+    <main class="flex-1 relative bg-panel border border-border-main rounded-2xl shadow-inner overflow-hidden" id="canvas-container">
+        <!-- Lines -->
+        <svg id="svg-layer"></svg>
+        <!-- Nodes injected here -->
+        <div id="nodes-layer" class="absolute inset-0"></div>
+    </main>
+
+    <script>
+        let nodes = {}; // { id: { text, x, y, color } }
+        let edges =[]; // { from, to }
+
+        const DOM = {
+            container: document.getElementById('canvas-container'),
+            svg: document.getElementById('svg-layer'),
+            nodes: document.getElementById('nodes-layer'),
+            status: document.getElementById('status-indicator')
+        };
+
+        // --- Drag & Drop Logic ---
+        let dragInfo = null;
+
+        DOM.container.addEventListener('mousedown', (e) => {
+            const nodeEl = e.target.closest('.node');
+            if (!nodeEl) return;
+            
+            const id = nodeEl.dataset.id;
+            const rect = DOM.container.getBoundingClientRect();
+            dragInfo = {
+                id: id,
+                offsetX: e.clientX - (nodes[id].x / 100 * rect.width),
+                offsetY: e.clientY - (nodes[id].y / 100 * rect.height)
+            };
+        });
+
+        document.addEventListener('mousemove', (e) => {
+            if (!dragInfo) return;
+            const rect = DOM.container.getBoundingClientRect();
+            let newX = ((e.clientX - dragInfo.offsetX) / rect.width) * 100;
+            let newY = ((e.clientY - dragInfo.offsetY) / rect.height) * 100;
+            
+            // Clamp to 0-100%
+            nodes[dragInfo.id].x = Math.max(5, Math.min(95, newX));
+            nodes[dragInfo.id].y = Math.max(5, Math.min(95, newY));
+            render();
+        });
+
+        document.addEventListener('mouseup', () => {
+            if (dragInfo) {
+                // Optionally notify AI that user moved a node
+                // MetaOS.ai.log(\\\`User moved node '\\\${nodes[dragInfo.id].text}'\\\`, 'interaction');
+                dragInfo = null;
+            }
+        });
+
+        // --- Rendering ---
+        function render() {
+            // Render Nodes
+            DOM.nodes.innerHTML = '';
+            for (const [id, n] of Object.entries(nodes)) {
+                const el = document.createElement('div');
+                el.className = \\\`node px-4 py-2 rounded-xl text-sm font-bold shadow-lg border border-\\\${n.color}/30 bg-\\\${n.color}/10 text-\\\${n.color} backdrop-blur-md\\\`;
+                el.style.left = \\\`\\\${n.x}%\\\`;
+                el.style.top = \\\`\\\${n.y}%\\\`;
+                el.dataset.id = id;
+                el.textContent = n.text;
+                DOM.nodes.appendChild(el);
+            }
+
+            // Render Edges
+            DOM.svg.innerHTML = '';
+            edges.forEach(e => {
+                if (!nodes[e.from] || !nodes[e.to]) return;
+                const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+                line.setAttribute('x1', \\\`\\\${nodes[e.from].x}%\\\`);
+                line.setAttribute('y1', \\\`\\\${nodes[e.from].y}%\\\`);
+                line.setAttribute('x2', \\\`\\\${nodes[e.to].x}%\\\`);
+                line.setAttribute('y2', \\\`\\\${nodes[e.to].y}%\\\`);
+                DOM.svg.appendChild(line);
+            });
+        }
+
+        function clearMap() {
+            nodes = {};
+            edges =[];
+            render();
+            if (window.MetaOS) MetaOS.ai.log("User cleared the mind map.", "map_cleared");
+        }
+
+        // --- MetaOS Dynamic Tools Registration ---
+        async function initTools() {
+            if (!window.MetaOS) return setTimeout(initTools, 100);
+
+            try {
+                // 1. Register <add_node>
+                await MetaOS.tools.register({
+                    name: 'add_node',
+                    description: 'Adds a new idea node to the canvas.',
+                    definition: '<define_tag name="add_node">Attributes: id (unique), text, x (0-100 percentage), y (0-100 percentage), color (primary|success|warning|error)</define_tag>',
+                    handler: async (p) => {
+                        nodes[p.id] = { 
+                            text: p.text || 'Idea', 
+                            x: parseFloat(p.x) || 50, 
+                            y: parseFloat(p.y) || 50, 
+                            color: p.color || 'primary' 
+                        };
+                        render();
+                        return { ui: \\\`💡 Added node: \\\${p.text}\\\`, log: \\\`Node \\\${p.id} added.\\\` };
+                    }
+                });
+
+                // 2. Register <connect_nodes>
+                await MetaOS.tools.register({
+                    name: 'connect_nodes',
+                    description: 'Draws a line between two existing nodes.',
+                    definition: '<define_tag name="connect_nodes">Attributes: from (node id), to (node id)</define_tag>',
+                    handler: async (p) => {
+                        edges.push({ from: p.from, to: p.to });
+                        render();
+                        return { ui: \\\`🔗 Connected \\\${p.from} to \\\${p.to}\\\`, log: \\\`Connected \\\${p.from} -> \\\${p.to}\\\` };
+                    }
+                });
+
+                // 3. Inform the LLM that tools are ready via History Injection
+                const systemMsg = \\\`
+[System] AI MindMap App is opened. You can now visually map out ideas using the following tags:
+<define_tag name="add_node">Attributes: id, text, x(10-90), y(10-90), color(primary|success|warning|error)</define_tag>
+<define_tag name="connect_nodes">Attributes: from(id), to(id)</define_tag>
+When the user asks to brainstorm, use these tags to draw a map!
+                \\\`.trim();
+                
+                await MetaOS.ai.log(systemMsg, "tool_available");
+
+                DOM.status.textContent = "AI Connected";
+                DOM.status.classList.add('bg-success/10', 'text-success', 'border-success/30');
+            } catch (e) {
+                DOM.status.textContent = "Error";
+                DOM.status.classList.add('text-error');
+                console.error("Tool registration failed:", e);
+            }
+        }
+
+        document.readyState === 'loading' ? document.addEventListener('DOMContentLoaded', initTools) : initTools();
+    </script>
+</body>
+</html>
+\`\`\`
+
+---
+
+## Phase 3: System Registration
+
+**1. \`system/config/apps.json\`**
+Append the following object to the JSON array:
+\`\`\`json
+    {
+        "id": "mindmap",
+        "name": "MindMap",
+        "icon": "🧠",
+        "path": "apps/mindmap.html",
+        "description": "AI-assisted brainstorming"
+    }
+\`\`\`
+
+---
+
+## Phase 4: Post-Installation
+1. Verify the code deployment using \`<read_file>\`.
+2. Say to the user: *"AI MindMap has been installed! You can open it from the Library. Once it's open, try telling me: 'Let's brainstorm about the future of AI' and I will draw it for you!"*
+
+**End of Blueprint.**
+`.trim(),
+
         "docs/blueprints/pomodoro.md": `
 # Itera Blueprint: Pomodoro Timer v1.1
 
@@ -1106,36 +1352,38 @@ Itera OS supports multiple concurrent processes running in sandboxed iframes.
 ### 4.2 Itera Bridge Protocol (The Synapse)
 
 A Client Library (\`window.MetaOS\`) is injected into every Guest process.
-This is the only window connecting the guest code to you and the file system.
+This is the only window connecting the guest code to you and the file system. It is divided into namespaces:
 
-**Process & IPC Control:**
-*   \`MetaOS.spawn('views/app.html', { pid: 'main' })\`: Change the main view.
-*   \`MetaOS.spawn('views/app.html', { pid: 'main', forceReload: true })\`: Force completely reload the view (bypassing Soft Navigation).
-*   \`MetaOS.spawn('services/sync.html', { pid: 'bg_sync' })\`: Start a background daemon.
-*   \`MetaOS.kill('bg_sync')\`: Terminate a process.
-*   \`MetaOS.broadcast('my_event', data)\`: Send an IPC message to ALL running processes.
-*   \`MetaOS.on('my_event', callback)\`: Listen for IPC messages or Host events.
+**File System (\`MetaOS.fs\`):**
+*   \`await MetaOS.fs.write('data/todo.json', jsonString, { silent: true })\`
+*   \`await MetaOS.fs.read('data/config.txt')\`
+*   \`await MetaOS.fs.delete('data/old.txt')\`
 
-**File Operations:**
-*   \`await MetaOS.saveFile('data/todo.json', jsonString, { silent: true })\`
-*   \`await MetaOS.readFile('data/config.txt')\`
-*   \`await MetaOS.deleteFile('data/old.txt')\`
+**Process & IPC Control (\`MetaOS.system\`):**
+*   \`MetaOS.system.spawn('views/app.html', { pid: 'main' })\`: Change the main view.
+*   \`MetaOS.system.spawn('services/sync.html', { pid: 'bg_sync' })\`: Start a background daemon.
+*   \`MetaOS.system.kill('bg_sync')\`: Terminate a process.
+*   \`MetaOS.system.broadcast('my_event', data)\`: Send an IPC message to ALL running processes.
+*   \`MetaOS.system.on('my_event', callback)\`: Listen for IPC messages or Host events.
 
-**AI Interaction:**
-*   \`MetaOS.agent("Summarize this", { silent: true, context: data })\`: Makes you execute a task autonomously.
-*   \`MetaOS.addEventLog("User completed a task", "task_done")\`: Silently appends a log to your chat history without triggering a full thought loop. Highly recommended for giving yourself context about user actions.
+**AI Interaction (\`MetaOS.ai\`):**
+*   \`MetaOS.ai.task("Summarize this", data, { silent: true })\`: Makes you execute a task autonomously.
+*   \`MetaOS.ai.log("User completed a task", "task_done")\`: Silently appends a log to your chat history without triggering a full thought loop. Highly recommended for giving yourself context about user actions.
+
+**Dynamic Tools (\`MetaOS.tools\`):**
+*   Apps can expose custom functions to you by calling \`MetaOS.tools.register()\`. When you output the corresponding tag, the Host will route it to the app, execute the JS function, and return the result to you.
 
 ### 4.3 Guidelines for Building Apps and Daemons
 
 **1. Decoupling via IPC (Broadcast)**
-Do not tightly couple UI and background logic. If a background daemon fetches new data, it should save it to the VFS and then call \`MetaOS.broadcast('data_updated')\`. The UI process should listen with \`MetaOS.on('data_updated')\` and re-render.
+Do not tightly couple UI and background logic. If a background daemon fetches new data, it should save it to the VFS and then call \`MetaOS.system.broadcast('data_updated')\`. The UI process should listen with \`MetaOS.system.on('data_updated')\` and re-render.
 
 **2. Use Bridge instead of Fetch**
 Do not use \`fetch('./data.json')\` to retrieve local files in VFS (CORS errors).
-Always use \`await MetaOS.readFile('data.json')\`.
+Always use \`await MetaOS.fs.read('data.json')\`.
 
 **3. Silent File Operations**
-When your app saves data frequently (like toggling a todo), use \`{ silent: true }\` in \`saveFile\` to prevent flooding the chat history with event logs.
+When your app saves data frequently (like toggling a todo), use \`{ silent: true }\` in \`MetaOS.fs.write\` to prevent flooding the chat history with event logs.
 
 **4. Documentation Duty**
 When you create a new app or background daemon, you **MUST** create a markdown manual explaining what it is and how it works, and save it in \`docs/apps/\` or \`docs/services/\`.`.trim(),
@@ -1810,22 +2058,26 @@ To interact with the system, apps use the global \`window.MetaOS\` client librar
 
 ### Core API Methods
 
-All file operations are asynchronous and return a \`Promise\`.
+The API is divided into namespaces. All methods are asynchronous (\`Promise\`).
 
-*   **File System**:
-    *   \`await MetaOS.saveFile(path, content)\`: Writes a file.
-    *   \`await MetaOS.readFile(path)\`: Reads a file as a string.
-    *   \`await MetaOS.listFiles(path, options)\`: Returns a list of files.
-    *   \`await MetaOS.deleteFile(path)\`: Deletes a file.
+*   **File System (\`MetaOS.fs\`)**:
+    *   \`await MetaOS.fs.write(path, content)\`: Writes a file.
+    *   \`await MetaOS.fs.read(path)\`: Reads a file as a string.
+    *   \`await MetaOS.fs.list(path, options)\`: Returns a list of files.
+    *   \`await MetaOS.fs.delete(path)\`: Deletes a file.
 
-*   **Navigation & UI**:
-    *   \`MetaOS.switchView(path)\`: Navigates the main window to another HTML file (e.g., \`apps/notes.html\`).
-    *   \`MetaOS.openFile(path)\`: Opens the Host's code editor for the specified file.
-    *   \`MetaOS.notify(message, title)\`: Sends a system notification.
+*   **System & IPC (\`MetaOS.system\`)**:
+    *   \`await MetaOS.system.spawn(path, { pid: 'main' })\`: Navigates the main window or starts a daemon.
+    *   \`await MetaOS.system.broadcast(event, payload)\`: Emits an IPC event.
+    
+*   **Host UI (\`MetaOS.host\`)**:
+    *   \`await MetaOS.host.openEditor(path)\`: Opens the Host's code editor.
+    *   \`await MetaOS.host.notify(message, title)\`: Sends a system notification.
 
-*   **AI Interaction**:
-    *   \`MetaOS.agent(instruction, options)\`: Triggers the AI to perform a background task.
-    *   \`MetaOS.ask(text)\`: Posts a message to the chat panel as the user.
+*   **AI Interaction (\`MetaOS.ai\`)**:
+    *   \`await MetaOS.ai.task(instruction, context, options)\`: Triggers the AI to perform a background task.
+    *   \`await MetaOS.ai.ask(text)\`: Posts a message to the chat panel as the user.
+    *   \`await MetaOS.ai.log(message, type)\`: Silently adds an event to the AI's history.
 
 ---
 
@@ -1967,7 +2219,7 @@ Use the system libraries (\`ui.js\` and \`std.js\`) to inherit the OS theme and 
     <script>
         // Use MetaOS API to read/write files
         async function saveData() {
-            await MetaOS.saveFile('data/my_app.txt', 'Hello', { silent: true });
+            await MetaOS.fs.write('data/my_app.txt', 'Hello', { silent: true });
         }
     </script>
 </body>
@@ -1984,12 +2236,13 @@ Daemons are invisible HTML/JS files that run continuously in the background. The
 <script>
     // Runs every 10 minutes
     setInterval(() => {
-        MetaOS.addEventLog("System is running fine.", "health_check");
+        MetaOS.ai.log("System is running fine.", "health_check");
         // Notify the UI if it's open
-        MetaOS.broadcast('system_health', { status: 'OK' });
+        MetaOS.system.broadcast('system_health', { status: 'OK' });
     }, 10 * 60 * 1000);
 </script>
 \`\`\`
+>>>>>
 
 ### Auto-Starting Daemons
 To make your daemon start automatically when Itera OS boots, add it to \`system/config/services.json\`:
@@ -2008,25 +2261,45 @@ Itera allows completely decoupled communication between your daemons and your UI
 
 **In Daemon (Sender):**
 \`\`\`javascript
-MetaOS.broadcast('data_fetched', { newItems: 5 });
+MetaOS.system.broadcast('data_fetched', { newItems: 5 });
 \`\`\`
 
 **In UI App (Receiver):**
 \`\`\`javascript
 if (window.MetaOS) {
-    MetaOS.on('data_fetched', (payload) => {
+    MetaOS.system.on('data_fetched', (payload) => {
         alert(\`Received \${payload.newItems} items from background!\`);
         refreshUI();
     });
 }
 \`\`\`
 
-## 4. Best Practices
+## 4. Exposing Dynamic Tools to the AI
+
+Guest apps can expose custom JS functions to the AI using \`MetaOS.tools.register()\`.
+
+\`\`\`javascript
+MetaOS.tools.register({
+    name: "edit_cell",
+    description: "Edits a cell in the spreadsheet",
+    definition: "<define_tag name=\\"edit_cell\\">Use this to edit a cell. Attributes: row, col</define_tag>",
+    handler: async (params) => {
+        document.getElementById(\`cell-\${params.row}\${params.col}\`).value = params.content;
+        return { ui: \`Edited \${params.row}\${params.col}\`, log: "Cell updated." };
+    }
+}).then(() => {
+    // Teach the AI about the tool by logging its definition to history
+    MetaOS.ai.log("<define_tag name=\\"edit_cell\\">...</define_tag>\\\\nTool is now available.", "tool_available");
+});
+\`\`\`
+When the app is closed, tools registered by its PID are automatically removed.
+
+## 5. Best Practices
 1. **Semantic Colors**: Always use \`bg-app\`, \`text-text-main\`, \`bg-panel\` etc. (See 03_design_system.md).
-2. **Context Awareness**: Use \`MetaOS.addEventLog()\` when the user performs an important action so the AI knows what's happening.
+2. **Context Awareness**: Use \`MetaOS.ai.log()\` when the user performs an important action so the AI knows what's happening.
 3. **Write Manuals**: When you build a complex app, write a \`.md\` manual in \`docs/apps/\` so both you and the AI understand how to use it.
 
-## 5. Application Template
+## 6. Application Template
 
 \`\`\`html
 <!DOCTYPE html>

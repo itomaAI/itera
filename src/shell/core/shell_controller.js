@@ -114,6 +114,12 @@
 			this.panels.chat.setVfs(vfs);
 
 			const registry = new Control.ToolRegistry();
+			
+			// プロセス終了時に動的ツールを一掃する連携
+			this.windowing.processManager.on('process_killed', (pid) => {
+				if (registry.removeToolsByPid) registry.removeToolsByPid(pid);
+			});
+
 			if (Control.Tools) {
 				Control.Tools.registerFSTools(registry);
 				Control.Tools.registerUITools(registry);
@@ -145,8 +151,16 @@
 				}
 			);
 
-			this.bridge = new Bridge.HostBridge();
-			this._setupBridgeHandlers();
+			// Initialize new IPC transport and API router
+			this.transport = new global.Itera.Ipc.HostTransport();
+			this.apiRouter = new global.Itera.Api.ApiRouter(this.transport, {
+				vfs: vfs,
+				history: history,
+				engine: this.engine,
+				processManager: this.windowing.processManager,
+				shell: this,
+				toolRegistry: registry
+			});
 
 			this._bindEvents();
 			this._bindMobileUI();
@@ -395,154 +409,6 @@
 				this.windowing.processManager.broadcast('file_changed', payload);
 			});
 			history.on('change', () => this._triggerAutoSave());
-		}
-
-		_setupBridgeHandlers() {
-			const {
-				vfs,
-				history
-			} = this.state;
-			const bridge = this.bridge;
-			const chat = this.panels.chat;
-
-			const checkAndEmitEvent = (options, type, desc) => {
-				if (options && options.silent === false) {
-					const lpml = `<event type="${type}">\n${desc}\n</event>`;
-					const turn = history.append(global.Itera.Role.SYSTEM, lpml, {
-						type: 'event_log',
-						trigger_llm: false
-					});
-					chat.appendTurn(turn);
-				}
-			};
-
-			bridge.registerHandler('read_file', ({
-				path
-			}) => vfs.readFile(path));
-			bridge.registerHandler('save_file', ({
-				path,
-				content,
-				options
-			}) => {
-				const res = vfs.writeFile(path, content);
-				checkAndEmitEvent(options, 'file_edited', `User App edited file: ${path}`);
-				return res;
-			});
-			bridge.registerHandler('delete_file', ({
-				path,
-				options
-			}) => {
-				const res = vfs.deleteFile(path);
-				checkAndEmitEvent(options, 'file_deleted', `User App deleted file: ${path}`);
-				return res;
-			});
-			bridge.registerHandler('stat_file', ({
-				path
-			}) => vfs.stat(path));
-			bridge.registerHandler('list_files', ({
-				path,
-				options
-			}) => vfs.listFiles({
-				path,
-				...options
-			}));
-			bridge.registerHandler('rename_file', ({
-				oldPath,
-				newPath,
-				options
-			}) => {
-				const res = vfs.rename(oldPath, newPath);
-				checkAndEmitEvent(options, 'file_moved', `User App renamed file: ${oldPath} -> ${newPath}`);
-				return res;
-			});
-
-			bridge.registerHandler('spawn_process', async ({
-				path,
-				options
-			}) => {
-				const pid = (options && options.pid) ? options.pid : 'main';
-				const mode = (options && options.mode) ? options.mode : (pid === 'main' ? 'foreground' : 'background');
-				const forceReload = (options && options.forceReload) ? true : false;
-				await this.windowing.processManager.spawn(pid, path, mode, forceReload);
-				if (mode === 'foreground') this._closeMobileDrawers();
-			});
-
-			bridge.registerHandler('kill_process', ({ pid }) => {
-				return this.windowing.processManager.kill(pid);
-			});
-
-			bridge.registerHandler('broadcast_event', ({ eventName, payload }) => {
-				this.windowing.processManager.broadcast(eventName, payload);
-			});
-
-			bridge.registerHandler('add_event_log', ({
-				message,
-				type
-			}) => {
-				const lpml = `<event type="${type || 'app_event'}">\n${message}\n</event>`;
-				const turn = this.state.history.append(global.Itera.Role.SYSTEM, lpml, {
-					type: 'event_log',
-					trigger_llm: false // 明示的にAgent(ask)を呼ばない限りは非発火とする
-				});
-				this.panels.chat.appendTurn(turn);
-			});
-
-			bridge.registerHandler('show_notification', ({
-				message,
-				title
-			}) => console.log(`[Notification] ${title}: ${message}`));
-
-			bridge.registerHandler('copy_to_clipboard', async ({ text }) => {
-				try {
-					await navigator.clipboard.writeText(text);
-				} catch (e) {
-					console.error("[Bridge] Clipboard write failed:", e);
-				}
-			});
-
-			bridge.registerHandler('open_external', ({ url }) => {
-				window.open(url, '_blank', 'noopener,noreferrer');
-			});
-
-			bridge.registerHandler('open_file', ({
-				path
-			}) => {
-				const content = vfs.readFile(path);
-				this.modals.editor.open(path, content);
-				this._closeMobileDrawers();
-			});
-
-			bridge.registerHandler('agent_trigger', async ({
-				instruction,
-				options
-			}) => {
-				// 忙しくてもキューに入るためエラーは出さない
-				let text = `[INTERNAL AGENT TRIGGER]\n${instruction}`;
-				if (options?.context) text += `\n\nContext: ${JSON.stringify(options.context)}`;
-				this._refreshEngineConfig();
-				this.panels.chat.setProcessing(true);
-				await this.engine.injectUserTurn([{
-					text
-				}], {
-					visible: !options?.silent
-				});
-			});
-
-			bridge.registerHandler('update_address_bar', ({ path }) => {
-				const pm = this.windowing.processManager;
-				const proc = pm.processes.get('main');
-				if (proc) {
-					// クエリ/ハッシュのみの更新なので、現在のベースパスと結合する
-					const currentBase = proc.path.split(/[?#]/)[0];
-					const newPath = currentBase + path;
-					proc.path = newPath;
-					
-					// UI更新 (ProcessManagerのメソッドを利用)
-					if (pm._updateAddressBar) pm._updateAddressBar(newPath);
-				}
-			});
-
-			bridge.registerHandler('view_ready', () => {});
 		}
 
 		_bindMobileUI() {

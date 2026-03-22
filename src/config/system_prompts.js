@@ -259,38 +259,36 @@ However, internal thought processes (<thinking>, <plan>) must be in English.
 
 **3. Guest Bridge (window.MetaOS)**:
 The Guest Environment (dashboard/iframe) is isolated. You MUST use the \`window.MetaOS\` client library to interact with the VFS and Host.
-All methods (except \`on\`) are **Asynchronous** and return a \`Promise\`. usage: \`await MetaOS.method(...)\`.
+All methods (except \`on/off\`) are **Asynchronous** and return a \`Promise\`.
 
-**File Operations**:
-- \`saveFile(path, content)\`: Writes string content to VFS.
-- \`readFile(path)\`: Returns file content as string.
-- \`deleteFile(path)\`: Deletes a file or directory.
-- \`renameFile(oldPath, newPath)\`: Renames or moves a file.
-- \`stat(path)\`: Returns metadata (size, dates, type).
-- \`listFiles(path, options)\`: Returns file list.
-    - options: \`{ detail: boolean }\`.
-    - If \`detail: true\`, returns \`Array<{ path, size, created_at, updated_at, type }>\`.
-    - Default returns \`Array<string>\` (paths).
+**File System (MetaOS.fs)**:
+- \`read(path)\`, \`write(path, content, opts)\`, \`append(path, content, opts)\`
+- \`delete(path, opts)\`, \`rename(oldPath, newPath, opts)\`, \`copy(srcPath, destPath, opts)\`, \`mkdir(path, opts)\`
+- \`stat(path)\`, \`list(path, opts)\`, \`exists(path)\`
 
-**AI Interaction**:
-- \`agent(instruction, { silent: boolean, context: object })\`: Triggers an autonomous AI task (background).
-- \`ask(text, attachments)\`: Triggers the AI as if the user sent a message (chat).
-- \`addEventLog(message, type)\`: Silently appends an event log to the chat history without triggering the AI. Useful for recording user actions in apps to give the AI context.
+**AI & History (MetaOS.ai)**:
+- \`ask(text, opts)\`: Sends a chat message as the user and triggers AI. \`opts.attachments\` accepts an array of VFS paths.
+- \`task(instruction, context, opts)\`: Background AI task. \`opts.silent=true\` hides it from UI.
+- \`log(message, type)\`: Silently appends an event log without triggering AI.
+- \`stop()\`: Aborts current AI generation.
 
-**Process & IPC Control**:
-- \`spawn(path, options)\`: Spawns a new process from guest. \`options: { pid, mode }\`.
+**System & IPC (MetaOS.system)**:
+- \`spawn(path, opts)\`: Starts a process. \`opts: { pid, mode }\`. (pid="main" changes foreground view)
 - \`kill(pid)\`: Terminates a process.
-- \`broadcast(eventName, payload)\`: Sends an event to all running processes (IPC).
+- \`ps()\`, \`info()\`, \`capture(pid)\`
+- \`broadcast(eventName, payload)\`: IPC broadcast.
+- \`on(eventName, handler)\`, \`off(eventName, handler)\`: IPC listener.
 
-**UI & Host Control**:
-- \`openFile(path)\`: Opens the file in the **Host's Code Editor Modal**.
-- \`notify(message, title)\`: Sends a notification to the Host.
-- \`openExternal(url)\`: Opens a URL in a new browser tab.
-- \`copyToClipboard(text)\`: Copies text to the user's clipboard.
+**Host UI (MetaOS.host)**:
+- \`openEditor(path)\`, \`notify(message, title)\`, \`copyText(text)\`, \`openExternal(url)\`, \`updateAddressBar(path)\`
 
-**Events & System**:
-- \`on(event, callback)\`: Listen for Host events or broadcasted IPC events.
-- Auto-start Services: Processes defined in \`system/config/services.json\` (e.g., \`[{"pid":"nostr","path":"services/nostr.html"}]\`) will be spawned automatically on system boot.
+**Dynamic Tools (MetaOS.tools)**:
+Guest apps can expose custom tools to you.
+- \`register({ name, description, definition, handler })\`: Registers a dynamic tool. The \`definition\` should be the LPML \`<define_tag>\` string. **IMPORTANT**: After registering, the app should call \`MetaOS.ai.log(definition, "tool_available")\` to teach you about it.
+- \`unregister(name)\`: Removes a tool. (Tools are auto-removed when the process is killed).
+
+**Events & Services**:
+- Auto-start Services: Processes defined in \`system/config/services.json\` will be spawned on boot.
 </rule>
 
 <rule name="manual_management">

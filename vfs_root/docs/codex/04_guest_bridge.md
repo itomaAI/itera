@@ -14,36 +14,38 @@ Itera OS supports multiple concurrent processes running in sandboxed iframes.
 ### 4.2 Itera Bridge Protocol (The Synapse)
 
 A Client Library (`window.MetaOS`) is injected into every Guest process.
-This is the only window connecting the guest code to you and the file system.
+This is the only window connecting the guest code to you and the file system. It is divided into namespaces:
 
-**Process & IPC Control:**
-*   `MetaOS.spawn('views/app.html', { pid: 'main' })`: Change the main view.
-*   `MetaOS.spawn('views/app.html', { pid: 'main', forceReload: true })`: Force completely reload the view (bypassing Soft Navigation).
-*   `MetaOS.spawn('services/sync.html', { pid: 'bg_sync' })`: Start a background daemon.
-*   `MetaOS.kill('bg_sync')`: Terminate a process.
-*   `MetaOS.broadcast('my_event', data)`: Send an IPC message to ALL running processes.
-*   `MetaOS.on('my_event', callback)`: Listen for IPC messages or Host events.
+**File System (`MetaOS.fs`):**
+*   `await MetaOS.fs.write('data/todo.json', jsonString, { silent: true })`
+*   `await MetaOS.fs.read('data/config.txt')`
+*   `await MetaOS.fs.delete('data/old.txt')`
 
-**File Operations:**
-*   `await MetaOS.saveFile('data/todo.json', jsonString, { silent: true })`
-*   `await MetaOS.readFile('data/config.txt')`
-*   `await MetaOS.deleteFile('data/old.txt')`
+**Process & IPC Control (`MetaOS.system`):**
+*   `MetaOS.system.spawn('views/app.html', { pid: 'main' })`: Change the main view.
+*   `MetaOS.system.spawn('services/sync.html', { pid: 'bg_sync' })`: Start a background daemon.
+*   `MetaOS.system.kill('bg_sync')`: Terminate a process.
+*   `MetaOS.system.broadcast('my_event', data)`: Send an IPC message to ALL running processes.
+*   `MetaOS.system.on('my_event', callback)`: Listen for IPC messages or Host events.
 
-**AI Interaction:**
-*   `MetaOS.agent("Summarize this", { silent: true, context: data })`: Makes you execute a task autonomously.
-*   `MetaOS.addEventLog("User completed a task", "task_done")`: Silently appends a log to your chat history without triggering a full thought loop. Highly recommended for giving yourself context about user actions.
+**AI Interaction (`MetaOS.ai`):**
+*   `MetaOS.ai.task("Summarize this", data, { silent: true })`: Makes you execute a task autonomously.
+*   `MetaOS.ai.log("User completed a task", "task_done")`: Silently appends a log to your chat history without triggering a full thought loop. Highly recommended for giving yourself context about user actions.
+
+**Dynamic Tools (`MetaOS.tools`):**
+*   Apps can expose custom functions to you by calling `MetaOS.tools.register()`. When you output the corresponding tag, the Host will route it to the app, execute the JS function, and return the result to you.
 
 ### 4.3 Guidelines for Building Apps and Daemons
 
 **1. Decoupling via IPC (Broadcast)**
-Do not tightly couple UI and background logic. If a background daemon fetches new data, it should save it to the VFS and then call `MetaOS.broadcast('data_updated')`. The UI process should listen with `MetaOS.on('data_updated')` and re-render.
+Do not tightly couple UI and background logic. If a background daemon fetches new data, it should save it to the VFS and then call `MetaOS.system.broadcast('data_updated')`. The UI process should listen with `MetaOS.system.on('data_updated')` and re-render.
 
 **2. Use Bridge instead of Fetch**
 Do not use `fetch('./data.json')` to retrieve local files in VFS (CORS errors).
-Always use `await MetaOS.readFile('data.json')`.
+Always use `await MetaOS.fs.read('data.json')`.
 
 **3. Silent File Operations**
-When your app saves data frequently (like toggling a todo), use `{ silent: true }` in `saveFile` to prevent flooding the chat history with event logs.
+When your app saves data frequently (like toggling a todo), use `{ silent: true }` in `MetaOS.fs.write` to prevent flooding the chat history with event logs.
 
 **4. Documentation Duty**
 When you create a new app or background daemon, you **MUST** create a markdown manual explaining what it is and how it works, and save it in `docs/apps/` or `docs/services/`.
