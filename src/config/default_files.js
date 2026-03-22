@@ -1,5 +1,5 @@
 // AUTO-GENERATED FILE - DO NOT EDIT MANUALLY
-// Generated on: 2026-03-22T11:55:59Z
+// Generated on: 2026-03-22T13:27:40Z
 
 (function(global) {
     global.Itera = global.Itera || {};
@@ -1370,6 +1370,11 @@ This is the only window connecting the guest code to you and the file system. It
 *   \`MetaOS.ai.task("Summarize this", data, { silent: true })\`: Makes you execute a task autonomously.
 *   \`MetaOS.ai.log("User completed a task", "task_done")\`: Silently appends a log to your chat history without triggering a full thought loop. Highly recommended for giving yourself context about user actions.
 
+**Network & Devices (\`MetaOS.net\`, \`MetaOS.device\`):**
+*   \`await MetaOS.net.fetch('https://...', { useProxy: true })\`: Fetches external data bypassing CORS restrictions.
+*   \`await MetaOS.device.takePhoto()\`: Opens the OS camera UI and returns a base64 image data URL.
+*   \`await MetaOS.device.getLocation()\`: Gets the user's current GPS coordinates.
+
 **Dynamic Tools (\`MetaOS.tools\`):**
 *   Apps can expose custom functions to you by calling \`MetaOS.tools.register()\`. When you output the corresponding tag, the Host will route it to the app, execute the JS function, and return the result to you.
 
@@ -2074,6 +2079,10 @@ The API is divided into namespaces. All methods are asynchronous (\`Promise\`).
     *   \`await MetaOS.host.openEditor(path)\`: Opens the Host's code editor.
     *   \`await MetaOS.host.notify(message, title)\`: Sends a system notification.
 
+*   **Network & Hardware (\`MetaOS.net\`, \`MetaOS.device\`)**:
+    *   \`await MetaOS.net.fetch(url, options)\`: Fetches external APIs (can bypass CORS).
+    *   \`await MetaOS.device.takePhoto()\`: Opens the native camera interface.
+
 *   **AI Interaction (\`MetaOS.ai\`)**:
     *   \`await MetaOS.ai.task(instruction, context, options)\`: Triggers the AI to perform a background task.
     *   \`await MetaOS.ai.ask(text)\`: Posts a message to the chat panel as the user.
@@ -2294,12 +2303,30 @@ MetaOS.tools.register({
 \`\`\`
 When the app is closed, tools registered by its PID are automatically removed.
 
-## 5. Best Practices
+## 5. Network & Hardware Access
+
+Browser iframes are usually restricted by CORS and permission policies. MetaOS provides high-level APIs to bypass these safely via the Host OS.
+
+**Fetching External APIs (CORS Bypass)**
+\`\`\`javascript
+// The Host will route this through a public proxy to avoid CORS errors.
+const res = await MetaOS.net.fetch('https://api.example.com/data', { useProxy: true, responseType: 'json' });
+console.log(res.data);
+\`\`\`
+
+**Using the Camera**
+\`\`\`javascript
+// Opens a beautiful, OS-native full-screen camera modal.
+// Returns the image as a Base64 Data URL once the user snaps the photo.
+const imageBase64 = await MetaOS.device.takePhoto({ facingMode: 'environment' });
+\`\`\`
+
+## 6. Best Practices
 1. **Semantic Colors**: Always use \`bg-app\`, \`text-text-main\`, \`bg-panel\` etc. (See 03_design_system.md).
 2. **Context Awareness**: Use \`MetaOS.ai.log()\` when the user performs an important action so the AI knows what's happening.
 3. **Write Manuals**: When you build a complex app, write a \`.md\` manual in \`docs/apps/\` so both you and the AI understand how to use it.
 
-## 6. Application Template
+## 7. Application Template
 
 \`\`\`html
 <!DOCTYPE html>

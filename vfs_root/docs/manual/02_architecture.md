@@ -64,6 +64,10 @@ The API is divided into namespaces. All methods are asynchronous (`Promise`).
     *   `await MetaOS.host.openEditor(path)`: Opens the Host's code editor.
     *   `await MetaOS.host.notify(message, title)`: Sends a system notification.
 
+*   **Network & Hardware (`MetaOS.net`, `MetaOS.device`)**:
+    *   `await MetaOS.net.fetch(url, options)`: Fetches external APIs (can bypass CORS).
+    *   `await MetaOS.device.takePhoto()`: Opens the native camera interface.
+
 *   **AI Interaction (`MetaOS.ai`)**:
     *   `await MetaOS.ai.task(instruction, context, options)`: Triggers the AI to perform a background task.
     *   `await MetaOS.ai.ask(text)`: Posts a message to the chat panel as the user.

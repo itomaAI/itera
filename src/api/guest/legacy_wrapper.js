@@ -47,6 +47,7 @@
         // --- Events ---
         // 既存の MetaOS.on はそのまま system.on に中継
         on: (eventName, callback) => global.MetaOS.system.on(eventName, callback),
+        off: (eventName, callback) => global.MetaOS.system.off(eventName, callback),
 
         // --- Lifecycle ---
         ready: async () => { return true; }

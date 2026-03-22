@@ -276,11 +276,18 @@
 			const calcTurnTrigger = () => {
 				let willTrigger = false;
 				let isHalted = false;
+				let hasError = false;
+
 				combinedResults.forEach(r => {
 					// Pending状態のものは trigger_llm === false なので発火要因にならない
 					if (r.output.trigger_llm !== false) willTrigger = true;
 					if (r.output.halt_loop === true) isHalted = true;
+					if (r.output.error === true) hasError = true;
 				});
+
+				// エラーが1つでも発生していれば、finish等の停止指示を無視して強制的にループを継続（リカバリ）させる
+				if (hasError) return true;
+
 				return isHalted ? false : willTrigger;
 			};
 

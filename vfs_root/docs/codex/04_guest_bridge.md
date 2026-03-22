@@ -32,6 +32,11 @@ This is the only window connecting the guest code to you and the file system. It
 *   `MetaOS.ai.task("Summarize this", data, { silent: true })`: Makes you execute a task autonomously.
 *   `MetaOS.ai.log("User completed a task", "task_done")`: Silently appends a log to your chat history without triggering a full thought loop. Highly recommended for giving yourself context about user actions.
 
+**Network & Devices (`MetaOS.net`, `MetaOS.device`):**
+*   `await MetaOS.net.fetch('https://...', { useProxy: true })`: Fetches external data bypassing CORS restrictions.
+*   `await MetaOS.device.takePhoto()`: Opens the OS camera UI and returns a base64 image data URL.
+*   `await MetaOS.device.getLocation()`: Gets the user's current GPS coordinates.
+
 **Dynamic Tools (`MetaOS.tools`):**
 *   Apps can expose custom functions to you by calling `MetaOS.tools.register()`. When you output the corresponding tag, the Host will route it to the app, execute the JS function, and return the result to you.
 

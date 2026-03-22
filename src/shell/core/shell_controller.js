@@ -159,7 +159,8 @@
 				engine: this.engine,
 				processManager: this.windowing.processManager,
 				shell: this,
-				toolRegistry: registry
+				toolRegistry: registry,
+				configManager: configManager
 			});
 
 			this._bindEvents();

@@ -282,6 +282,17 @@ All methods (except \`on/off\`) are **Asynchronous** and return a \`Promise\`.
 **Host UI (MetaOS.host)**:
 - \`openEditor(path)\`, \`notify(message, title)\`, \`copyText(text)\`, \`openExternal(url)\`, \`updateAddressBar(path)\`
 
+**Network & Auth (MetaOS.net)**:
+- \`fetch(url, opts)\`: HTTP requests. \`opts.useProxy=true\` bypasses CORS. \`opts.credentialId\` injects API keys safely.
+- \`download(url, destPath, opts)\`: Streams a large file directly to VFS avoiding IPC memory limits.
+- \`oauth(providerId, authUrl, instructions)\`: Delegates OAuth login to Host UI and saves token.
+
+**Hardware & Devices (MetaOS.device)**:
+- \`getLocation(opts)\`: Returns { latitude, longitude, accuracy }.
+- \`takePhoto(opts)\`: Opens OS native camera UI, returns image Data URL.
+- \`recordAudio(opts)\`: Opens OS native mic UI, returns audio Data URL.
+- \`vibrate(pattern)\`: Vibrates the physical device.
+
 **Dynamic Tools (MetaOS.tools)**:
 Guest apps can expose custom tools to you.
 - \`register({ name, description, definition, handler })\`: Registers a dynamic tool. The \`definition\` should be the LPML \`<define_tag>\` string. **IMPORTANT**: After registering, the app should call \`MetaOS.ai.log(definition, "tool_available")\` to teach you about it.
