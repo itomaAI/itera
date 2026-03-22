@@ -249,33 +249,15 @@
 
 			return new Promise((resolve, reject) => {
 				const iframe = proc.iframe;
-				
-				// 新しいIPCプロトコルのリクエストを作成
-				let reqMsg = null;
-				if (global.Itera.Ipc && global.Itera.Ipc.IpcMessage) {
-					reqMsg = global.Itera.Ipc.IpcMessage.createRequest('host', pid, 'capture_screenshot');
-				}
-
 				const handler = (e) => {
-					const data = e.data;
-					// 旧形式のサポート
-					if (data.type === 'SCREENSHOT_RESULT' && data.pid === pid) {
+					// pidの一致を確認して他のプロセスのレスポンスと混同しないようにする
+					if (e.data.type === 'SCREENSHOT_RESULT' && e.data.pid === pid) {
 						window.removeEventListener('message', handler);
-						const parts = data.data.split(',');
+						const parts = e.data.data.split(',');
 						resolve(parts.length > 1 ? parts[1] : parts[0]);
-					} else if (data.type === 'SCREENSHOT_ERROR' && data.pid === pid) {
+					} else if (e.data.type === 'SCREENSHOT_ERROR' && e.data.pid === pid) {
 						window.removeEventListener('message', handler);
-						reject(new Error(data.message));
-					}
-					// 新形式のサポート
-					else if (reqMsg && data.type === 'res' && data.id === reqMsg.id) {
-						window.removeEventListener('message', handler);
-						if (data.error) {
-							reject(new Error(data.error));
-						} else {
-							const parts = data.payload.split(',');
-							resolve(parts.length > 1 ? parts[1] : parts[0]);
-						}
+						reject(new Error(e.data.message));
 					}
 				};
 
@@ -286,12 +268,9 @@
 					reject(new Error("Screenshot timeout"));
 				}, 15000);
 
-				if (reqMsg) {
-					iframe.contentWindow.postMessage(reqMsg, '*');
-				} else {
-					// IpcMessageがロードされていない場合のフォールバック（旧形式）
-					iframe.contentWindow.postMessage({ action: 'CAPTURE' }, '*');
-				}
+				iframe.contentWindow.postMessage({
+					action: 'CAPTURE'
+				}, '*');
 			});
 		}
 
