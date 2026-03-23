@@ -88,13 +88,24 @@
                     }
 
                     // HostTransport を介して Guest へ実行を委譲し、結果を待つ
-                    const result = await context.shell.transport.invokeGuest(
+                    let result = await context.shell.transport.invokeGuest(
                         pid,
                         'execute_tool',
                         { name: action.type, params: action.params },
                         proc.iframe.contentWindow
                     );
                     
+                    // 戻り値の正規化 (文字列等が返された場合の保護)
+                    if (typeof result !== 'object' || result === null) {
+                        result = { log: String(result), ui: `⚙️ ${action.type}` };
+                    } else if (result.log === undefined) {
+                        // オブジェクトだが log プロパティが無い場合
+                        result.log = JSON.stringify(result);
+                    }
+                    if (!result.ui) {
+                        result.ui = `⚙️ ${action.type}`;
+                    }
+
                     return result;
 
                 } catch (err) {
