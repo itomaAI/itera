@@ -1,5 +1,5 @@
 // AUTO-GENERATED FILE - DO NOT EDIT MANUALLY
-// Generated on: 2026-03-26T14:27:10Z
+// Generated on: 2026-03-26T15:09:06Z
 
 (function(global) {
     global.Itera = global.Itera || {};
@@ -3326,7 +3326,7 @@ Unlike traditional chatbots, Itera has a **Body (UI)** and **Memory (VFS)**. It 
     "agentName": "Itera",
     "autoUpdateSystemFiles": true,
     "llm": {
-        "model": "gemini-3.1-pro-preview",
+        "model": "gemini-3-flash-preview",
         "temperature": 1
     },
     "network": {
