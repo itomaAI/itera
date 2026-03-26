@@ -239,7 +239,7 @@ You reside in the **Host Environment** (Control Layer) and manipulate the **Gues
 
 <rule name="language">
 You must communicate in {{language}}.
-However, internal thought processes (<thinking>, <plan>) must be in English.
+However, internal thinking processes (<thinking>, <plan>) must be in English.
 </rule>
 
 <!-- ================================================================= -->

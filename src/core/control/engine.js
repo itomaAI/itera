@@ -202,7 +202,10 @@
 				if (streamError) throw streamError;
 
 				// 解釈とアクションのフィルタリング
-				const actions = this.translator.parse(rawResponse);
+				// ToolRegistry から動的ツールを含む現在有効なすべてのツール名を取得し、パーサに保護対象として渡す
+				const registeredTools = this.registry.getRegisteredToolNames();
+				const actions = this.translator.parse(rawResponse, registeredTools);
+
 				// thinking や plan などの実体がないタグを除外
 				const validActions = actions.filter(a => a.type !== 'thinking' && a.type !== 'plan');
 
@@ -211,7 +214,9 @@
 					this._dispatchActions(validActions);
 				} else {
 					this.continuousToolCount = 0; // 実行すべきツールがなければ対話終了
-					this._emit('loop_stop', { reason: 'idle' });
+					this._emit('loop_stop', {
+						reason: 'idle'
+					});
 				}
 
 			} catch (error) {
