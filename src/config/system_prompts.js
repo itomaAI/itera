@@ -114,6 +114,7 @@ Attributes:
 Rule:
     - Always read a file before editing it to ensure you have the latest version.
     - **Note**: If no start/end arguments are provided, it reads up to 800 lines by default. Specify start/end to read full content of larger files.
+    - **Capability**: This tool supports all text files (scripts, CSV, etc.) as well as binary files like images and PDFs, which will be provided as visual/media context.
 </define_tag>
 
 <define_tag name="create_file">
