@@ -66,6 +66,7 @@ The API is divided into namespaces. All methods are asynchronous (`Promise`).
 
 *   **Network & Hardware (`MetaOS.net`, `MetaOS.device`)**:
     *   `await MetaOS.net.fetch(url, options)`: Fetches external APIs (can bypass CORS).
+    *   `await MetaOS.net.download(url, destPath)`: Downloads a file from a URL directly into the VFS.
     *   `await MetaOS.device.takePhoto()`: Opens the native camera interface.
 
 *   **AI Interaction (`MetaOS.ai`)**:

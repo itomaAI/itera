@@ -1,5 +1,5 @@
 // AUTO-GENERATED FILE - DO NOT EDIT MANUALLY
-// Generated on: 2026-03-22T13:27:40Z
+// Generated on: 2026-03-26T14:27:10Z
 
 (function(global) {
     global.Itera = global.Itera || {};
@@ -1372,6 +1372,7 @@ This is the only window connecting the guest code to you and the file system. It
 
 **Network & Devices (\`MetaOS.net\`, \`MetaOS.device\`):**
 *   \`await MetaOS.net.fetch('https://...', { useProxy: true })\`: Fetches external data bypassing CORS restrictions.
+*   \`await MetaOS.net.download('https://...', 'path/to/save', { useProxy: true })\`: Downloads and saves a file directly to VFS.
 *   \`await MetaOS.device.takePhoto()\`: Opens the OS camera UI and returns a base64 image data URL.
 *   \`await MetaOS.device.getLocation()\`: Gets the user's current GPS coordinates.
 
@@ -2081,6 +2082,7 @@ The API is divided into namespaces. All methods are asynchronous (\`Promise\`).
 
 *   **Network & Hardware (\`MetaOS.net\`, \`MetaOS.device\`)**:
     *   \`await MetaOS.net.fetch(url, options)\`: Fetches external APIs (can bypass CORS).
+    *   \`await MetaOS.net.download(url, destPath)\`: Downloads a file from a URL directly into the VFS.
     *   \`await MetaOS.device.takePhoto()\`: Opens the native camera interface.
 
 *   **AI Interaction (\`MetaOS.ai\`)**:
@@ -2312,6 +2314,10 @@ Browser iframes are usually restricted by CORS and permission policies. MetaOS p
 // The Host will route this through a public proxy to avoid CORS errors.
 const res = await MetaOS.net.fetch('https://api.example.com/data', { useProxy: true, responseType: 'json' });
 console.log(res.data);
+
+// Downloads a file and writes it directly to the Virtual File System.
+// This is more efficient for large or binary files than fetch.
+await MetaOS.net.download('https://example.com/image.jpg', 'data/downloads/image.jpg', { useProxy: true });
 \`\`\`
 
 **Using the Camera**
@@ -3322,6 +3328,10 @@ Unlike traditional chatbots, Itera has a **Body (UI)** and **Memory (VFS)**. It 
     "llm": {
         "model": "gemini-3.1-pro-preview",
         "temperature": 1
+    },
+    "network": {
+        "proxyUrl": "https://corsproxy.io/?",
+        "allowCredentialsWithProxy": false
     }
 }, null, 4),
 
@@ -4222,6 +4232,18 @@ Unlike traditional chatbots, Itera has a **Body (UI)** and **Memory (VFS)**. It 
 
                 <div class="space-y-6">
                     <div>
+                        <label class="block text-xs font-bold text-text-muted uppercase mb-1.5">CORS Proxy URL</label>
+                        <input type="text" id="config-network-proxyUrl" data-key="network.proxyUrl" class="w-full font-mono bg-card border border-border-main rounded-lg px-3 py-2 text-sm text-text-main focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/30 transition shadow-inner" placeholder="https://corsproxy.io/?">
+                        <p class="text-[10px] text-text-muted mt-1.5 opacity-80">Prefix used when 'useProxy' is true. Example: http://localhost:8080/?</p>
+                    </div>
+                    <div class="flex items-center gap-3 bg-card/50 p-3 rounded-lg border border-border-main/50">
+                        <input type="checkbox" id="config-network-allowCredentialsWithProxy" data-key="network.allowCredentialsWithProxy" class="w-4 h-4 rounded border-border-main text-primary focus:ring-primary cursor-pointer">
+                        <div>
+                            <label for="config-network-allowCredentialsWithProxy" class="block text-xs font-bold text-text-main cursor-pointer">Allow Credentials with Proxy</label>
+                            <p class="text-[10px] text-text-muted mt-0.5">⚠️ Enable this ONLY if you are using a trusted local proxy. Sending API keys to public proxies is dangerous.</p>
+                        </div>
+                    </div>
+                    <div>
                         <label class="block text-xs font-bold text-text-muted uppercase mb-1.5">Model Name</label>
                         <input type="text" id="config-llm-model" data-key="llm.model" class="w-full font-mono bg-card border border-border-main rounded-lg px-3 py-2 text-sm text-text-main focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/30 transition shadow-inner" placeholder="e.g. gemini-3.1-pro-preview">
                         <p class="text-[10px] text-text-muted mt-1.5 opacity-80">Requires engine restart or reload to take full effect.</p>
@@ -4272,6 +4294,8 @@ Unlike traditional chatbots, Itera has a **Body (UI)** and **Memory (VFS)**. It 
                 DOM('config-agentName').value = config.agentName || '';
                 DOM('config-language').value = config.language || 'English';
                 DOM('config-llm-model').value = config?.llm?.model || '';
+                DOM('config-network-proxyUrl').value = config?.network?.proxyUrl || '';
+                DOM('config-network-allowCredentialsWithProxy').checked = !!config?.network?.allowCredentialsWithProxy;
 
                 await loadThemes();
             } catch (e) { console.warn("Failed to load config", e); }
@@ -4328,14 +4352,15 @@ Unlike traditional chatbots, Itera has a **Body (UI)** and **Memory (VFS)**. It 
             const key = e.target.getAttribute('data-key');
             if (!key) return;
             
-            setNestedValue(config, key, e.target.value);
+            const val = e.target.type === 'checkbox' ? e.target.checked : e.target.value;
+            setNestedValue(config, key, val);
             
             // Debounce save (500ms)
             clearTimeout(window._saveTimer);
             window._saveTimer = setTimeout(saveConfig, 500);
         };
 
-        ['config-username', 'config-agentName', 'config-language', 'config-llm-model'].forEach(id => {
+        ['config-username', 'config-agentName', 'config-language', 'config-llm-model', 'config-network-proxyUrl', 'config-network-allowCredentialsWithProxy'].forEach(id => {
             DOM(id).addEventListener('input', handleInput);
         });
 

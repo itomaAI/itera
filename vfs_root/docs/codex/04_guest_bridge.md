@@ -34,6 +34,7 @@ This is the only window connecting the guest code to you and the file system. It
 
 **Network & Devices (`MetaOS.net`, `MetaOS.device`):**
 *   `await MetaOS.net.fetch('https://...', { useProxy: true })`: Fetches external data bypassing CORS restrictions.
+*   `await MetaOS.net.download('https://...', 'path/to/save', { useProxy: true })`: Downloads and saves a file directly to VFS.
 *   `await MetaOS.device.takePhoto()`: Opens the OS camera UI and returns a base64 image data URL.
 *   `await MetaOS.device.getLocation()`: Gets the user's current GPS coordinates.
 

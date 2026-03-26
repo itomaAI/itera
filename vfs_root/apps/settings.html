@@ -87,6 +87,18 @@
 
                 <div class="space-y-6">
                     <div>
+                        <label class="block text-xs font-bold text-text-muted uppercase mb-1.5">CORS Proxy URL</label>
+                        <input type="text" id="config-network-proxyUrl" data-key="network.proxyUrl" class="w-full font-mono bg-card border border-border-main rounded-lg px-3 py-2 text-sm text-text-main focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/30 transition shadow-inner" placeholder="https://corsproxy.io/?">
+                        <p class="text-[10px] text-text-muted mt-1.5 opacity-80">Prefix used when 'useProxy' is true. Example: http://localhost:8080/?</p>
+                    </div>
+                    <div class="flex items-center gap-3 bg-card/50 p-3 rounded-lg border border-border-main/50">
+                        <input type="checkbox" id="config-network-allowCredentialsWithProxy" data-key="network.allowCredentialsWithProxy" class="w-4 h-4 rounded border-border-main text-primary focus:ring-primary cursor-pointer">
+                        <div>
+                            <label for="config-network-allowCredentialsWithProxy" class="block text-xs font-bold text-text-main cursor-pointer">Allow Credentials with Proxy</label>
+                            <p class="text-[10px] text-text-muted mt-0.5">⚠️ Enable this ONLY if you are using a trusted local proxy. Sending API keys to public proxies is dangerous.</p>
+                        </div>
+                    </div>
+                    <div>
                         <label class="block text-xs font-bold text-text-muted uppercase mb-1.5">Model Name</label>
                         <input type="text" id="config-llm-model" data-key="llm.model" class="w-full font-mono bg-card border border-border-main rounded-lg px-3 py-2 text-sm text-text-main focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/30 transition shadow-inner" placeholder="e.g. gemini-3.1-pro-preview">
                         <p class="text-[10px] text-text-muted mt-1.5 opacity-80">Requires engine restart or reload to take full effect.</p>
@@ -137,6 +149,8 @@
                 DOM('config-agentName').value = config.agentName || '';
                 DOM('config-language').value = config.language || 'English';
                 DOM('config-llm-model').value = config?.llm?.model || '';
+                DOM('config-network-proxyUrl').value = config?.network?.proxyUrl || '';
+                DOM('config-network-allowCredentialsWithProxy').checked = !!config?.network?.allowCredentialsWithProxy;
 
                 await loadThemes();
             } catch (e) { console.warn("Failed to load config", e); }
@@ -193,14 +207,15 @@
             const key = e.target.getAttribute('data-key');
             if (!key) return;
             
-            setNestedValue(config, key, e.target.value);
+            const val = e.target.type === 'checkbox' ? e.target.checked : e.target.value;
+            setNestedValue(config, key, val);
             
             // Debounce save (500ms)
             clearTimeout(window._saveTimer);
             window._saveTimer = setTimeout(saveConfig, 500);
         };
 
-        ['config-username', 'config-agentName', 'config-language', 'config-llm-model'].forEach(id => {
+        ['config-username', 'config-agentName', 'config-language', 'config-llm-model', 'config-network-proxyUrl', 'config-network-allowCredentialsWithProxy'].forEach(id => {
             DOM(id).addEventListener('input', handleInput);
         });
 

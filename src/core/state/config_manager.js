@@ -31,6 +31,10 @@
 				llm: {
 					model: 'gemini-3.1-pro-preview',
 					temperature: 1.0
+				},
+				network: {
+					proxyUrl: 'https://corsproxy.io/?',
+					allowCredentialsWithProxy: false
 				}
 			};
 		}
