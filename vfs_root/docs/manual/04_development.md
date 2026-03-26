@@ -104,6 +104,10 @@ Browser iframes are usually restricted by CORS and permission policies. MetaOS p
 // The Host will route this through a public proxy to avoid CORS errors.
 const res = await MetaOS.net.fetch('https://api.example.com/data', { useProxy: true, responseType: 'json' });
 console.log(res.data);
+
+// Downloads a file and writes it directly to the Virtual File System.
+// This is more efficient for large or binary files than fetch.
+await MetaOS.net.download('https://example.com/image.jpg', 'data/downloads/image.jpg', { useProxy: true });
 ```
 
 **Using the Camera**

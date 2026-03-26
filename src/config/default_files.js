@@ -1,5 +1,5 @@
 // AUTO-GENERATED FILE - DO NOT EDIT MANUALLY
-// Generated on: 2026-03-22T13:27:40Z
+// Generated on: 2026-03-26T13:55:59Z
 
 (function(global) {
     global.Itera = global.Itera || {};
@@ -1372,6 +1372,7 @@ This is the only window connecting the guest code to you and the file system. It
 
 **Network & Devices (\`MetaOS.net\`, \`MetaOS.device\`):**
 *   \`await MetaOS.net.fetch('https://...', { useProxy: true })\`: Fetches external data bypassing CORS restrictions.
+*   \`await MetaOS.net.download('https://...', 'path/to/save', { useProxy: true })\`: Downloads and saves a file directly to VFS.
 *   \`await MetaOS.device.takePhoto()\`: Opens the OS camera UI and returns a base64 image data URL.
 *   \`await MetaOS.device.getLocation()\`: Gets the user's current GPS coordinates.
 
@@ -2081,6 +2082,7 @@ The API is divided into namespaces. All methods are asynchronous (\`Promise\`).
 
 *   **Network & Hardware (\`MetaOS.net\`, \`MetaOS.device\`)**:
     *   \`await MetaOS.net.fetch(url, options)\`: Fetches external APIs (can bypass CORS).
+    *   \`await MetaOS.net.download(url, destPath)\`: Downloads a file from a URL directly into the VFS.
     *   \`await MetaOS.device.takePhoto()\`: Opens the native camera interface.
 
 *   **AI Interaction (\`MetaOS.ai\`)**:
@@ -2312,6 +2314,10 @@ Browser iframes are usually restricted by CORS and permission policies. MetaOS p
 // The Host will route this through a public proxy to avoid CORS errors.
 const res = await MetaOS.net.fetch('https://api.example.com/data', { useProxy: true, responseType: 'json' });
 console.log(res.data);
+
+// Downloads a file and writes it directly to the Virtual File System.
+// This is more efficient for large or binary files than fetch.
+await MetaOS.net.download('https://example.com/image.jpg', 'data/downloads/image.jpg', { useProxy: true });
 \`\`\`
 
 **Using the Camera**
