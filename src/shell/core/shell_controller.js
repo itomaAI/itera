@@ -70,14 +70,17 @@
 					if (path.startsWith('docs/') || path.startsWith('system/lib/') || path.startsWith('system/kernel/')) {
 						initialFiles[path] = {
 							content: this.config.DEFAULT_FILES[path],
-							meta: { created_at: Date.now(), updated_at: Date.now() }
+							meta: {
+								created_at: Date.now(),
+								updated_at: Date.now()
+							}
 						};
 					}
 				});
 				console.log("[System] Core libraries and manuals auto-updated.");
 			}
 
-            const vfs = new State.VirtualFileSystem(initialFiles);
+			const vfs = new State.VirtualFileSystem(initialFiles);
 
 			// 自動パージ（1週間以上経過したゴミ箱のファイルを削除）
 			if (typeof vfs.purgeTrash === 'function') {
@@ -97,12 +100,12 @@
 
 			const themeManager = new Core.ThemeManager(configManager);
 			const translator = new Cognitive.Translator();
-            
-            const renderer = (Services && Services.LPMLRenderer) 
-                ? new Services.LPMLRenderer() 
-                : null;
 
-            if (!renderer) console.warn("[Itera] LPMLRenderer not found. Chat formatting will be disabled.");
+			const renderer = (Services && Services.LPMLRenderer) ?
+				new Services.LPMLRenderer() :
+				null;
+
+			if (!renderer) console.warn("[Itera] LPMLRenderer not found. Chat formatting will be disabled.");
 
 			this.panels.chat = new Panels.ChatPanel(renderer);
 			this.panels.explorer = new Panels.Explorer(vfs);
@@ -114,7 +117,8 @@
 			this.panels.chat.setVfs(vfs);
 
 			const registry = new Control.ToolRegistry();
-			
+			this.registry = registry;
+
 			// プロセス終了時に動的ツールを一掃する連携
 			this.windowing.processManager.on('process_killed', (pid) => {
 				if (registry.removeToolsByPid) registry.removeToolsByPid(pid);
@@ -198,8 +202,15 @@
 		}
 
 		_bindEvents() {
-			const { chat, explorer } = this.panels;
-			const { editor, media, settings } = this.modals;
+			const {
+				chat,
+				explorer
+			} = this.panels;
+			const {
+				editor,
+				media,
+				settings
+			} = this.modals;
 			const {
 				vfs,
 				history,
@@ -213,7 +224,7 @@
 
 				for (const file of attachments) {
 					const isText = file.type.startsWith('text/') || file.name.match(/\.(js|json|md|txt|html|css|xml|yml)$/);
-					
+
 					// ファイル読み込み
 					const reader = new FileReader();
 					const data = await new Promise(r => {
@@ -249,7 +260,7 @@
 									metadata: {}
 								}
 							});
-	
+
 							// user_inputの外に配置されるよう、独立したtextパーツとして追加
 							content.push({
 								text: `<user_attachment path="${path}">[Binary File: ${file.name}]</user_attachment>`
@@ -264,7 +275,9 @@
 
 				// ユーザーの入力テキストがあれば追加
 				if (text) {
-					content.push({ text: text });
+					content.push({
+						text: text
+					});
 				}
 
 				if (content.length === 0) return;
@@ -275,23 +288,13 @@
 			});
 
 			chat.on('stop', () => this.engine.stop());
-			
+
 			chat.on('clear', () => {
 				if (confirm("Clear chat history and media cache?")) {
-					history.clear();
-					
-					// キャッシュのパージ処理
-					try {
-						const CACHE_DIR = 'system/cache/media';
-						if (vfs.deleteDirectory) {
-							vfs.deleteDirectory(CACHE_DIR);
-							console.log("[System] Media cache cleared.");
-						}
-					} catch (e) {
-						console.warn("[System] Failed to clear media cache:", e);
-					}
-
-					chat.renderHistory([]);
+					this.clearSession({
+						purgeMedia: true,
+						triggerLlm: false
+					});
 				}
 			});
 
@@ -309,7 +312,7 @@
 				const BINARY_EXTS = /\.(png|jpg|jpeg|gif|webp|svg|ico|pdf|zip|mp3|mp4|wav|ogg)$/i;
 				if (path.match(BINARY_EXTS)) media.open(path, content);
 				else editor.open(path, content);
-	
+
 				this._closeMobileDrawers(); // モバイル時は自動でパネルを閉じる
 			});
 			explorer.on('history_event', (type, desc) => {
@@ -327,12 +330,12 @@
 					vfs.writeFile(path, content);
 					this.refreshPreview();
 
-                    const lpml = `<event type="file_edited">\nUser edited file manually: ${path}\n</event>`;
-                    const turn = history.append(global.Itera.Role.SYSTEM, lpml, { 
+					const lpml = `<event type="file_edited">\nUser edited file manually: ${path}\n</event>`;
+					const turn = history.append(global.Itera.Role.SYSTEM, lpml, {
 						type: 'event_log',
 						trigger_llm: false
 					});
-                    chat.appendTurn(turn);
+					chat.appendTurn(turn);
 
 				} catch (e) {
 					alert(e.message);
@@ -341,15 +344,15 @@
 
 			// Settings Events
 			settings.on('factory_reset', async () => {
-                try {
-                    const timestamp = new Date().toLocaleString();
-                    const label = `Auto Backup (Pre-Reset) - ${timestamp}`;
-                    await storage.createSnapshot(label, vfs.files, history.get());
-                    console.log(`[System] Created safety snapshot: ${label}`);
-                } catch (e) {
-                    console.error("Auto backup failed:", e);
-                    if (!confirm("Automatic backup failed. Continue reset anyway?")) return;
-                }
+				try {
+					const timestamp = new Date().toLocaleString();
+					const label = `Auto Backup (Pre-Reset) - ${timestamp}`;
+					await storage.createSnapshot(label, vfs.files, history.get());
+					console.log(`[System] Created safety snapshot: ${label}`);
+				} catch (e) {
+					console.error("Auto backup failed:", e);
+					if (!confirm("Automatic backup failed. Continue reset anyway?")) return;
+				}
 
 				history.clear();
 				vfs.loadFiles(this.config.DEFAULT_FILES);
@@ -392,16 +395,16 @@
 				this._triggerAutoSave();
 			});
 
-            this.engine.on('loop_stop', (data) => {
-                if (chat.currentStreamEl) chat.finalizeStreaming();
-                chat.setProcessing(false);
+			this.engine.on('loop_stop', (data) => {
+				if (chat.currentStreamEl) chat.finalizeStreaming();
+				chat.setProcessing(false);
 
-                if (data && data.reason === 'error') {
-                    console.error("[MainController] Loop stopped due to error:", data.error);
-                }
+				if (data && data.reason === 'error') {
+					console.error("[MainController] Loop stopped due to error:", data.error);
+				}
 
-                this._triggerAutoSave();
-            });
+				this._triggerAutoSave();
+			});
 
 			// State Listeners
 			vfs.on('change', (payload) => {
@@ -481,12 +484,12 @@
 			const usedMB = (usage.used / 1024 / 1024).toFixed(1);
 			const maxMB = (usage.max / 1024 / 1024).toFixed(1);
 			this.els.STORAGE_TEXT.textContent = `${usedMB} / ${maxMB} MB`;
-			
+
 			const percent = Math.min(100, usage.percent);
 			this.els.STORAGE_BAR.style.width = `${percent}%`;
 			this.els.STORAGE_BAR.className = 'absolute top-0 left-0 h-full transition-all duration-500 ease-out';
 			this.els.STORAGE_TEXT.className = 'font-mono text-text-muted';
-			
+
 			if (percent > 95) {
 				this.els.STORAGE_BAR.classList.add('bg-error', 'animate-pulse');
 				this.els.STORAGE_TEXT.classList.add('text-error', 'font-bold');
@@ -535,6 +538,60 @@
 
 		async captureScreenshot() {
 			return await this.windowing.processManager.captureScreenshot('main');
+		}
+
+		/**
+		 * セッション（履歴）をクリアし、必要に応じて情報を引き継ぐ
+		 * @param {Object} options - { purgeMedia: boolean, summary: string, triggerLlm: boolean, restoreTools: boolean }
+		 */
+		async clearSession(options = {}) {
+			const {
+				history,
+				vfs
+			} = this.state;
+			const purgeMedia = options.purgeMedia || false;
+			const summary = options.summary || null;
+			const triggerLlm = options.triggerLlm || false;
+			const restoreTools = options.restoreTools || false;
+
+			// 1. 履歴のクリア
+			history.clear();
+
+			// 2. メディアキャッシュのパージ
+			if (purgeMedia) {
+				try {
+					const CACHE_DIR = 'system/cache/media';
+					if (vfs.deleteDirectory && vfs.exists(CACHE_DIR)) {
+						vfs.deleteDirectory(CACHE_DIR);
+						console.log("[System] Media cache cleared.");
+					}
+				} catch (e) {
+					console.warn("[System] Failed to clear media cache:", e);
+				}
+			}
+
+			// 3. 現在有効な動的ツールの再注入
+			if (restoreTools && this.registry && this.registry.getActiveDynamicToolDefinitions) {
+				const activeToolDefs = this.registry.getActiveDynamicToolDefinitions();
+				if (activeToolDefs.length > 0) {
+					const defsText = activeToolDefs.join('\n');
+					history.append(global.Itera.Role.SYSTEM, `[System: Restored Dynamic Tools]\nThe following tools are currently active from background processes:\n${defsText}`, {
+						type: 'tool_available',
+						trigger_llm: false
+					});
+				}
+			}
+
+			// 4. 引き継ぎ情報の注入
+			if (summary) {
+				history.append(global.Itera.Role.SYSTEM, `[Session Restored & Context Compressed]\n\n${summary}`, {
+					type: 'event_log',
+					trigger_llm: triggerLlm
+				});
+			}
+
+			// 5. UIの再描画
+			this.panels.chat.renderHistory(history.get());
 		}
 	}
 

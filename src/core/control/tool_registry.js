@@ -60,6 +60,21 @@
 		}
 
 		/**
+		 * 現在登録されているすべての動的ツールの定義文字列（LPMLタグ定義）を取得する
+		 * セッションリセット時の引き継ぎ用
+		 * @returns {string[]} 定義文字列の配列
+		 */
+		getActiveDynamicToolDefinitions() {
+			const defs = [];
+			for (const tool of this.guestTools.values()) {
+				if (tool.def && tool.def.definition) {
+					defs.push(tool.def.definition);
+				}
+			}
+			return defs;
+		}
+
+		/**
 		 * 現在登録されているすべてのツール名を取得する
 		 * @returns {string[]} ツール名の配列
 		 */

@@ -57,7 +57,33 @@
 			};
 		});
 
-		// 5. thinking / plan
+		// 5. reset_session (Context Compression & Reset)
+		registry.register('reset_session', async (params, context) => {
+			const purgeMedia = params.purge_media === 'true';
+			const summary = params.content || "";
+
+			let nextSessionMsg = "[System: Session Reset & Context Compressed]\nPlease run the Initialization Protocol first.";
+			if (summary) {
+				nextSessionMsg += `\n\n[Carried Over Information]\n${summary}`;
+			}
+
+			if (context.shell && context.shell.clearSession) {
+				await context.shell.clearSession({
+					purgeMedia: purgeMedia,
+					summary: nextSessionMsg,
+					triggerLlm: true,
+					restoreTools: true
+				});
+			}
+
+			return {
+				log: `[reset_session] Session has been reset.`,
+				ui: `♻️ Session Reset`,
+				halt_loop: true
+			};
+		});
+
+		// 6. thinking / plan
 		// これらはLLMの思考過程用タグであり、ツールとしての実体動作はない
 		// ログに残すためだけに定義する
 		registry.register('thinking', async () => null);
