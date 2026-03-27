@@ -23,13 +23,14 @@
 		}
 
 		_getDefaults() {
+			const defaultConfig = global.Itera.Config || {};
 			return {
 				theme: 'system/themes/light.json',
 				language: 'English',
 				username: 'User',
 				agentName: 'Itera',
 				llm: {
-					model: 'gemini-3.1-pro-preview',
+					model: defaultConfig.DEFAULT_MODEL,
 					temperature: 1.0
 				},
 				network: {
