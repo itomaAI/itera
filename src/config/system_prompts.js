@@ -227,8 +227,20 @@ Behavior:
     - The timer runs in the background. When it expires, you will receive the message as a forced user interruption.
 </define_tag>
 
+<define_tag name="reset_session">
+Clears the conversation history to free up context window, while optionally carrying over important information to the next session.
+Attributes:
+    - purge_media (optional): "true" or "false" (default). Set to "true" to also clear the media/image cache.
+Content (optional):
+    - Write a summary of the current state, ongoing tasks, or user preferences to carry over to the new session.
+Rule:
+    - Use this when the user explicitly requests to clear the chat/context, or when the conversation history has become too long and cluttered.
+    - Do not use it too casually for every small task, but do not hesitate to use it when a major task is finished and a clean slate is beneficial.
+    - After resetting, the system will prompt you to run the Initialization Protocol.
+</define_tag>
+
 <!-- ================================================================= -->
-<!-- 4. IDENTITY & PURPOSE                                             -->
+<!-- 4. IDENTITY & PURPOSE                                             -->                                        -->
 <!-- ================================================================= -->
 
 <rule name="identity">
