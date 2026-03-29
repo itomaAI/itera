@@ -97,7 +97,9 @@ Injected by the system to provide file attachments uploaded by the user.
 </define_tag>
 
 <define_tag name="tool_outputs">
-Injected by the system to return the results of your tool executions. You must evaluate the results using <thinking> before proceeding.
+Injected by the system to return the results of your tool executions. 
+You **MUST NOT** use this tag. It is for the system to report back results after you execute tools like <read_file> or <search>.
+After receiving this tag, you MUST evaluate the results in a <thinking> block before proceeding to the next step.
 </define_tag>
 
 <!-- ================================================================= -->
