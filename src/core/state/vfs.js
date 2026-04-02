@@ -87,8 +87,13 @@
             this._emit('change', { type: 'reload', path: null, usage: this.getUsage() });
         }
 
-        exists(path) {
+        isFile(path) {
             return Object.prototype.hasOwnProperty.call(this.files, this._norm(path));
+        }
+
+        exists(path) {
+            const p = this._norm(path);
+            return this.isFile(p) || this.isDirectory(p);
         }
 
         isDirectory(path) {
@@ -103,7 +108,7 @@
             const p = this._norm(path);
 
             // 1. File exists
-            if (this.exists(p)) {
+            if (this.isFile(p)) {
                 const f = this.files[p];
                 return {
                     path: p,
@@ -130,7 +135,7 @@
 
         readFile(path) {
             const p = this._norm(path);
-            if (!this.exists(p)) throw new Error(`File not found: ${p}`);
+            if (!this.isFile(p)) throw new Error(`File not found: ${p}`);
             return this.files[p].content;
         }
 
@@ -138,9 +143,13 @@
             const p = this._norm(path);
             if (!p) throw new Error("Cannot write to root path.");
 
+            if (!this.isFile(p) && this.isDirectory(p)) {
+                throw new Error(`Cannot write file: A directory already exists at ${p}`);
+            }
+
             const now = Date.now();
             const newSize = content.length;
-            const exists = this.exists(p);
+            const exists = this.isFile(p);
             const oldSize = exists ? this.files[p].content.length : 0;
             const currentTotal = this._calcTotalSize();
 
@@ -165,7 +174,7 @@
 
         deleteFile(path) {
             const p = this._norm(path);
-            if (this.exists(p)) {
+            if (this.isFile(p)) {
                 if (p.startsWith('.trash/') || p.startsWith('system/cache/')) {
                     // ゴミ箱内またはキャッシュ領域の場合は完全削除
                     delete this.files[p];
@@ -183,7 +192,13 @@
                     return `Moved to trash: ${p}`;
                 }
             }
-            return this.deleteDirectory(p);
+            
+            // ファイルとして存在しない場合、ディレクトリとして存在するか確認してからフォールバック
+            if (this.isDirectory(p)) {
+                return this.deleteDirectory(p);
+            }
+
+            throw new Error(`File or Directory not found: ${path}`);
         }
 
         createDirectory(path) {
@@ -191,8 +206,13 @@
             if (p.endsWith('/')) p = p.slice(0, -1);
             if (!p) return;
             
+            // 同名のファイルが既に存在する場合はエラー
+            if (this.isFile(p)) {
+                throw new Error(`Cannot create directory: A file already exists at ${p}`);
+            }
+            
             const keepFile = `${p}/.keep`;
-            if (!this.exists(keepFile)) {
+            if (!this.isFile(keepFile)) {
                 this.writeFile(keepFile, "");
                 return `Created directory: ${p}`;
             }
@@ -234,7 +254,8 @@
             const oldP = this._norm(oldPath);
             const newP = this._norm(newPath);
 
-            if (this.exists(oldP)) {
+            // ファイルのリネーム
+            if (this.isFile(oldP)) {
                 if (this.exists(newP)) throw new Error(`Destination ${newP} already exists.`);
                 this.files[newP] = this.files[oldP];
                 delete this.files[oldP];
@@ -265,7 +286,7 @@
         copyFile(srcPath, destPath) {
             const src = this._norm(srcPath);
             const dest = this._norm(destPath);
-            if (!this.exists(src)) throw new Error(`Source ${src} not found.`);
+            if (!this.isFile(src)) throw new Error(`Source file ${src} not found.`);
             if (this.exists(dest)) throw new Error(`Destination ${dest} already exists.`);
 
             const content = this.files[src].content;
@@ -299,7 +320,7 @@
             const recursive = options.recursive === true;
             
             // 1. 指定パスがファイルとして存在する場合、そのパスをフルパスで返す
-            if (this.exists(root)) {
+            if (this.isFile(root)) {
                 return options.detail ? [this.stat(root)] : [root];
             }
 
@@ -384,7 +405,7 @@
 
         replaceContent(path, patternStr, replacement) {
             const p = this._norm(path);
-            if (!this.exists(p)) throw new Error(`File not found: ${p}`);
+            if (!this.isFile(p)) throw new Error(`File not found: ${p}`);
 
             const content = this.files[p].content;
             let regex;
@@ -407,7 +428,7 @@
 
         editLines(path, start, end, mode, newContent = "") {
             const p = this._norm(path);
-            if (!this.exists(p)) throw new Error(`File not found: ${p}`);
+            if (!this.isFile(p)) throw new Error(`File not found: ${p}`);
 
             const content = this.files[p].content;
             let lines = content.split(/\r?\n/);
