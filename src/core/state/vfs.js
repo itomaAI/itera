@@ -192,7 +192,13 @@
                     return `Moved to trash: ${p}`;
                 }
             }
-            return this.deleteDirectory(p);
+            
+            // ファイルとして存在しない場合、ディレクトリとして存在するか確認してからフォールバック
+            if (this.isDirectory(p)) {
+                return this.deleteDirectory(p);
+            }
+
+            throw new Error(`File or Directory not found: ${path}`);
         }
 
         createDirectory(path) {

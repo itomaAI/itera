@@ -41,6 +41,7 @@
 
         _buildTree(parentElement, nodes, indentLevel) {
             nodes.forEach(node => {
+                if (node.name === '.keep') return; // Hide .keep files from UI
                 const li = document.createElement('li');
                 li.className = 'tree-node select-none';
 
