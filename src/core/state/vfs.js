@@ -26,21 +26,24 @@
             }
         }
 
-        // --- ★ Modified: Enhanced path normalization ---
         _norm(path) {
-            if (!path) return "";
-            // 1. Windowsパスセパレータの置換
+            if (!path || typeof path !== 'string') return "";
+            // 1. スラッシュの統一
             let p = path.replace(/\\/g, '/');
-            // 2. 先頭のスラッシュ削除
-            p = p.replace(/^\/+/, '');
-            // 3. 先頭の ./ を削除
-            if (p.startsWith('./')) p = p.substring(2);
-            // 4. . だけならルート扱い
-            if (p === '.') return "";
-            // 5. .. を削除 (簡易セキュリティ)
-            return p.replace(/\.\./g, '');
+            // 2. セグメント分解と不要な要素(".", "")の除去
+            const parts = p.split('/').filter(part => part !== '.' && part !== '');
+            // 3. 親ディレクトリ参照(..)の解決
+            const stack = [];
+            for (const part of parts) {
+                if (part === '..') {
+                    if (stack.length > 0) stack.pop();
+                } else {
+                    stack.push(part);
+                }
+            }
+            // 4. 常に先頭にスラッシュのない「ルートからの相対フルパス」を返す
+            return stack.join('/');
         }
-        // ----------------------------------------------
 
         _migrateFile(data) {
             const now = Date.now();
@@ -291,41 +294,39 @@
             return count;
         }
 
-        // --- ★ Modified: Enhanced listFiles (Recursive support) ---
         listFiles(options = {}) {
             const root = options.path ? this._norm(options.path) : "";
             const recursive = options.recursive === true;
             
+            // 1. 指定パスがファイルとして存在する場合、そのパスをフルパスで返す
+            if (this.exists(root)) {
+                return options.detail ? [this.stat(root)] : [root];
+            }
+
             const allPaths = Object.keys(this.files).sort();
             let result = [];
             
-            const prefix = root ? (root.endsWith('/') ? root : root + '/') : "";
+            // 2. ディレクトリとしての検索用プレフィックスを作成
+            const prefix = root === "" ? "" : root + "/";
 
             if (recursive) {
-                // 再帰的: プレフィックスに一致する全ファイルを返す
-                if (!root) {
-                    result = allPaths;
-                } else {
-                    result = allPaths.filter(p => p.startsWith(prefix));
-                }
+                // 再帰的: 指定階層以下のすべてのファイルをフルパスで返す
+                result = allPaths.filter(p => p.startsWith(prefix));
             } else {
-                // 非再帰的: 直下のファイルとフォルダのみを返す
+                // 非再帰的: 指定ディレクトリ直下の要素（ファイル名/フォルダパス）をフルパスで返す
                 const items = new Set();
-                
                 for (const path of allPaths) {
                     if (!path.startsWith(prefix)) continue;
                     
-                    // prefixを除去した相対パスを取得
                     const relative = path.substring(prefix.length);
-                    if (!relative) continue; // ルートディレクトリ自体は除外
+                    if (!relative) continue; 
 
                     const parts = relative.split('/');
-                    
                     if (parts.length === 1) {
-                        // ファイル
+                        // 直下のファイル
                         items.add(path);
                     } else {
-                        // フォルダ (直下のディレクトリ名だけ追加してパスを構築)
+                        // 直下のフォルダ（プレフィックス + 第一階層名）
                         items.add(prefix + parts[0]);
                     }
                 }
@@ -337,7 +338,6 @@
             }
             return result;
         }
-        // -----------------------------------------------------------
         
         getTree() {
             const root = { name: "root", path: "", type: "folder", children: {} };
