@@ -298,9 +298,9 @@
 			if (this.els.ADDRESS_BAR) {
 				try {
 					// クエリパラメータを含むパスをデコードして表示する
-					this.els.ADDRESS_BAR.textContent = `metaos://view/${decodeURI(path)}`;
+					this.els.ADDRESS_BAR.value = `metaos://view/${decodeURI(path)}`;
 				} catch (e) {
-					this.els.ADDRESS_BAR.textContent = `metaos://view/${path}`;
+					this.els.ADDRESS_BAR.value = `metaos://view/${path}`;
 				}
 			}
 		}

@@ -29,7 +29,8 @@
 		STORAGE_BAR: 'storage-usage-bar',
 		STORAGE_TEXT: 'storage-usage-text',
 		SAVE_STATUS: 'save-status',
-		MODEL_STATUS: 'model-status'
+		MODEL_STATUS: 'model-status',
+		ADDRESS_BAR: 'preview-address-bar'
 	};
 
 	class ShellController {
@@ -206,6 +207,27 @@
 				chat,
 				explorer
 			} = this.panels;
+
+			const handleAddressNavigate = () => {
+				let path = this.els.ADDRESS_BAR.value.trim();
+				if (path.startsWith('metaos://view/')) path = path.replace('metaos://view/', '');
+				if (path) this.refreshPreview(path);
+				this.els.ADDRESS_BAR.blur();
+			};
+
+			if (this.els.ADDRESS_BAR) {
+				this.els.ADDRESS_BAR.addEventListener('keydown', (e) => {
+					if (e.key === 'Enter') handleAddressNavigate();
+				});
+			}
+
+			const btnAddressGo = document.getElementById('btn-address-go');
+			if (btnAddressGo) {
+				// モバイル等でボタンタップ時にinputのフォーカスが外れてボタンが消えるのを防ぐ
+				btnAddressGo.addEventListener('mousedown', (e) => e.preventDefault());
+				btnAddressGo.addEventListener('touchstart', (e) => e.preventDefault(), { passive: false });
+				btnAddressGo.addEventListener('click', handleAddressNavigate);
+			}
 			const {
 				editor,
 				media,
@@ -314,6 +336,10 @@
 				else editor.open(path, content);
 
 				this._closeMobileDrawers(); // モバイル時は自動でパネルを閉じる
+			});
+			explorer.on('run_file', (path) => {
+				this.refreshPreview(path);
+				this._closeMobileDrawers();
 			});
 			explorer.on('history_event', (type, desc) => {
 				const lpml = `<event type="${type}">\n${desc}\n</event>`;

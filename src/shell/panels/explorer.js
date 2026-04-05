@@ -74,6 +74,10 @@
 				}
 			});
 
+			this.treeView.on('run', (path) => {
+				if (this.events['run_file']) this.events['run_file'](path);
+			});
+
 			this.treeView.on('create_file', (path) => {
 				try {
 					this.vfs.writeFile(path, "");
