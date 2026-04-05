@@ -30,7 +30,7 @@
          * @param {Window} targetWindow - 対象iframeのcontentWindow
          * @returns {Promise<any>}
          */
-        async invokeGuest(pid, action, payload, targetWindow) {
+        async invokeGuest(pid, action, payload, targetWindow, timeoutMs = null) {
             if (!targetWindow) {
                 throw new Error(`[HostTransport] Target window for PID '${pid}' is missing.`);
             }
@@ -38,7 +38,7 @@
             const req = IpcMessage.createRequest('host', pid, action, payload);
             
             // Promiseを取得してから送信
-            const promise = this.rpc.waitFor(req.id);
+            const promise = this.rpc.waitFor(req.id, timeoutMs);
             targetWindow.postMessage(req, '*');
             
             return promise;

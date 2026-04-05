@@ -34,6 +34,15 @@
 			Object.entries(DOM_IDS).forEach(([key, id]) => {
 				this.els[key] = document.getElementById(id);
 			});
+
+			if (this.els.FRAME_MAIN) {
+				this.els.FRAME_MAIN.addEventListener('load', () => {
+					const currentPid = this.els.FRAME_MAIN.name || 'main';
+					if (this.events['process_loaded']) {
+						this.events['process_loaded'](currentPid, this.els.FRAME_MAIN.contentWindow);
+					}
+				});
+			}
 		}
 
 		_bindEvents() {
@@ -130,6 +139,13 @@
 					iframe.name = pid; // ★ プロセスIDを伝達
 					// バックグラウンドプロセス用のサンドボックス
 					iframe.sandbox = "allow-scripts allow-forms allow-same-origin";
+					
+					iframe.addEventListener('load', () => {
+						if (this.events['process_loaded']) {
+							this.events['process_loaded'](pid, iframe.contentWindow);
+						}
+					});
+
 					if (this.els.BG_CONTAINER) {
 						this.els.BG_CONTAINER.appendChild(iframe);
 					}

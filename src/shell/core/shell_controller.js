@@ -125,6 +125,21 @@
 				if (registry.removeToolsByPid) registry.removeToolsByPid(pid);
 			});
 
+			// iframeのナビゲーションやリロード時にツールを同期（パージ）する自己修復連携
+			this.windowing.processManager.on('process_loaded', async (pid, contentWindow) => {
+				try {
+					if (!this.transport || !this.transport.invokeGuest) return;
+					// 1秒のタイムアウトでGuestへ現在登録中のツール一覧を要求
+					const activeTools = await this.transport.invokeGuest(pid, 'sync_tools', {}, contentWindow, 1000);
+					if (Array.isArray(activeTools) && registry.syncTools) {
+						registry.syncTools(pid, activeTools);
+					}
+				} catch (e) {
+					// 外部サイトへの遷移や応答不能な場合は、安全のため全ツールを削除する
+					if (registry.removeToolsByPid) registry.removeToolsByPid(pid);
+				}
+			});
+
 			if (Control.Tools) {
 				Control.Tools.registerFSTools(registry);
 				Control.Tools.registerUITools(registry);
