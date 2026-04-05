@@ -208,15 +208,25 @@
 				explorer
 			} = this.panels;
 
+			const handleAddressNavigate = () => {
+				let path = this.els.ADDRESS_BAR.value.trim();
+				if (path.startsWith('metaos://view/')) path = path.replace('metaos://view/', '');
+				if (path) this.refreshPreview(path);
+				this.els.ADDRESS_BAR.blur();
+			};
+
 			if (this.els.ADDRESS_BAR) {
 				this.els.ADDRESS_BAR.addEventListener('keydown', (e) => {
-					if (e.key === 'Enter') {
-						let path = this.els.ADDRESS_BAR.value.trim();
-						if (path.startsWith('metaos://view/')) path = path.replace('metaos://view/', '');
-						if (path) this.refreshPreview(path);
-						this.els.ADDRESS_BAR.blur();
-					}
+					if (e.key === 'Enter') handleAddressNavigate();
 				});
+			}
+
+			const btnAddressGo = document.getElementById('btn-address-go');
+			if (btnAddressGo) {
+				// モバイル等でボタンタップ時にinputのフォーカスが外れてボタンが消えるのを防ぐ
+				btnAddressGo.addEventListener('mousedown', (e) => e.preventDefault());
+				btnAddressGo.addEventListener('touchstart', (e) => e.preventDefault(), { passive: false });
+				btnAddressGo.addEventListener('click', handleAddressNavigate);
 			}
 			const {
 				editor,
