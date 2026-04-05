@@ -276,6 +276,11 @@
                     if (this.events['upload_request']) this.events['upload_request'](node.path);
                 }});
                 actions.push({ separator: true });
+            } else if (node.name.endsWith('.html')) {
+                actions.push({ label: '▶ Run (Spawn)', action: () => {
+                    if (this.events['run']) this.events['run'](node.path);
+                }});
+                actions.push({ separator: true });
             }
 
             actions.push({ label: 'Duplicate', action: () => {
