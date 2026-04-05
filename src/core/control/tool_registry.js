@@ -60,6 +60,23 @@
 		}
 
 		/**
+		 * Guestから返されたアクティブなツールリストと照合し、存在しない古いツールをパージする
+		 */
+		syncTools(pid, activeToolNames) {
+			const activeSet = new Set(activeToolNames);
+			let count = 0;
+			for (const [name, tool] of this.guestTools.entries()) {
+				if (tool.pid === pid && !activeSet.has(name)) {
+					this.guestTools.delete(name);
+					count++;
+				}
+			}
+			if (count > 0) {
+				console.log(`[ToolRegistry] Synced tools for PID '${pid}': Removed ${count} stale dynamic tool(s).`);
+			}
+		}
+
+		/**
 		 * 現在登録されているすべての動的ツールの定義文字列（LPMLタグ定義）を取得する
 		 * セッションリセット時の引き継ぎ用
 		 * @returns {string[]} 定義文字列の配列

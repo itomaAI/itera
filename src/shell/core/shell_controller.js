@@ -29,7 +29,8 @@
 		STORAGE_BAR: 'storage-usage-bar',
 		STORAGE_TEXT: 'storage-usage-text',
 		SAVE_STATUS: 'save-status',
-		MODEL_STATUS: 'model-status'
+		MODEL_STATUS: 'model-status',
+		ADDRESS_BAR: 'preview-address-bar'
 	};
 
 	class ShellController {
@@ -124,6 +125,21 @@
 				if (registry.removeToolsByPid) registry.removeToolsByPid(pid);
 			});
 
+			// iframeのナビゲーションやリロード時にツールを同期（パージ）する自己修復連携
+			this.windowing.processManager.on('process_loaded', async (pid, contentWindow) => {
+				try {
+					if (!this.transport || !this.transport.invokeGuest) return;
+					// 1秒のタイムアウトでGuestへ現在登録中のツール一覧を要求
+					const activeTools = await this.transport.invokeGuest(pid, 'sync_tools', {}, contentWindow, 1000);
+					if (Array.isArray(activeTools) && registry.syncTools) {
+						registry.syncTools(pid, activeTools);
+					}
+				} catch (e) {
+					// 外部サイトへの遷移や応答不能な場合は、安全のため全ツールを削除する
+					if (registry.removeToolsByPid) registry.removeToolsByPid(pid);
+				}
+			});
+
 			if (Control.Tools) {
 				Control.Tools.registerFSTools(registry);
 				Control.Tools.registerUITools(registry);
@@ -206,6 +222,17 @@
 				chat,
 				explorer
 			} = this.panels;
+
+			if (this.els.ADDRESS_BAR) {
+				this.els.ADDRESS_BAR.addEventListener('keydown', (e) => {
+					if (e.key === 'Enter') {
+						let path = this.els.ADDRESS_BAR.value.trim();
+						if (path.startsWith('metaos://view/')) path = path.replace('metaos://view/', '');
+						if (path) this.refreshPreview(path);
+						this.els.ADDRESS_BAR.blur();
+					}
+				});
+			}
 			const {
 				editor,
 				media,
@@ -314,6 +341,10 @@
 				else editor.open(path, content);
 
 				this._closeMobileDrawers(); // モバイル時は自動でパネルを閉じる
+			});
+			explorer.on('run_file', (path) => {
+				this.refreshPreview(path);
+				this._closeMobileDrawers();
 			});
 			explorer.on('history_event', (type, desc) => {
 				const lpml = `<event type="${type}">\n${desc}\n</event>`;

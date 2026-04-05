@@ -21,6 +21,11 @@
         return await handler(payload.params);
     });
 
+    // ツールリストの同期リクエスト
+    transport.registerHandler('sync_tools', async () => {
+        return Array.from(localToolHandlers.keys());
+    });
+
     global.MetaOS = {
         // 1. ファイルシステム (VFS)
         fs: {

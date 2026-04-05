@@ -13,14 +13,15 @@
             this.timeoutMs = timeoutMs;
         }
 
-        waitFor(id) {
+        waitFor(id, overrideTimeoutMs = null) {
+            const timeout = overrideTimeoutMs !== null ? overrideTimeoutMs : this.timeoutMs;
             return new Promise((resolve, reject) => {
                 const timeoutId = setTimeout(() => {
                     if (this.pendingRequests.has(id)) {
                         this.pendingRequests.delete(id);
-                        reject(new Error(`RPC Timeout: Request ${id} exceeded ${this.timeoutMs}ms`));
+                        reject(new Error(`RPC Timeout: Request ${id} exceeded ${timeout}ms`));
                     }
-                }, this.timeoutMs);
+                }, timeout);
 
                 this.pendingRequests.set(id, { resolve, reject, timeoutId });
             });
@@ -58,14 +59,15 @@
             this.timeoutMs = timeoutMs;
         }
 
-        waitFor(id) {
+        waitFor(id, overrideTimeoutMs = null) {
+            const timeout = overrideTimeoutMs !== null ? overrideTimeoutMs : this.timeoutMs;
             return new Promise((resolve, reject) => {
                 const timeoutId = setTimeout(() => {
                     if (this.pendingRequests.has(id)) {
                         this.pendingRequests.delete(id);
-                        reject(new Error("RPC Timeout: Request " + id + " exceeded " + this.timeoutMs + "ms"));
+                        reject(new Error("RPC Timeout: Request " + id + " exceeded " + timeout + "ms"));
                     }
-                }, this.timeoutMs);
+                }, timeout);
                 this.pendingRequests.set(id, { resolve, reject, timeoutId });
             });
         }
