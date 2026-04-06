@@ -155,7 +155,7 @@
 
 				// 暴走チェック
 				if (this.continuousToolCount >= this.MAX_CONTINUOUS_TOOLS) {
-					this.state.history.append(Role.SYSTEM, `System Alert: Max continuous tool executions (${this.MAX_CONTINUOUS_TOOLS}) reached. Auto-trigger paused.`, {
+					this.state.history.append(Role.SYSTEM, `<event type="system_alert">\nSystem Alert: Max continuous tool executions (${this.MAX_CONTINUOUS_TOOLS}) reached. Auto-trigger paused.\n</event>`, {
 						type: TurnType.ERROR,
 						trigger_llm: false
 					});
@@ -227,7 +227,7 @@
 					});
 				} else {
 					console.error('[Engine] Error:', error);
-					const errTurn = this.state.history.append(Role.SYSTEM, `System Error: ${error.message}`, {
+					const errTurn = this.state.history.append(Role.SYSTEM, `<event type="system_error">\nSystem Error: ${error.message}\n</event>`, {
 						type: TurnType.ERROR,
 						trigger_llm: false
 					});
