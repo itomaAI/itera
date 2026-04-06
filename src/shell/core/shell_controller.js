@@ -601,7 +601,7 @@
 				const activeToolDefs = this.registry.getActiveDynamicToolDefinitions();
 				if (activeToolDefs.length > 0) {
 					const defsText = activeToolDefs.join('\n');
-					history.append(global.Itera.Role.SYSTEM, `[System: Restored Dynamic Tools]\nThe following tools are currently active from background processes:\n${defsText}`, {
+					history.append(global.Itera.Role.SYSTEM, `<event type="tool_available">\n[System: Restored Dynamic Tools]\nThe following tools are currently active from background processes:\n${defsText}\n</event>`, {
 						type: 'tool_available',
 						trigger_llm: false
 					});
@@ -610,7 +610,7 @@
 
 			// 4. 引き継ぎ情報の注入
 			if (summary) {
-				history.append(global.Itera.Role.SYSTEM, `[Session Restored & Context Compressed]\n\n${summary}`, {
+				history.append(global.Itera.Role.SYSTEM, `<event type="session_reset">\n[Session Restored & Context Compressed]\n\n${summary}\n</event>`, {
 					type: 'event_log',
 					trigger_llm: triggerLlm
 				});
