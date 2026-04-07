@@ -24,7 +24,7 @@
     global.MetaOS = {
         // 1. ファイルシステム (VFS)
         fs: {
-            read: async (path) => transport.requestHost('fs:read', { path }),
+            read: async (path, opts = {}) => transport.requestHost('fs:read', { path, opts }),
             write: async (path, content, opts = {}) => transport.requestHost('fs:write', { path, content, opts }),
             append: async (path, content, opts = {}) => transport.requestHost('fs:append', { path, content, opts }),
             delete: async (path, opts = {}) => transport.requestHost('fs:delete', { path, opts }),
