@@ -18,7 +18,9 @@ This is the only window connecting the guest code to you and the file system. It
 
 **File System (`MetaOS.fs`):**
 *   `await MetaOS.fs.write('data/todo.json', jsonString, { silent: true })`
+    *   *Note: `content` MUST be a String. For binary data, convert it to a Base64 Data URI string before writing.*
 *   `await MetaOS.fs.read('data/config.txt')`
+    *   *Note: Always returns a String (Text or Data URI).*
 *   `await MetaOS.fs.delete('data/old.txt')`
 
 **Process & IPC Control (`MetaOS.system`):**

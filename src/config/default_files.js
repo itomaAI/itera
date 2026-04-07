@@ -1,5 +1,5 @@
 // AUTO-GENERATED FILE - DO NOT EDIT MANUALLY
-// Generated on: 2026-03-26T15:09:06Z
+// Generated on: 2026-04-07T08:32:46Z
 
 (function(global) {
     global.Itera = global.Itera || {};
@@ -1356,7 +1356,9 @@ This is the only window connecting the guest code to you and the file system. It
 
 **File System (\`MetaOS.fs\`):**
 *   \`await MetaOS.fs.write('data/todo.json', jsonString, { silent: true })\`
+    *   *Note: \`content\` MUST be a String. For binary data, convert it to a Base64 Data URI string before writing.*
 *   \`await MetaOS.fs.read('data/config.txt')\`
+    *   *Note: Always returns a String (Text or Data URI).*
 *   \`await MetaOS.fs.delete('data/old.txt')\`
 
 **Process & IPC Control (\`MetaOS.system\`):**
@@ -2067,8 +2069,8 @@ To interact with the system, apps use the global \`window.MetaOS\` client librar
 The API is divided into namespaces. All methods are asynchronous (\`Promise\`).
 
 *   **File System (\`MetaOS.fs\`)**:
-    *   \`await MetaOS.fs.write(path, content)\`: Writes a file.
-    *   \`await MetaOS.fs.read(path)\`: Reads a file as a string.
+    *   \`await MetaOS.fs.write(path, content)\`: Writes a file. **\`content\` MUST be a string.** (For binary files, convert them to a Base64 Data URI string first).
+    *   \`await MetaOS.fs.read(path)\`: Reads a file and always returns its content as a string.
     *   \`await MetaOS.fs.list(path, options)\`: Returns a list of files.
     *   \`await MetaOS.fs.delete(path)\`: Deletes a file.
 

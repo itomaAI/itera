@@ -137,21 +137,7 @@
             const p = this._norm(path);
             if (!this.isFile(p)) throw new Error(`File not found: ${p}`);
             
-            let content = this.files[p].content;
-            
-            if (opts && opts.encoding === 'base64') {
-                if (content.startsWith('data:')) {
-                    const commaIdx = content.indexOf(',');
-                    if (commaIdx !== -1) {
-                        return content.slice(commaIdx + 1);
-                    }
-                } else {
-                    // Plain text stored as string, convert to base64
-                    return btoa(unescape(encodeURIComponent(content)));
-                }
-            }
-            
-            return content;
+            return this.files[p].content;
         }
 
         writeFile(path, content, opts = {}) {
@@ -161,10 +147,9 @@
             if (!this.isFile(p) && this.isDirectory(p)) {
                 throw new Error(`Cannot write file: A directory already exists at ${p}`);
             }
-            
-            if (opts && opts.encoding === 'base64') {
-                const mime = opts.mimeType || 'application/octet-stream';
-                content = `data:${mime};base64,${content}`;
+
+            if (typeof content !== 'string') {
+                throw new Error(`[VFS] content must be a string. For binary data, convert it to a Base64 Data URI string before writing.`);
             }
 
             const now = Date.now();

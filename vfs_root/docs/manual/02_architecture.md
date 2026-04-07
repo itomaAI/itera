@@ -51,8 +51,8 @@ To interact with the system, apps use the global `window.MetaOS` client library.
 The API is divided into namespaces. All methods are asynchronous (`Promise`).
 
 *   **File System (`MetaOS.fs`)**:
-    *   `await MetaOS.fs.write(path, content)`: Writes a file.
-    *   `await MetaOS.fs.read(path)`: Reads a file as a string.
+    *   `await MetaOS.fs.write(path, content)`: Writes a file. **`content` MUST be a string.** (For binary files, convert them to a Base64 Data URI string first).
+    *   `await MetaOS.fs.read(path)`: Reads a file and always returns its content as a string.
     *   `await MetaOS.fs.list(path, options)`: Returns a list of files.
     *   `await MetaOS.fs.delete(path)`: Deletes a file.
 

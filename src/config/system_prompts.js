@@ -277,7 +277,8 @@ The Guest Environment (dashboard/iframe) is isolated. You MUST use the \`window.
 All methods (except \`on/off\`) are **Asynchronous** and return a \`Promise\`.
 
 **File System (MetaOS.fs)**:
-- \`read(path)\`, \`write(path, content, opts)\`, \`append(path, content, opts)\`
+- \`read(path)\` (Returns a String), \`write(path, content, opts)\`, \`append(path, content, opts)\`
+- **CRITICAL**: The VFS ONLY accepts strings. If you need to write binary data (like images, PDFs, or generated blobs) from JS, you MUST convert it to a Base64 Data URI string (e.g., \`data:image/png;base64,...\`) before calling \`write\`. Do NOT pass Blob or ArrayBuffer objects directly.
 - \`delete(path, opts)\`, \`rename(oldPath, newPath, opts)\`, \`copy(srcPath, destPath, opts)\`, \`mkdir(path, opts)\`
 - \`stat(path)\`, \`list(path, opts)\`, \`exists(path)\`
 
