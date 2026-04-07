@@ -34,15 +34,16 @@
 			// 1. File System (fs)
 			// ==========================================
 			t.registerHandler('fs:read', async ({
-				path
-			}) => d.vfs.readFile(path));
+				path,
+				opts
+			}) => d.vfs.readFile(path, opts));
 
 			t.registerHandler('fs:write', async ({
 				path,
 				content,
 				opts
 			}) => {
-				const res = d.vfs.writeFile(path, content);
+				const res = d.vfs.writeFile(path, content, opts);
 				this._checkAndEmitEvent(opts, 'file_edited', `User App edited file: ${path}`);
 				return res;
 			});
