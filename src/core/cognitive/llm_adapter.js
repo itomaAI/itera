@@ -78,10 +78,23 @@
 			};
 			if (signal) signal.addEventListener('abort', onAbort);
 
+			// ★ アイドルタイムアウト（無通信監視）の導入
+			let idleTimeout;
+			const resetIdleTimeout = () => {
+				clearTimeout(idleTimeout);
+				idleTimeout = setTimeout(() => {
+					reader.cancel(new Error("Stream Idle Timeout: No response from API for 15 seconds."));
+				}, 15000); // 15秒間データが来なければ切断
+			};
+			
+			resetIdleTimeout();
+
             try {
                 while (true) {
                     if (signal && signal.aborted) throw new DOMException("Aborted", "AbortError");
                     const { done, value } = await reader.read();
+                    resetIdleTimeout(); // データを受信するたびにタイマーをリセット
+                    
                     if (signal && signal.aborted) throw new DOMException("Aborted", "AbortError");
                     if (done) break;
 
@@ -145,6 +158,7 @@
 				console.error("[GeminiAdapter] Stream Reading Error:", e);
 				throw e;
 			} finally {
+				clearTimeout(idleTimeout); // タイマーのクリーンアップ
 				if (signal) signal.removeEventListener('abort', onAbort);
 			}
 		}
