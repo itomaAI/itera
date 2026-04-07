@@ -180,8 +180,8 @@
         deleteFile(path) {
             const p = this._norm(path);
             if (this.isFile(p)) {
-                if (p.startsWith('.trash/') || p.startsWith('system/cache/')) {
-                    // ゴミ箱内またはキャッシュ領域の場合は完全削除
+                if (p.startsWith('.trash/') || p.startsWith('system/cache/') || p.startsWith('system/logs/')) {
+                    // ゴミ箱、キャッシュ、またはシステムログ領域の場合は完全削除
                     delete this.files[p];
                     this._emit('change', { type: 'delete', path: p, usage: this.getUsage() });
                     return `Permanently deleted file: ${p}`;

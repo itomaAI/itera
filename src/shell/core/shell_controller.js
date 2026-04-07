@@ -82,21 +82,17 @@
 			}
 
 			const vfs = new State.VirtualFileSystem(initialFiles);
-
-			// 自動パージ（1週間以上経過したゴミ箱のファイルを削除）
-			if (typeof vfs.purgeTrash === 'function') {
-				vfs.purgeTrash(7);
-			}
-
 			const history = new State.HistoryManager();
 			history.load(initialHistory);
 			const configManager = new State.ConfigManager(vfs);
+			const logger = new State.SystemLogger(vfs);
 
 			this.state = {
 				storage,
 				vfs,
 				history,
-				configManager
+				configManager,
+				logger
 			};
 
 			const themeManager = new Core.ThemeManager(configManager);
@@ -138,7 +134,7 @@
 				const conf = configManager.get('llm');
 				const model = conf?.model || "gemini-3.1-pro-preview";
 				this._updateModelStatus(model);
-				return new Cognitive.GeminiAdapter(apiKey, model);
+				return new Cognitive.GeminiAdapter(apiKey, model, {}, this.state.logger);
 			};
 
 			const projector = new Cognitive.GeminiProjector(this.config.SYSTEM_PROMPT || "");
@@ -190,9 +186,28 @@
 				console.warn("[System] Failed to load services.json", e);
 			}
 
+			// OS-level daily maintenance (Cron)
+			const performDailyMaintenance = () => {
+				let purged = 0;
+				if (typeof vfs.purgeTrash === 'function') purged += vfs.purgeTrash(7);
+				if (this.state.logger) purged += this.state.logger.purgeOldLogs(7);
+				
+				if (purged > 0) {
+					console.log(`[System Cron] Daily maintenance completed. Purged ${purged} old files.`);
+					this._triggerAutoSave();
+				}
+			};
+
+			// Run once on boot, then every 24 hours
+			performDailyMaintenance();
+			setInterval(performDailyMaintenance, 24 * 60 * 60 * 1000);
+
 			// Start foreground main process
 			await this.refreshPreview();
 
+			if (this.state.logger) {
+				this.state.logger.log('system', { action: 'boot', message: 'System booted successfully' });
+			}
 			console.log("[Itera] System Ready.");
 		}
 
@@ -436,7 +451,11 @@
 			vfs.on('change', (payload) => {
 				this._updateStorageUI(payload.usage);
 				this._triggerAutoSave();
-				this.windowing.processManager.broadcast('file_changed', payload);
+				
+				// システムログへのサイレントな書き込みはゲストアプリにブロードキャストしない（パフォーマンス保護）
+				if (!payload.path || !payload.path.startsWith('system/logs/')) {
+					this.windowing.processManager.broadcast('file_changed', payload);
+				}
 			});
 			history.on('change', () => this._triggerAutoSave());
 		}
@@ -580,10 +599,20 @@
 			const triggerLlm = options.triggerLlm || false;
 			const restoreTools = options.restoreTools || false;
 
-			// 1. 履歴のクリア
+			// 1. セッションリセットのロギング
+			if (this.state.logger) {
+				this.state.logger.log('system', { 
+					action: 'session_reset', 
+					purgeMedia, 
+					restoreTools,
+					hasSummary: !!summary 
+				});
+			}
+
+			// 2. 履歴のクリア
 			history.clear();
 
-			// 2. メディアキャッシュのパージ
+			// 3. メディアキャッシュのパージ
 			if (purgeMedia) {
 				try {
 					const CACHE_DIR = 'system/cache/media';
@@ -596,7 +625,7 @@
 				}
 			}
 
-			// 3. 現在有効な動的ツールの再注入
+			// 4. 現在有効な動的ツールの再注入
 			if (restoreTools && this.registry && this.registry.getActiveDynamicToolDefinitions) {
 				const activeToolDefs = this.registry.getActiveDynamicToolDefinitions();
 				if (activeToolDefs.length > 0) {
@@ -608,7 +637,7 @@
 				}
 			}
 
-			// 4. 引き継ぎ情報の注入
+			// 5. 引き継ぎ情報の注入
 			if (summary) {
 				history.append(global.Itera.Role.SYSTEM, `<event type="session_reset">\n[Session Restored & Context Compressed]\n\n${summary}\n</event>`, {
 					type: 'event_log',
@@ -616,7 +645,7 @@
 				});
 			}
 
-			// 5. UIの再描画
+			// 6. UIの再描画
 			this.panels.chat.renderHistory(history.get());
 		}
 	}

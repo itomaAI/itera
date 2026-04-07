@@ -27,11 +27,12 @@
 	 * Google Gemini API Implementation
 	 */
 	class GeminiAdapter extends BaseLLMAdapter {
-		constructor(apiKey, modelName = "gemini-3.1-pro-preview", config = {}) {
+		constructor(apiKey, modelName = "gemini-3.1-pro-preview", config = {}, logger = null) {
 			super(config);
 			this.apiKey = apiKey;
 			this.modelName = modelName;
 			this.baseUrl = "https://generativelanguage.googleapis.com/v1beta/models";
+			this.logger = logger;
 		}
 
 		async generateStream(messages, onChunk, signal) {
@@ -88,6 +89,8 @@
 			};
 			
 			resetIdleTimeout();
+
+			let finalUsageMetadata = null;
 
             try {
                 while (true) {
@@ -152,7 +155,37 @@
 						// Advance buffer
 						buffer = buffer.substring(endQuote + 1);
 					}
+
+					// ストリームの最後付近で送られてくる usageMetadata を捕捉する
+					// 正規表現で安全にJSONブロックを抽出
+					const usageMatch = buffer.match(/"usageMetadata"\s*:\s*(\{(?:[^{}]|(?:\{[^{}]*\}))*\})/);
+					if (usageMatch) {
+						try {
+							finalUsageMetadata = JSON.parse(usageMatch[1]);
+						} catch (e) {}
+					}
 				}
+
+				// ストリーム完了時、ロガーに利用実績を送信
+				if (this.logger && finalUsageMetadata) {
+					const cached = finalUsageMetadata.cachedContentTokenCount || 0;
+					const promptTotal = finalUsageMetadata.promptTokenCount || 0;
+					// キャッシュ分はpromptTotalに含まれるため、純粋な新規入力分を算出
+					const input = Math.max(0, promptTotal - cached);
+					const output = finalUsageMetadata.candidatesTokenCount || 0;
+
+					this.logger.log('usage', {
+						provider: 'google',
+						model: this.modelName,
+						tokens: {
+							input: input,
+							cached: cached,
+							output: output,
+							total: finalUsageMetadata.totalTokenCount || (promptTotal + output)
+						}
+					});
+				}
+
 			} catch (e) {
 				if (e.name === 'AbortError') throw e; // Propagate abort
 				console.error("[GeminiAdapter] Stream Reading Error:", e);
