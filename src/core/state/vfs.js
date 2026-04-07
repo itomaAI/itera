@@ -133,18 +133,38 @@
             throw new Error(`Path not found: ${path}`);
         }
 
-        readFile(path) {
+        readFile(path, opts = {}) {
             const p = this._norm(path);
             if (!this.isFile(p)) throw new Error(`File not found: ${p}`);
-            return this.files[p].content;
+            
+            let content = this.files[p].content;
+            
+            if (opts && opts.encoding === 'base64') {
+                if (content.startsWith('data:')) {
+                    const commaIdx = content.indexOf(',');
+                    if (commaIdx !== -1) {
+                        return content.slice(commaIdx + 1);
+                    }
+                } else {
+                    // Plain text stored as string, convert to base64
+                    return btoa(unescape(encodeURIComponent(content)));
+                }
+            }
+            
+            return content;
         }
 
-        writeFile(path, content) {
+        writeFile(path, content, opts = {}) {
             const p = this._norm(path);
             if (!p) throw new Error("Cannot write to root path.");
 
             if (!this.isFile(p) && this.isDirectory(p)) {
                 throw new Error(`Cannot write file: A directory already exists at ${p}`);
+            }
+            
+            if (opts && opts.encoding === 'base64') {
+                const mime = opts.mimeType || 'application/octet-stream';
+                content = `data:${mime};base64,${content}`;
             }
 
             const now = Date.now();
