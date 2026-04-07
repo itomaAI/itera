@@ -49,10 +49,13 @@
 			effectivePrompt = effectivePrompt.replace(/{{agentName}}/g, agent);
 			effectivePrompt = effectivePrompt.replace(/{{username}}/g, user);
 
-			// 3. 動的情報の追記
-			const now = new Date();
+			// 3. セッション開始時刻の追記（履歴の最初のターンのタイムスタンプを使用）
+			const history = state.history ? state.history.get() : [];
+			const firstTurn = history.length > 0 ? history[0] : null;
+			const sessionStart = firstTurn ? new Date(firstTurn.timestamp) : new Date();
+
 			const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-			const timePrompt = `\n\n<system_info>\nCurrent Time: ${now.toLocaleString()} (${days[now.getDay()]})\nTimestamp: ${now.toISOString()}\n</system_info>`;
+			const timePrompt = `\n\n<system_info>\nSession Started: ${sessionStart.toLocaleString()} (${days[sessionStart.getDay()]})\nTimestamp: ${sessionStart.toISOString()}\n</system_info>`;
 
 			return effectivePrompt + timePrompt;
 		}
