@@ -134,7 +134,7 @@
 				const conf = configManager.get('llm');
 				const model = conf?.model || "gemini-3.1-pro-preview";
 				this._updateModelStatus(model);
-				return new Cognitive.GeminiAdapter(apiKey, model);
+				return new Cognitive.GeminiAdapter(apiKey, model, {}, this.state.logger);
 			};
 
 			const projector = new Cognitive.GeminiProjector(this.config.SYSTEM_PROMPT || "");
