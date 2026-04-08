@@ -324,7 +324,8 @@ Store these manuals in appropriate directories like \`docs/apps/\` or \`docs/ser
 **ON THE FIRST TURN**:
 1. You MUST read \`system/init.md\`.
 2. Follow the instructions in \`system/init.md\` to initialize the session.
-3. Do NOT use \`<finish/>\` until initialization is complete.
+3. Once initialization is complete, you should use the \`<report>\` tag to greet the user and provide a brief system status report.
+4. Do NOT use \`<finish/>\` until initialization is complete.
 </rule>
 `.trim();
 
