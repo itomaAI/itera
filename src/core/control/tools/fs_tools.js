@@ -14,7 +14,7 @@
         // 1. read_file
         registry.register('read_file', async (params, context) => {
             const vfs = context.vfs;
-            if (!vfs.exists(params.path)) throw new Error(`File not found: ${params.path}`);
+            if (!vfs.exists(params.path)) throw new Error(`File not found.`);
 
             const BINARY_EXTS = /\.(png|jpg|jpeg|gif|webp|svg|ico|bmp|pdf|zip|tar|gz|7z|rar|mp3|wav|mp4|webm|ogg)$/i;
             const isBinary = params.path.match(BINARY_EXTS);
@@ -34,7 +34,7 @@
 
                 // ★ 新しい media オブジェクトを返す (Base64の実体は返さない)
                 return {
-                    log: `[read_file] Read binary file: ${params.path} (${mimeType})`,
+                    log: `Read binary file: ${mimeType}`,
                     ui: `📦 Read Binary ${params.path}`,
                     media: {
                         path: params.path,
@@ -76,7 +76,7 @@
                 ? sliced.map((l, i) => `${s + i} | ${l}`).join('\n') 
                 : sliced.join('\n');
 
-            let logMsg = `[read_file] ${params.path} (Lines ${s}-${endIdx} of ${lines.length}):\n${contentStr}`;
+            let logMsg = `Lines ${s}-${endIdx} of ${lines.length}:\n${contentStr}`;
             
             if (endIdx < lines.length) {
                 logMsg += `\n\n... (File truncated. ${lines.length - endIdx} more lines. Use start=${endIdx + 1} to read more)`;
@@ -94,7 +94,7 @@
             content = content.replace(/^\r?\n/, '').replace(/\r?\n$/, '');
             const msg = context.vfs.writeFile(params.path, content);
             return {
-                log: `[create_file] ${msg}`,
+                log: msg,
                 ui: `📝 Created ${params.path}`
             };
         });
@@ -107,7 +107,7 @@
             if (params.mode) {
                 const msg = vfs.editLines(params.path, params.start, params.end, params.mode, content);
                 return {
-                    log: `[edit_file] ${msg}`,
+                    log: msg,
                     ui: `✏️ Edited ${params.path} (${params.mode})`
                 };
             }
@@ -179,7 +179,7 @@
                     }
 
                     if (!regex.test(currentFileContent)) {
-                        throw new Error(`Search pattern not found in ${params.path} for block ${i + 1}. No changes were made to the file.`);
+                        throw new Error(`Search pattern not found for block ${i + 1}. No changes were made to the file.`);
                     }
 
                     // $ のエスケープ処理 (置換テキスト内の $ が正規表現の後方参照として誤爆するのを防ぐ)
@@ -195,9 +195,9 @@
                 }
 
                 vfs.writeFile(params.path, currentFileContent);
-                const blockMsg = replaceCount > 1 ? ` (${replaceCount} blocks updated)` : '';
+                const blockMsg = replaceCount > 1 ? `${replaceCount} blocks updated` : 'Content replaced';
                 return {
-                    log: `[edit_file] Replaced content in ${params.path}${blockMsg}`,
+                    log: blockMsg,
                     ui: `✏️ Replaced content in ${params.path}`
                 };
             }
@@ -242,7 +242,7 @@
             const resultStr = formatOutput(displayFiles) + suffix;
 
             return {
-                log: `[list_files] path="${root}" recursive=${recursive} detail=${detail}\n${resultStr}`,
+                log: resultStr,
                 ui: `📂 Listed ${files.length} files`
             };
         });
@@ -251,7 +251,7 @@
         registry.register('delete_file', async (params, context) => {
             const msg = context.vfs.deleteFile(params.path);
             return {
-                log: `[delete_file] ${msg}`,
+                log: msg,
                 ui: `🗑️ Deleted ${params.path}`
             };
         });
@@ -260,7 +260,7 @@
         registry.register('move_file', async (params, context) => {
             const msg = context.vfs.rename(params.path, params.new_path);
             return {
-                log: `[move_file] ${msg}`,
+                log: msg,
                 ui: `🚚 Moved ${params.path}`
             };
         });
@@ -269,7 +269,7 @@
         registry.register('copy_file', async (params, context) => {
             const msg = context.vfs.copyFile(params.path, params.new_path);
             return {
-                log: `[copy_file] ${msg}`,
+                log: msg,
                 ui: `📄 Copied ${params.path}`
             };
         });

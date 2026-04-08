@@ -118,29 +118,47 @@
 			if (Array.isArray(turn.content)) {
 				// A. Tool Outputs
 				if (turn.meta && turn.meta.type === 'tool_execution') {
-					const logText = turn.content.map(c => {
-						if (c.output && c.output.log) return c.output.log;
-						return "";
-					}).join('\n').trim();
-
 					const parts = [];
-					if (logText) parts.push({
-						text: `<tool_outputs>\n${logText}\n</tool_outputs>`
-					});
 
-					// ツール出力に含まれるメディアの処理（take_screenshot等）
 					for (const c of turn.content) {
 						if (signal && signal.aborted) throw new DOMException("Aborted", "AbortError");
 
-						// 新しい media 形式
-						if (c.output && c.output.media) {
-							const fileData = await this._resolveMediaFile(c.output.media, vfs, apiKey, signal);
-							if (fileData) parts.push({
-								fileData
+						// 出力がない場合はスキップ（無効なツール実行など）
+						if (!c.output || (!c.output.log && !c.output.media && !c.output.image)) continue;
+
+						const actionName = c.actionType || "unknown";
+						const status = c.output.error ? "error" : "success";
+						
+						// 属性文字列の組み立て
+						let attrStr = `action="${actionName}" status="${status}"`;
+						if (c.params) {
+							for (const [key, val] of Object.entries(c.params)) {
+								// 値に含まれるダブルクォートをエスケープして属性値を安全にする
+								const safeVal = String(val).replace(/"/g, '&quot;');
+								attrStr += ` ${key}="${safeVal}"`;
+							}
+						}
+
+						const logContent = c.output.log ? c.output.log.trim() : "";
+						
+						// タグを組み立てて text パートとして追加
+						if (logContent) {
+							parts.push({
+								text: `<tool_output ${attrStr}>\n${logContent}\n</tool_output>`
+							});
+						} else {
+							// ログ本文がない場合は空要素タグとして出力
+							parts.push({
+								text: `<tool_output ${attrStr} />`
 							});
 						}
-						// 古い image 形式 (後方互換)
-						else if (c.output && c.output.image) {
+
+						// ツール出力に含まれるメディアの処理（take_screenshot等）
+						if (c.output.media) {
+							const fileData = await this._resolveMediaFile(c.output.media, vfs, apiKey, signal);
+							if (fileData) parts.push({ fileData });
+						} else if (c.output.image) {
+							// 古い image 形式 (後方互換)
 							parts.push({
 								inlineData: {
 									mimeType: c.output.mimeType || 'image/png',

@@ -260,17 +260,28 @@
 			};
 
 			// 初期状態のプレースホルダーを作成
-			const combinedResults = actions.map(action => ({
-				actionType: action.type,
-				output: {
-					log: `[Pending] Executing ${action.type}...`,
-					ui: `<span class="animate-spin inline-block">⚙️</span> Executing ${action.type}...`,
-					trigger_llm: false // 実行中は発火要因にしない
-				}
-			}));
+			const combinedResults = actions.map(action => {
+				// content は巨大になる可能性があるため除外してパラメータのみ保持
+				const { content, ...safeParams } = action.params || {};
+				return {
+					actionType: action.type,
+					originalIndex: action.originalIndex, // LLMが出力した元の順序
+					params: safeParams, // 属性エコーバック用
+					output: {
+						log: `[Pending] Executing ${action.type}...`,
+						ui: `<span class="animate-spin inline-block">⚙️</span> Executing ${action.type}...`,
+						trigger_llm: false // 実行中は発火要因にしない
+					}
+				};
+			});
+
+			// Historyに保存する際は、常にLLMが書いた順序（originalIndex昇順）に並べ替えたコピーを渡す
+			const getSortedResults = () => {
+				return [...combinedResults].sort((a, b) => (a.originalIndex ?? 0) - (b.originalIndex ?? 0));
+			};
 
 			// 1つの共有SystemターンをHistoryに作成
-			const sharedTurn = this.state.history.append(Role.SYSTEM, combinedResults, {
+			const sharedTurn = this.state.history.append(Role.SYSTEM, getSortedResults(), {
 				type: TurnType.TOOL_EXECUTION,
 				trigger_llm: false
 			});
@@ -311,8 +322,8 @@
 						combinedResults[index].output = result;
 					}
 
-					// Historyの共有ターンを更新
-					const updatedTurn = this.state.history.update(sharedTurnId, combinedResults, {
+					// Historyの共有ターンを更新（ソート済みの配列を渡す）
+					const updatedTurn = this.state.history.update(sharedTurnId, getSortedResults(), {
 						trigger_llm: calcTurnTrigger()
 					});
 
@@ -329,7 +340,7 @@
 						trigger_llm: true // エラー時はリカバリーさせるため基本発火させる
 					};
 
-					const updatedTurn = this.state.history.update(sharedTurnId, combinedResults, {
+					const updatedTurn = this.state.history.update(sharedTurnId, getSortedResults(), {
 						type: TurnType.ERROR,
 						trigger_llm: calcTurnTrigger()
 					});

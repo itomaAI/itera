@@ -17,7 +17,7 @@
 			if (context.shell && context.shell.windowing && context.shell.windowing.processManager) {
 				await context.shell.windowing.processManager.spawn(pid, path, mode, forceReload);
 				return {
-					log: `[spawn] Process '${pid}' started at ${path} (${mode} mode, forceReload=${forceReload}).`,
+					log: `Process started.`,
 					ui: `🚀 Spawned [${pid}]`
 				};
 			}
@@ -36,12 +36,12 @@
 				const success = context.shell.windowing.processManager.kill(pid);
 				if (success) {
 					return {
-						log: `[kill] Process '${pid}' terminated.`,
+						log: `Process terminated.`,
 						ui: `🛑 Killed [${pid}]`
 					};
 				} else {
 					return {
-						log: `[kill] Process '${pid}' not found or already stopped.`,
+						log: `Process not found or already stopped.`,
 						error: true
 					};
 				}
@@ -64,7 +64,7 @@
 				}
 				const logStr = list.map(p => `PID: ${p.pid.padEnd(15)} | Mode: ${p.mode.padEnd(10)} | Path: ${p.path}`).join('\n');
 				return {
-					log: `[ps] Running Processes:\n${logStr}`,
+					log: logStr,
 					ui: `📊 Process List (${list.length})`
 				};
 			}
@@ -99,7 +99,7 @@
 					vfs.writeFile(path, dataUrl);
 
 					return {
-						log: `[take_screenshot] Captured main process and saved to ${path}`,
+						log: `Captured main process and saved to ${path}`,
 						ui: `📸 Screenshot Saved`,
 						// 旧来の image: base64 は廃止し、新しい media オブジェクトを返す
 						media: {
@@ -110,7 +110,7 @@
 					};
 				} catch (e) {
 					return {
-						log: `[take_screenshot] Failed: ${e.message}`,
+						log: e.message,
 						ui: `⚠️ Screenshot Failed`,
 						error: true
 					};

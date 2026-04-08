@@ -100,15 +100,14 @@
             }
 
             if (results.length === 0) {
-                const modeStr = useRegex ? `Regex: "${query}"` : `Text: "${query}"`;
                 return {
-                    log: `No matches found for ${modeStr} in path: "${rootPath}".`,
+                    log: `No matches found.`,
                     ui: `🔍 No matches found`
                 };
             }
 
             return {
-                log: `Search results for "${query}":\n\n` + results.join('\n'),
+                log: results.join('\n'),
                 ui: `🔍 Search: "${query}" (${results.length} hits)`
             };
         });

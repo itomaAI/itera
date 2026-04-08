@@ -43,7 +43,8 @@
 			let rawActions = this._extractAllNodes(tree);
 
 			const actions = [];
-			for (const item of rawActions) {
+			for (let i = 0; i < rawActions.length; i++) {
+				const item = rawActions[i];
 				const contentText = this._extractContent(item.content);
 				const action = {
 					type: item.tag,
@@ -51,7 +52,8 @@
 						...item.attributes,
 						content: contentText
 					},
-					raw: item
+					raw: item,
+					originalIndex: i // ★ 元のテキスト内での出現順序を記録
 				};
 				actions.push(action);
 			}

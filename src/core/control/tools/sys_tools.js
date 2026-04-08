@@ -10,7 +10,7 @@
 		// 1. finish (Task Completion)
 		registry.register('finish', async (params, context) => {
 			return {
-				log: `[finish] Task completed.`,
+				log: `Task completed.`,
 				ui: `✅ Task Completed`,
 				halt_loop: true // ループを強制停止する
 			};
@@ -19,7 +19,7 @@
 		// 2. ask (Question to User)
 		registry.register('ask', async (params, context) => {
 			return {
-				log: `[ask] Waiting for user input.`,
+				log: `Waiting for user input.`,
 				ui: `❓ ${params.content}`,
 				halt_loop: true // ユーザー入力待ちのためループを強制停止する
 			};
@@ -28,7 +28,7 @@
 		// 3. report (Message to User)
 		registry.register('report', async (params, context) => {
 			return {
-				log: `[report] Displayed message to user.`,
+				log: `Displayed message to user.`,
 				ui: `📢 ${params.content}`,
 				trigger_llm: false // これ単体では発火しない（halt_loopではないので他のツールがあれば発火する）
 			};
@@ -77,13 +77,22 @@
 			}
 
 			return {
-				log: `[reset_session] Session has been reset.`,
+				log: `Session has been reset.`,
 				ui: `♻️ Session Reset`,
 				halt_loop: true
 			};
 		});
 
-		// 6. thinking / plan
+		// 6. yield (Hand over control to system)
+		registry.register('yield', async (params, context) => {
+			return {
+				log: `Handed over control to system. Executing pending tools...`,
+				ui: `⏳ Yielding to System`,
+				trigger_llm: false // ツール自体の実行に加えて、このツールが発火要因にならないようにする（他のツールがあれば発火する）
+			};
+		});
+
+		// 7. thinking / plan
 		// これらはLLMの思考過程用タグであり、ツールとしての実体動作はない
 		// ログに残すためだけに定義する
 		registry.register('thinking', async () => null);

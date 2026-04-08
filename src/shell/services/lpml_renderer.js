@@ -84,6 +84,10 @@
                     colorClass = "border-tag-report bg-tag-report/20";
                     isOpen = true;
                     break;
+                case 'yield':
+                    title = "⏳ Waiting for System...";
+                    colorClass = "border-border-main bg-card/50";
+                    break;
                 case 'finish':
                     title = "✅ Completed";
                     colorClass = "border-success bg-success/20";
@@ -98,6 +102,25 @@
                 case 'error':
                     title = "⚠️ Error";
                     colorClass = "border-tag-error bg-tag-error/10";
+                    isOpen = true;
+                    break;
+                case 'tool_output':
+                    const actionName = getAttr('action') || 'unknown';
+                    const status = getAttr('status') || 'success';
+                    title = `📥 System Output: [${actionName}]`;
+                    if (status === 'error') {
+                        colorClass = "border-error bg-error/10";
+                        title = `⚠️ System Error: [${actionName}]`;
+                        isOpen = true;
+                    } else {
+                        colorClass = "border-border-main bg-panel/80";
+                        isOpen = false;
+                    }
+                    break;
+                case 'event':
+                    const eventType = getAttr('type') || 'unknown';
+                    title = `🔔 Event: ${eventType}`;
+                    colorClass = "border-primary bg-primary/10";
                     isOpen = true;
                     break;
                 default:
