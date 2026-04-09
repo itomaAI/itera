@@ -117,27 +117,20 @@
 				let iframe;
 				if (mode === 'foreground') {
 					iframe = this.els.FRAME_MAIN;
-					iframe.name = pid; // ★ プロセスIDを伝達
-					if (entryUrl) {
-						await this._loadIframe(iframe, entryUrl);
-						this._updateAddressBar(path);
-					} else {
-						iframe.srcdoc = `<div style="color:#888; padding:20px; font-family:sans-serif;">No ${path} found.</div>`;
-					}
 				} else {
 					iframe = document.createElement('iframe');
 					iframe.id = `proc-${pid}`;
-					iframe.name = pid; // ★ プロセスIDを伝達
 					// バックグラウンドプロセス用のサンドボックス
 					iframe.sandbox = "allow-scripts allow-forms allow-same-origin";
 					if (this.els.BG_CONTAINER) {
 						this.els.BG_CONTAINER.appendChild(iframe);
 					}
-					if (entryUrl) {
-						await this._loadIframe(iframe, entryUrl);
-					}
 				}
 
+				iframe.name = pid; // ★ プロセスIDを伝達
+
+				// ★ 修正: iframeのロードを開始する前にプロセスを登録し、
+				// ゲストの初期化スクリプトが即座にHostのAPIを呼べる状態にしておく
 				this.processes.set(pid, {
 					pid,
 					path,
@@ -145,6 +138,20 @@
 					iframe,
 					blobUrls
 				});
+
+				// iframeの読み込み開始と待機
+				if (mode === 'foreground') {
+					if (entryUrl) {
+						await this._loadIframe(iframe, entryUrl);
+						this._updateAddressBar(path);
+					} else {
+						iframe.srcdoc = `<div style="color:#888; padding:20px; font-family:sans-serif;">No ${path} found.</div>`;
+					}
+				} else {
+					if (entryUrl) {
+						await this._loadIframe(iframe, entryUrl);
+					}
+				}
 
 				console.log(`[ProcessManager] Spawned [${pid}] (${mode}) -> ${path}`);
 

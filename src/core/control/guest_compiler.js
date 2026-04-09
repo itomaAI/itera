@@ -347,11 +347,21 @@ window.addEventListener('message', async (e) => {
 			replaceAttr('a[href]', 'href');
 			replaceAttr('iframe[src]', 'src');
 
+			// インラインスタイル (style属性) 内の url(...) も置換する
+			doc.querySelectorAll('[style]').forEach(el => {
+				const styleContent = el.getAttribute('style');
+				if (styleContent && styleContent.includes('url(')) {
+					// 既存のCSS用置換メソッドを再利用
+					const resolvedStyle = this._processCssReferences(styleContent, urlMap, currentFilePath);
+					el.setAttribute('style', resolvedStyle);
+				}
+			});
+
 			return doc.documentElement.outerHTML;
 		}
 
 		/**
-		 * CSSファイル内の url() 参照を Blob URL / Data URI に置換する
+		 * CSSファイルやインラインスタイル内の url() 参照を Blob URL / Data URI に置換する
 		 */
 		_processCssReferences(cssContent, urlMap, currentFilePath) {
 			const currentDir = currentFilePath.includes('/') ? currentFilePath.substring(0, currentFilePath.lastIndexOf('/')) : '';
