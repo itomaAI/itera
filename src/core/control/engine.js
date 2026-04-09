@@ -206,6 +206,21 @@
 				const registeredTools = this.registry.getRegisteredToolNames();
 				const actions = this.translator.parse(rawResponse, registeredTools);
 
+				// ★ 生テキストの漏洩（LPML文法違反）が検知された場合、システムからの警告を静かに履歴に注入する
+				if (actions.hasLeak) {
+					const warningMsg = `<system type="syntax_warning">\n[LPML Syntax Violation] You output raw text outside of valid tags.\nABSOLUTE PROHIBITION: All responses must be enclosed in valid tags (e.g., <report>, <yield />). Raw text is ignored.\n</system>`;
+					
+					const warningTurn = this.state.history.append(Role.SYSTEM, warningMsg, {
+						type: TurnType.ERROR, // UI上でエラー/警告として扱うための種別
+						trigger_llm: false    // この警告だけで強制リトライはさせない（パッシブな指導）
+					});
+					
+					this._emit('turn_end', {
+						role: Role.SYSTEM,
+						turn: warningTurn
+					});
+				}
+
 				// thinking や plan などの実体がないタグを除外
 				const validActions = actions.filter(a => a.type !== 'thinking' && a.type !== 'plan');
 

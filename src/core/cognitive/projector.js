@@ -55,7 +55,7 @@
 			const sessionStart = firstTurn ? new Date(firstTurn.timestamp) : new Date();
 
 			const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-			const timePrompt = `\n\n<system_info>\nSession Started: ${sessionStart.toLocaleString()} (${days[sessionStart.getDay()]})\nTimestamp: ${sessionStart.toISOString()}\n</system_info>`;
+			const timePrompt = `\n\n<system type="time">\nSession Started: ${sessionStart.toLocaleString()} (${days[sessionStart.getDay()]})\nTimestamp: ${sessionStart.toISOString()}\n</system>`;
 
 			return effectivePrompt + timePrompt;
 		}

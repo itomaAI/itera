@@ -99,9 +99,9 @@ window.addEventListener('message', async (e) => {
 				}
 			}
 
-			// 1. Assets (HTML以外) の Blob 作成 (グローバルキャッシュを利用)
+			// 1. Assets (HTML, CSS以外) の Blob 作成 (グローバルキャッシュを利用)
 			for (const path of filePaths) {
-				if (path.endsWith('.html')) continue;
+				if (path.endsWith('.html') || path.endsWith('.css')) continue;
 				if (path.startsWith('.sample/') || path.startsWith('src/')) continue;
 
 				const stat = vfs.stat(path);
@@ -139,12 +139,27 @@ window.addEventListener('message', async (e) => {
 				// 💡 アセットのURLはプロセス終了時に破棄させないため、blobUrlsには入れない
 			}
 
+			// 2. CSS の Blob 作成 (内部の url() を置換するため動的生成し、プロセスに紐付ける)
+			for (const path of filePaths) {
+				if (!path.endsWith('.css')) continue;
+				if (path.startsWith('.sample/') || path.startsWith('src/')) continue;
+
+				let cssContent = vfs.readFile(path);
+				cssContent = this._processCssReferences(cssContent, urlMap, path);
+
+				const blob = new Blob([cssContent], { type: 'text/css' });
+				const url = URL.createObjectURL(blob);
+
+				urlMap[path] = url;
+				blobUrls.push(url); // HTMLと同じくプロセス終了時に破棄させる
+			}
+
 			let entryPointUrl = null;
 
 			// テーマ変数の取得
 			const themeStyleTag = this._generateThemeInjection();
 
-			// 2. HTML (スクリプト/スタイル注入) の Blob 作成
+			// 3. HTML (スクリプト/スタイル注入) の Blob 作成
 			for (const path of filePaths) {
 				if (!path.endsWith('.html')) continue;
 				if (path.startsWith('.sample/') || path.startsWith('src/')) continue;
@@ -333,6 +348,59 @@ window.addEventListener('message', async (e) => {
 			replaceAttr('iframe[src]', 'src');
 
 			return doc.documentElement.outerHTML;
+		}
+
+		/**
+		 * CSSファイル内の url() 参照を Blob URL / Data URI に置換する
+		 */
+		_processCssReferences(cssContent, urlMap, currentFilePath) {
+			const currentDir = currentFilePath.includes('/') ? currentFilePath.substring(0, currentFilePath.lastIndexOf('/')) : '';
+
+			const resolvePath = (relPath) => {
+				if (relPath.startsWith('/')) return relPath.substring(1);
+				if (relPath.match(/^https?:\/\//) || relPath.startsWith('data:')) return null;
+
+				const stack = currentDir ? currentDir.split('/') : [];
+				const parts = relPath.split('/');
+				for (const part of parts) {
+					if (part === '.') continue;
+					if (part === '..') {
+						if (stack.length > 0) stack.pop();
+					} else {
+						stack.push(part);
+					}
+				}
+				return stack.join('/');
+			};
+
+			// url(path), url("path"), url('path') にマッチする正規表現
+			const urlRegex = /url\(\s*(['"]?)(.*?)\1\s*\)/g;
+
+			return cssContent.replace(urlRegex, (match, quote, relPath) => {
+				// パスが空、またはすでに絶対URL・Data URIの場合は置換しない
+				if (!relPath || relPath.match(/^https?:\/\//) || relPath.startsWith('data:')) {
+					return match;
+				}
+
+				// クエリパラメータやハッシュの分離
+				const { basePath, search, hash } = this._parsePath(relPath);
+				const suffix = search + hash;
+
+				// 同じディレクトリまたは相対パスの解決
+				const targetPath = basePath === '' ? currentFilePath : basePath;
+				
+				if (urlMap[targetPath]) {
+					return `url(${quote}${urlMap[targetPath]}${suffix}${quote})`;
+				}
+
+				const resolved = resolvePath(basePath);
+				if (resolved && urlMap[resolved]) {
+					return `url(${quote}${urlMap[resolved]}${suffix}${quote})`;
+				}
+
+				// 解決できなかった場合は元のまま返す
+				return match;
+			});
 		}
 
 		_getMimeType(filename) {

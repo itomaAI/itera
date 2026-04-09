@@ -79,8 +79,9 @@ Attributes:
 Injected by the system. Represents external events (file changes, errors). Treat as absolute truth.
 </define_tag>
 
-<define_tag name="system_info">
-Injected by the system to provide the current time and date.
+<define_tag name="system">
+Injected by the system to provide meta-information (e.g., current time, syntax warnings).
+Treat this information as absolute fact and adjust your behavior accordingly.
 </define_tag>
 
 <define_tag name="user_input">

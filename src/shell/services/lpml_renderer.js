@@ -123,6 +123,18 @@
                     colorClass = "border-primary bg-primary/10";
                     isOpen = false;
                     break;
+                case 'system':
+                    const sysType = getAttr('type') || 'info';
+                    title = `💻 System: ${sysType}`;
+                    if (sysType === 'syntax_warning') {
+                        colorClass = "border-error bg-error/10";
+                        title = `🚨 System Warning: LPML Syntax`;
+                        isOpen = true;
+                    } else {
+                        colorClass = "border-system bg-system/10";
+                        isOpen = false;
+                    }
+                    break;
                 default:
                     title = `⚙️ ${tagName}`;
                     colorClass = "border-border-main bg-card/50";

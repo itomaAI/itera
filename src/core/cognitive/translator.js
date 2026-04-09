@@ -39,7 +39,19 @@
 			const exclude = [...this.defaultExcludeTags, ...additionalExcludeTags];
 			const tree = this._parseToTree(text, exclude);
 
-			// ツリーのルートだけでなく、再帰的にすべてのタグノードを抽出する
+			// 1. ツリーのルートレベルに残っている「どのタグにも属さない生テキスト」を結合
+			let leakedText = "";
+			for (const node of tree) {
+				if (typeof node === 'string') {
+					leakedText += node;
+				}
+			}
+
+			// 空白文字（改行、スペース）を除去し、有意な長さ（例：3文字以上）があれば漏洩と判定
+			const cleanLeak = leakedText.replace(/\s+/g, '');
+			const hasLeak = cleanLeak.length >= 3;
+
+			// 2. ツリーのルートだけでなく、再帰的にすべてのタグノードを抽出する
 			let rawActions = this._extractAllNodes(tree);
 
 			const actions = [];
@@ -57,7 +69,13 @@
 				};
 				actions.push(action);
 			}
-			return this._sortActions(actions);
+			
+			const sortedActions = this._sortActions(actions);
+			
+			// 配列オブジェクト自身にプロパティとして漏洩フラグのみを付与（引用は不要）
+			sortedActions.hasLeak = hasLeak;
+
+			return sortedActions;
 		}
 
 		/**

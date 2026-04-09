@@ -304,6 +304,69 @@
 				}
 			}
 		}
+
+		/**
+		 * Guestからの動的なアセット解決リクエストを処理する
+		 * @param {string} requestPath - Guestが要求したパス (相対パスも可)
+		 * @param {string} pid - 呼び出し元のプロセスID
+		 * @returns {string} - Data URI または Blob URL
+		 */
+		resolveUrl(requestPath, pid) {
+			const proc = this.processes.get(pid);
+			if (!proc) throw new Error(`Process [${pid}] not found.`);
+
+			// 1. プロセスの現在のパスからベースディレクトリを特定
+			const basePath = proc.path.split(/[?#]/)[0];
+			const currentDir = basePath.includes('/') ? basePath.substring(0, basePath.lastIndexOf('/')) : '';
+
+			// 2. 相対パスをVFSの絶対パスに解決
+			let absPath = requestPath;
+			if (requestPath.startsWith('./') || requestPath.startsWith('../')) {
+				absPath = this._resolveRelativePath(currentDir, requestPath);
+			} else if (requestPath.startsWith('/')) {
+				absPath = requestPath.substring(1); // ルートからの絶対パス
+			}
+
+			if (!this.vfs.exists(absPath)) {
+				throw new Error(`File not found: ${absPath}`);
+			}
+
+			const content = this.vfs.readFile(absPath);
+
+			// 3. すでにData URI (画像やPDF等のバイナリ) ならそのまま返す
+			if (content.startsWith('data:')) {
+				return content;
+			}
+
+			// 4. テキスト系 (CSSやJSONなど) の場合は Blob URL を生成して返す
+			const mimeType = this.compiler._getMimeType(absPath) || 'text/plain';
+			const blob = new Blob([content], { type: mimeType });
+			const url = URL.createObjectURL(blob);
+
+			// プロセス終了時に自動でメモリ解放されるようにリストに登録
+			if (!proc.blobUrls) proc.blobUrls = [];
+			proc.blobUrls.push(url);
+
+			return url;
+		}
+
+		/**
+		 * ヘルパー: カレントディレクトリと相対パスから絶対パスを計算する
+		 */
+		_resolveRelativePath(baseDir, relPath) {
+			const stack = baseDir ? baseDir.split('/') : [];
+			const parts = relPath.split('/');
+			
+			for (const part of parts) {
+				if (part === '.' || part === '') continue;
+				if (part === '..') {
+					if (stack.length > 0) stack.pop();
+				} else {
+					stack.push(part);
+				}
+			}
+			return stack.join('/');
+		}
 	}
 
 	global.Itera.Shell.Windowing.ProcessManager = ProcessManager;
