@@ -109,6 +109,9 @@
 			t.registerHandler('fs:exists', async ({
 				path
 			}) => d.vfs.exists(path));
+			t.registerHandler('fs:resolve_url', async ({
+				path
+			}, sourcePid) => d.processManager.resolveUrl(path, sourcePid));
 
 			// ==========================================
 			// 2. AI & History (ai)

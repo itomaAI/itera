@@ -33,7 +33,8 @@
             mkdir: async (path, opts = {}) => transport.requestHost('fs:mkdir', { path, opts }),
             stat: async (path) => transport.requestHost('fs:stat', { path }),
             list: async (path, opts = {}) => transport.requestHost('fs:list', { path, opts }),
-            exists: async (path) => transport.requestHost('fs:exists', { path })
+            exists: async (path) => transport.requestHost('fs:exists', { path }),
+            resolveUrl: async (path) => transport.requestHost('fs:resolve_url', { path })
         },
 
         // 2. AI・履歴への介入
