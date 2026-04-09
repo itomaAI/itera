@@ -277,6 +277,7 @@ All methods (except \`on/off\`) are **Asynchronous** and return a \`Promise\`.
 **File System (MetaOS.fs)**:
 - \`read(path)\` (Returns a String), \`write(path, content, opts)\`, \`append(path, content, opts)\`
 - **CRITICAL**: The VFS ONLY accepts strings. If you need to write binary data (like images, PDFs, or generated blobs) from JS, you MUST convert it to a Base64 Data URI string (e.g., \`data:image/png;base64,...\`) before calling \`write\`. Do NOT pass Blob or ArrayBuffer objects directly.
+- \`resolveUrl(path)\` (Returns a String): In Guest Apps, relative paths (e.g., \`./image.png\`) in JS do NOT work because apps run on virtual Blob URLs. To dynamically load assets from VFS into \`img.src\` or CSS, you MUST resolve the real URL first: \`const url = await MetaOS.fs.resolveUrl('data/image.png'); img.src = url;\`. (Note: Static HTML/CSS like \`<img src="...">\` or \`url(...)\` are auto-compiled and safe to use relative paths).
 - \`delete(path, opts)\`, \`rename(oldPath, newPath, opts)\`, \`copy(srcPath, destPath, opts)\`, \`mkdir(path, opts)\`
 - \`stat(path)\`, \`list(path, opts)\`, \`exists(path)\`
 
