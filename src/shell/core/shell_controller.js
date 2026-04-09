@@ -116,6 +116,10 @@
 			const registry = new Control.ToolRegistry();
 			this.registry = registry;
 
+			// URI Router の初期化とハンドラ登録
+			this.uriRouter = new Core.UriRouter('view');
+			this._registerUriHandlers();
+
 			// プロセス終了時に動的ツールを一掃する連携
 			this.windowing.processManager.on('process_killed', (pid) => {
 				if (registry.removeToolsByPid) registry.removeToolsByPid(pid);
@@ -211,6 +215,27 @@
 			console.log("[Itera] System Ready.");
 		}
 
+		_registerUriHandlers() {
+			// 'view': プレビュー画面の更新
+			this.uriRouter.register('view', (path, searchAndHash) => {
+				const fullPath = path + searchAndHash;
+				this.refreshPreview(fullPath);
+			});
+
+			// 'edit': ホストエディタの起動
+			this.uriRouter.register('edit', (path) => {
+				if (this.state.vfs.exists(path)) {
+					const content = this.state.vfs.readFile(path);
+					this.modals.editor.open(path, content);
+					this._closeMobileDrawers();
+				} else {
+					global.AppUI.notify(`File not found: ${path}`, 'error');
+				}
+				// エディタを開いた後は、アドレスバーの表示を元のメインプロセスのパスに戻す
+				this._restoreAddressBar();
+			});
+		}
+
 		_initGenericElements() {
 			Object.entries(DOM_IDS).forEach(([key, id]) => {
 				this.els[key] = document.getElementById(id);
@@ -224,10 +249,19 @@
 			} = this.panels;
 
 			const handleAddressNavigate = () => {
-				let path = this.els.ADDRESS_BAR.value.trim();
-				if (path.startsWith('metaos://view/')) path = path.replace('metaos://view/', '');
-				if (path) this.refreshPreview(path);
-				this.els.ADDRESS_BAR.blur();
+				const input = this.els.ADDRESS_BAR.value.trim();
+				if (!input) return;
+
+				try {
+					// 入力された文字列の解釈と実行はすべてルーターに委譲
+					this.uriRouter.dispatch(input);
+				} catch (e) {
+					console.error("[Router] Navigation failed:", e);
+					global.AppUI.notify(e.message, 'warning');
+					this._restoreAddressBar();
+				} finally {
+					this.els.ADDRESS_BAR.blur();
+				}
 			};
 
 			if (this.els.ADDRESS_BAR) {
@@ -647,6 +681,16 @@
 
 			// 6. UIの再描画
 			this.panels.chat.renderHistory(history.get());
+		}
+
+		/**
+		 * エディタなどを開いた後、アドレスバーの表示を現在の「メインプロセス」のパスに戻す
+		 */
+		_restoreAddressBar() {
+			if (!this.windowing || !this.windowing.processManager) return;
+			const mainProc = this.windowing.processManager.processes.get('main');
+			const path = mainProc ? mainProc.path : 'index.html';
+			this.windowing.processManager._updateAddressBar(path);
 		}
 	}
 
