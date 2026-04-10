@@ -155,11 +155,11 @@
 			}
 
 			// 3. 見つからない場合
-			return {
-				log: `Error: Unknown tool <${action.type}>`,
-				ui: `❌ Unknown Tool`,
-				error: true
-			};
+			// 単なる戻り値ではなく、Engine が明確に区別できる Error オブジェクトを投げる
+			const err = new Error(`Unknown Tool: <${action.type}> is not registered or not available.`);
+			err.code = 'UNKNOWN_TOOL';
+			err.actionType = action.type;
+			throw err;
 		}
 	}
 
