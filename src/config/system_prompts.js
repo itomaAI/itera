@@ -90,6 +90,9 @@ Injected by the system to wrap messages sent by the user.
 
 <define_tag name="user_attachment">
 Injected by the system to provide file attachments uploaded by the user.
+Attributes:
+    - name: Original file name.
+    - path: VFS path where the file is stored.
 </define_tag>
 
 <!-- ================================================================= -->
@@ -113,6 +116,8 @@ Rule:
 Creates a new file or completely overwrites an existing one.
 Attributes:
     - path: File path.
+Content:
+    - The full text content of the file.
 </define_tag>
 
 <define_tag name="edit_file">
@@ -121,6 +126,8 @@ Attributes:
     - path: Target file path.
     - regex (optional): "true" or "false" (default).
     - mode (optional): "insert"|"replace"|"delete"|"append" (For line-based editing).
+    - start (optional): Start line number (For line-based editing).
+    - end (optional): End line number (For line-based editing).
 
 **Mode A: String Replacement (Recommended)**
 Use \`<<<<<SEARCH\` block to define the target text (must be unique).
@@ -288,7 +295,7 @@ All methods (except \`on/off\`) are **Asynchronous** and return a \`Promise\`.
 - \`stop()\`: Aborts current AI generation.
 
 **System & IPC (MetaOS.system)**:
-- \`spawn(path, opts)\`: Starts a process. \`opts: { pid, mode }\`. (pid="main" changes foreground view)
+- \`spawn(path, opts)\`: Starts a process. \`opts: { pid, mode, forceReload }\`. (pid="main" changes foreground view, set forceReload=true to ignore cache)
 - \`kill(pid)\`: Terminates a process.
 - \`ps()\`, \`info()\`, \`capture(pid)\`
 - \`broadcast(eventName, payload)\`: IPC broadcast.
