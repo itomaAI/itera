@@ -291,7 +291,7 @@
 			// ==========================================
 			// 5. Network (net)
 			// ==========================================
-			const prepareFetchOptions = (url, options) => {
+			const prepareFetchOptions = async (url, options) => {
 				let targetUrl = url;
 				const fetchOpts = {
 					method: options?.method || 'GET',
@@ -299,7 +299,32 @@
 				};
 
 				if (options?.body) {
-					fetchOpts.body = typeof options.body === 'object' ? JSON.stringify(options.body) : options.body;
+					if (options.multipart && typeof options.body === 'object') {
+						// マルチパート形式（バイナリ送信）の構築
+						const formData = new FormData();
+						for (const [key, val] of Object.entries(options.body)) {
+							if (typeof val === 'string' && val.startsWith('data:')) {
+								try {
+									const res = await fetch(val);
+									const blob = await res.blob();
+									// ファイル名が指定されていない場合は 'file' とする
+									formData.append(key, blob, 'file');
+								} catch (e) {
+									console.error(`[Net API] Failed to convert DataURL to blob for key: ${key}`, e);
+									formData.append(key, val);
+								}
+							} else {
+								formData.append(key, val);
+							}
+						}
+						fetchOpts.body = formData;
+						// FormDataを使用する場合、Content-Typeヘッダーはブラウザが境界値付きで自動設定するため削除する
+						if (fetchOpts.headers['Content-Type']) {
+							delete fetchOpts.headers['Content-Type'];
+						}
+					} else {
+						fetchOpts.body = typeof options.body === 'object' ? JSON.stringify(options.body) : options.body;
+					}
 				}
 
 				// クレデンシャル（APIキー等）の安全な注入
@@ -347,7 +372,7 @@
 				const {
 					targetUrl,
 					fetchOpts
-				} = prepareFetchOptions(url, options);
+				} = await prepareFetchOptions(url, options);
 
 				try {
 					const res = await fetch(targetUrl, fetchOpts);
@@ -389,7 +414,7 @@
 				const {
 					targetUrl,
 					fetchOpts
-				} = prepareFetchOptions(url, options);
+				} = await prepareFetchOptions(url, options);
 
 				try {
 					const res = await fetch(targetUrl, fetchOpts);

@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="ja">
+<body>
+<script>
+(async () => {
+    const fs = window.MetaOS.fs;
+    const configPath = "system/config/telegram_config.json";
+    
+    const sendLog = (msg) => {
+        const time = new Date().toLocaleTimeString();
+        window.MetaOS.broadcast('telegram_log', { msg: `[${time}] ${msg}` });
+        console.log(`Telegram Daemon: ${msg}`);
+    };
+
+    let config = { botToken: "", allowedUsers: [] };
+    try {
+        const data = await fs.read(configPath);
+        config = JSON.parse(data);
+    } catch(e) {
+        sendLog("Config not found or invalid.");
+        return;
+    }
+
+    if (!config.botToken) {
+        sendLog("Bot Token is missing. Exiting.");
+        return;
+    }
+
+    const TELEGRAM_API = `https://api.telegram.org/bot${config.botToken}`;
+    const TELEGRAM_FILE_API = `https://api.telegram.org/file/bot${config.botToken}`;
+
+    // --- 動的ツールの登録 ---
+
+    // 1. telegram_post (テキスト送信)
+    window.MetaOS.tools.register({
+        name: "telegram_post",
+        description: "Post a message to Telegram.",
+        definition: `<define_tag name="telegram_post">
+Use this to send text messages to a Telegram chat.
+Attributes:
+  - chat_id: Target Chat ID
+Note: Put the message content inside the tag.
+</define_tag>`,
+        handler: async (context) => {
+            const attr = context.attributes || context;
+            const chat_id = attr.chat_id;
+            const text = (context.content || context._content || "").trim();
+            if (!chat_id || !text) return "[Error] chat_id attribute and content text are required.";
+            try {
+                const response = await window.MetaOS.net.fetch(`${TELEGRAM_API}/sendMessage`, {
+                    method: "POST",
+                    useProxy: true,
+                    headers: { "Content-Type": "application/json" },
+                    body: { chat_id, text }
+                });
+                const result = response.data || response;
+                return result.ok ? `[Success] Message sent to chat_id: ${chat_id}` : `[Error] ${JSON.stringify(result)}`;
+            } catch (e) { return `[Exception] ${e.message}`; }
+        }
+    });
+
+    // 2. telegram_post_photo (画像送信 - 要 api_router.js の multipart 対応)
+    window.MetaOS.tools.register({
+        name: "telegram_post_photo",
+        description: "Send a photo to Telegram.",
+        definition: `<define_tag name="telegram_post_photo">
+Use this to send an image file from VFS to a Telegram chat.
+Attributes:
+  - chat_id: Target Chat ID
+  - path: VFS path of the image file (e.g., "system/cache/media/screenshot.png")
+Note: Put the caption text inside the tag content (optional).
+</define_tag>`,
+        handler: async (context) => {
+            const attr = context.attributes || context;
+            const chat_id = attr.chat_id;
+            const path = attr.path;
+            const caption = (context.content || context._content || "").trim();
+
+            if (!chat_id || !path) return "[Error] chat_id and path are required.";
+
+            try {
+                if (!(await fs.exists(path))) return `[Error] File not found: ${path}`;
+                const dataUrl = await fs.read(path);
+
+                const response = await window.MetaOS.net.fetch(`${TELEGRAM_API}/sendPhoto`, {
+                    method: "POST",
+                    useProxy: true,
+                    // ★ api_router.js の新規拡張機能を使用
+                    multipart: true, 
+                    body: {
+                        chat_id: String(chat_id),
+                        photo: dataUrl, // ホスト側で Blob に変換される
+                        caption: caption
+                    }
+                });
+                
+                const result = response.data || response;
+                return result.ok ? `[Success] Photo sent to chat_id: ${chat_id}` : `[Error] ${JSON.stringify(result)}`;
+            } catch (e) { return `[Exception] ${e.message}`; }
+        }
+    });
+
+    // AIへの通知
+    const toolDefs = `
+<define_tag name="telegram_post">...</define_tag>
+<define_tag name="telegram_post_photo">...</define_tag>
+`;
+    window.MetaOS.ai.log(toolDefs, "tool_available");
+
+    let offset = 0;
+    let isRunning = true;
+
+    // 画像受信ヘルパー
+    const downloadFile = async (fileId, destPath) => {
+        try {
+            const res = await window.MetaOS.net.fetch(`${TELEGRAM_API}/getFile?file_id=${fileId}`, { useProxy: true });
+            const result = res.data || res;
+            if (result.ok && result.result.file_path) {
+                const fileUrl = `${TELEGRAM_FILE_API}/${result.result.file_path}`;
+                await window.MetaOS.net.download(fileUrl, destPath, { useProxy: true });
+                return true;
+            }
+        } catch (e) { sendLog("Download error: " + e.message); }
+        return false;
+    };
+
+    const pollUpdates = async () => {
+        if (!isRunning) return;
+        try {
+            const response = await window.MetaOS.net.fetch(`${TELEGRAM_API}/getUpdates?offset=${offset}&timeout=30`, {
+                method: "GET",
+                useProxy: true
+            });
+            const result = response.data || response;
+            if (result.ok) {
+                for (const update of result.result) {
+                    offset = update.update_id + 1;
+                    const msg = update.message;
+                    if (!msg) continue;
+                    const chatId = msg.chat.id;
+                    const userName = msg.from.first_name || msg.from.username || "User";
+
+                    if (msg.photo && msg.photo.length > 0) {
+                        const photo = msg.photo[msg.photo.length - 1];
+                        const timestamp = Date.now();
+                        const destPath = `system/cache/media/telegram_${timestamp}.jpg`;
+                        if (await downloadFile(photo.file_id, destPath)) {
+                            sendLog(`Photo received from ${userName}`);
+                            const caption = msg.caption || "";
+                            const instruction = `Telegram (${chatId}) で ${userName} さんから画像を受信しました。\\n保存先: ${destPath}\\nキャプション: 「${caption}」\\n\\n画像の内容を確認し、返信してください。`;
+                            window.MetaOS.ai.task(instruction, "Telegram Photo Reply Task", { attachments: [destPath] });
+                        }
+                    } else if (msg.text) {
+                        window.MetaOS.ai.log(`[Telegram:${chatId}] ${userName}: ${msg.text}`, "telegram_message");
+                        const instruction = `Telegram (${chatId}) で ${userName} さんからメッセージを受信しました。\\nユーザー発言:「${msg.text}」\\n\\n返信してください。`;
+                        window.MetaOS.ai.task(instruction, "Telegram Reply Task");
+                    }
+                }
+            }
+        } catch (e) {
+            sendLog("Polling error: " + e.message);
+            await new Promise(r => setTimeout(r, 5000));
+        }
+        if (isRunning) pollUpdates();
+    };
+
+    pollUpdates();
+    sendLog("Telegram Daemon (Image Support) started.");
+
+    window.addEventListener("unload", () => {
+        isRunning = false;
+        window.MetaOS.tools.unregister("telegram_post");
+        window.MetaOS.tools.unregister("telegram_post_photo");
+    });
+})();
+</script>
+</body>
+</html>
