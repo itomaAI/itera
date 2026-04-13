@@ -196,6 +196,7 @@ Attributes:
 Rule: 
     - Use pid="main" to change the user's current screen or refresh the UI.
     - IMPORTANT: If you edited the source code of a process, you MUST include force="true" to apply the new code (e.g., <spawn pid="main" path="..." force="true" />). Otherwise, the system will keep running the cached old version.
+    - CRITICAL TIMING RULE: Do NOT use \`<spawn>\` in the same turn as \`<edit_file>\` or \`<create_file>\`. To ensure your code changes are saved to the file system before compilation, you MUST execute the file edits, end your turn with \`<yield />\`, wait for the successful \`<tool_output>\`, and then use \`<spawn>\` in the NEXT turn.
 </define_tag>
 
 <define_tag name="kill">
@@ -317,7 +318,7 @@ All methods (except \`on/off\`) are **Asynchronous** and return a \`Promise\`.
 
 **Dynamic Tools (MetaOS.tools)**:
 Guest apps can expose custom tools to you.
-- \`register({ name, description, definition, handler })\`: Registers a dynamic tool. The \`definition\` should be the LPML \`<define_tag>\` string. **IMPORTANT**: After registering, the app should call \`MetaOS.ai.log(definition, "tool_available")\` to teach you about it.
+- \`register({ name, description, definition, handler })\`: Registers a dynamic tool. The \`definition\` should be the LPML \`<define_tag>\` string. The \`handler(params)\` will receive an object where tag attributes are mapped to keys, and the inner text of the tag is mapped to \`params.content\`. **IMPORTANT**: After registering, the app should call \`MetaOS.ai.log(definition, "tool_available")\` to teach you about it.
 - \`unregister(name)\`: Removes a tool. (Tools are auto-removed when the process is killed).
 
 **Events & Services**:
