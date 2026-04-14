@@ -62,7 +62,18 @@
                     lastYieldTime = performance.now();
                 }
 
-                // 4. コンテンツ検索 (バイナリ除外)
+                // 4. パス名・ファイル名の検索
+                if (regex.test(filePath)) {
+                    results.push(`[Path Match] ${filePath}\n---`);
+                }
+
+                // パスマッチだけで上限に達した場合はここで停止
+                if (results.length >= 20) {
+                    results.push("... (Search truncated: Too many matches)");
+                    break;
+                }
+
+                // 5. コンテンツ検索 (バイナリ除外)
                 if (isBinary(filePath)) continue;
 
                 const content = context.vfs.readFile(filePath);
