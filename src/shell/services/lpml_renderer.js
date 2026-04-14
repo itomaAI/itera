@@ -159,7 +159,7 @@
             // text-text-main -> text-tag-content (タグ内コンテンツ色)
             return `
                 <details ${openAttr} class="mb-2 rounded border ${colorClass} overflow-hidden group">
-                    <summary class="cursor-pointer py-1.5 px-2 text-xs font-mono font-bold text-text-main bg-overlay/5 hover:bg-overlay/10 select-none flex items-center gap-2">
+                    <summary class="cursor-pointer py-1.5 px-2 text-xs font-mono font-bold text-text-main bg-overlay/5 hover:bg-overlay/10 select-none flex items-center gap-2 list-none [&::-webkit-details-marker]:hidden">
                         <span class="group-open:rotate-90 transition-transform text-[10px]">▶</span> ${title}
                     </summary>
                     <div class="p-2 text-xs font-mono overflow-x-auto bg-overlay/5 whitespace-pre-wrap text-tag-content">${displayContent}</div>
