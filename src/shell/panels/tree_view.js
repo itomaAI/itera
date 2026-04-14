@@ -241,11 +241,16 @@
         }
 
         _emitMove(srcPath, destFolder) {
+            // Prevent moving a folder into itself (e.g., dropping "data/notes" onto "data/notes")
+            if (srcPath === destFolder) return;
+
             const fileName = srcPath.split('/').pop();
             const newPath = destFolder ? `${destFolder}/${fileName}` : fileName;
 
+            // Prevent dropping a file into its current folder (e.g., dropping "a.txt" onto "data" where it already lives)
             if (srcPath === newPath) return;
             
+            // Prevent moving a folder into its own subfolder (e.g., dropping "data" onto "data/notes")
             if (destFolder.startsWith(srcPath + '/')) {
                 alert("Cannot move a folder into its own subfolder.");
                 return;
