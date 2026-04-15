@@ -15,7 +15,7 @@
 		static PATTERN_TAG_END = '</([^/>\\s\\n]+)\\s*>';
 		static PATTERN_TAG_EMPTY = '<([^/>\\s\\n]+)((?:' + " [^\"'/<> -]+=(?:\"[^\"]*\"|'[^']*')" + ')*)\\s*/>';
 		static PATTERN_TAG = new RegExp(`(${Translator.PATTERN_TAG_START})|(${Translator.PATTERN_TAG_END})|(${Translator.PATTERN_TAG_EMPTY})`, 'g');
-		static PATTERN_PROTECT = /(`[\s\S]*?`|<!--[\s\S]*?-->|<![\s\S]*?>)/g;
+		static PATTERN_PROTECT = /(^ *```[^\n]*\n[\s\S]*?\n *```|`[^`\n]*`|<!--[\s\S]*?-->|<![\s\S]*?>)/gm;
 
 		constructor() {
 			this.defaultExcludeTags = [
