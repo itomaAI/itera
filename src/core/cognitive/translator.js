@@ -37,7 +37,7 @@
 		 */
 		parse(text, additionalExcludeTags = []) {
 			const exclude = [...this.defaultExcludeTags, ...additionalExcludeTags];
-			const tree = this._parseToTree(text, exclude);
+			const { tree, truncatedText, isTruncated } = this._parseToTree(text, exclude);
 
 			// 1. ツリーのルートレベルに残っている「どのタグにも属さない生テキスト」を結合
 			let leakedText = "";
@@ -72,8 +72,10 @@
 			
 			const sortedActions = this._sortActions(actions);
 			
-			// 配列オブジェクト自身にプロパティとして漏洩フラグのみを付与（引用は不要）
+			// 配列オブジェクト自身にプロパティとしてフラグとテキストを付与
 			sortedActions.hasLeak = hasLeak;
+			sortedActions.truncatedText = truncatedText;
+			sortedActions.isTruncated = isTruncated;
 
 			return sortedActions;
 		}
@@ -152,6 +154,9 @@
 			const regexStart = new RegExp('^' + Translator.PATTERN_TAG_START + '$');
 			const regexEnd = new RegExp('^' + Translator.PATTERN_TAG_END + '$');
 			const regexEmpty = new RegExp('^' + Translator.PATTERN_TAG_EMPTY + '$');
+			
+			let terminalIndex = -1;
+
 			while ((match = regexTag.exec(protectedText)) !== null) {
 				const tagStr = match[0];
 				const indTagStart = match.index;
@@ -187,17 +192,39 @@
 						content: null
 					};
 					stack[stack.length - 1].content.push(el);
+					
+					// ★ Terminal Tag Detection (Empty Tag)
+					if (['yield', 'ask', 'finish'].includes(name) && tagExclude === null && stack.length === 1) {
+					    terminalIndex = indTagEnd;
+					    break;
+					}
 				} else if (matchTagEnd) {
 					const name = matchTagEnd[1];
 					let idx = stack.length - 1;
 					while (idx > 0 && stack[idx].tag !== name) idx--;
 					if (idx > 0) stack = stack.slice(0, idx);
 					else stack[stack.length - 1].content.push(tagStr);
+					
+					// ★ Terminal Tag Detection (End Tag)
+					if (['yield', 'ask', 'finish'].includes(name) && tagExclude === null && stack.length === 1) {
+					    terminalIndex = indTagEnd;
+					    break;
+					}
 				}
 			}
-			const remaining = protectedText.substring(cursor);
-			if (remaining.length > 0) stack[stack.length - 1].content.push(remaining);
-			return this._restoreTree(tree, protectedContent);
+			
+			let finalProtectedText = protectedText;
+			if (terminalIndex !== -1) {
+			    finalProtectedText = protectedText.substring(0, terminalIndex);
+			} else {
+			    const remaining = protectedText.substring(cursor);
+			    if (remaining.length > 0) stack[stack.length - 1].content.push(remaining);
+			}
+			
+			const restoredTree = this._restoreTree(tree, protectedContent);
+			const finalText = this._restoreString(finalProtectedText, protectedContent);
+
+			return { tree: restoredTree, truncatedText: finalText, isTruncated: terminalIndex !== -1 };
 		}
 
 		_extractContent(content) {
