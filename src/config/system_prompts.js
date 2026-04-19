@@ -36,7 +36,8 @@ Defines a new tool or tag. Undefined tags are not allowed.
 <!-- ================================================================= -->
 
 <define_tag name="thinking">
-Process your thoughts step-by-step before taking action. Internal and not visible to the user.
+Use this space to process complex reasoning step-by-step OR to leave a brief summary of your intent for your future self. 
+Whether you reason internally or out loud here, ensure you explicitly record *why* you are taking the next actions so you do not lose track of your overarching goal across multiple turns. Internal and not visible to the user.
 </define_tag>
 
 <define_tag name="plan">
