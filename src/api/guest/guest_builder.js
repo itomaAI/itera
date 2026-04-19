@@ -24,8 +24,8 @@
     // ==========================================
     // 2. Transport Initialization
     // ==========================================
-    // ProcessManager が iframe.name に設定したプロセスIDを取得
-    const MY_PID = window.name || 'unknown';
+    // モバイル環境でのフォーITERA_PIDRA_PID__ を優先して取得
+    const MY_PID = window.__ITERA_PID__ || window.name || 'unknown';
     const transport = new GuestTransport(MY_PID);
 
     // ==========================================

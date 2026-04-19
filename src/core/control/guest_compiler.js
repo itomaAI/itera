@@ -216,6 +216,14 @@ window.addEventListener('message', async (e) => {
 					}
 				}
 
+				// ★ モバイル環境での window.name 消失対策: グローバル変数として PID を直接注入
+				const pidScript = `<script>window.__ITERA_PID__ = '${pid}';</script>\n`;
+				if (htmlContent.includes('<head>')) {
+					htmlContent = htmlContent.replace('<head>', '<head>\n' + pidScript);
+				} else {
+					htmlContent = htmlContent.replace(/(<!DOCTYPE\s+html>)/i, `$1\n${pidScript}`);
+				}
+
 				// 2. Bridgeの注入 (Blob URL経由の外部スクリプト読み込み)
 				if (global.Itera.Api && global.Itera.Api.GuestBuilder) {
 					const bridgeUrl = global.Itera.Api.GuestBuilder.getBlobUrl();
