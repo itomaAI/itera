@@ -206,6 +206,17 @@
 				const registeredTools = this.registry.getRegisteredToolNames();
 				const actions = this.translator.parse(rawResponse, registeredTools);
 
+				// ★ 終端タグによる切り詰めが発生した場合、履歴をクリーンなテキストで上書きし、UIを再描画する
+				if (actions.isTruncated && actions.truncatedText) {
+					const truncatedTurn = this.state.history.update(modelTurn.id, actions.truncatedText, {
+						status: 'completed'
+					});
+					this._emit('turn_end', {
+						role: Role.MODEL,
+						turn: truncatedTurn
+					});
+				}
+
 				// ★ 生テキストの漏洩（LPML文法違反）が検知された場合、システムからの警告を静かに履歴に注入する
 				if (actions.hasLeak) {
 					const warningMsg = [
