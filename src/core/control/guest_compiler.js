@@ -183,22 +183,19 @@ window.addEventListener('message', async (e) => {
 					}
 				});
 
-				// 1.5 Initial State Injection (Query / Hash)
-				// Blob URLでは history.replaceState がセキュリティエラーになるため、
-				// URLSearchParams をポリフィルして、クエリがあたかも存在するかのように偽装する。
+				// 1.5 Head Injections (Combine to prevent LIFO order bugs)
+				let headInjections = `\n<script>window.__ITERA_PID__ = '${pid}';</script>\n`;
+
+				// Query / Hash Injection
 				if (path === parsedEntry.basePath && (parsedEntry.search || parsedEntry.hash)) {
 					const safeQuery = (parsedEntry.search + parsedEntry.hash).replace(/'/g, "\\'");
-					
-					// URLSearchParamsを継承し、引数が空（または location.search そのまま）の場合に
-					// 注入されたクエリを返すように挙動を上書きするハック。
-					const injectState = `
+					headInjections += `
 <script>
 (function() {
     const INJECTED = '${safeQuery}';
     const Original = window.URLSearchParams;
     window.URLSearchParams = class extends Original {
         constructor(init) {
-            // 引数が空、または window.location.search (Blobでは空文字) の場合、注入されたクエリを使う
             if (init === undefined || init === '' || init === window.location.search) {
                 super(INJECTED);
             } else {
@@ -208,24 +205,19 @@ window.addEventListener('message', async (e) => {
     };
 })();
 </script>\n`;
-					
-					if (htmlContent.includes('<head>')) {
-						htmlContent = htmlContent.replace('<head>', '<head>\n' + injectState);
-					} else {
-						htmlContent = htmlContent.replace(/(<!DOCTYPE\s+html>)/i, `$1\n${injectState}`);
-					}
 				}
 
-				// 2. Bridgeの注入 (Blob URL経由の外部スクリプト読み込み)
+				// Bridge (Guest API) Injection
 				if (global.Itera.Api && global.Itera.Api.GuestBuilder) {
 					const bridgeUrl = global.Itera.Api.GuestBuilder.getBlobUrl();
-					// type="module" はBlob URL間の相対パス解決が壊れるため通常のスクリプトとして読み込む
-					const bridgeScript = `<script src="${bridgeUrl}"></script>\n`;
-					if (htmlContent.includes('<head>')) {
-						htmlContent = htmlContent.replace('<head>', '<head>\n' + bridgeScript);
-					} else {
-						htmlContent = htmlContent.replace(/(<!DOCTYPE\s+html>)/i, `$1\n${bridgeScript}`);
-					}
+					headInjections += `<script src="${bridgeUrl}"></script>\n`;
+				}
+
+				// Apply all head injections at once
+				if (htmlContent.includes('<head>')) {
+					htmlContent = htmlContent.replace('<head>', '<head>' + headInjections);
+				} else {
+					htmlContent = htmlContent.replace(/(<!DOCTYPE\s+html>)/i, `$1${headInjections}`);
 				}
 
 				// 3. テーマスタイルの注入
