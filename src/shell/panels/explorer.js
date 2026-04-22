@@ -240,14 +240,15 @@
 					if (relativePath.startsWith('__MACOSX') || relativePath.includes('.DS_Store')) return;
 
 					promises.push((async () => {
-						const isBinary = this._isBinaryFilename(relativePath);
+						const isText = this._isTextFilename(relativePath);
 						let content;
-						if (isBinary) {
+						if (isText) {
+							content = await zipEntry.async("string");
+						} else {
+							// 未知のファイルやバイナリは安全にBase64として展開
 							const base64 = await zipEntry.async("base64");
 							const mime = this._guessMimeType(relativePath);
 							content = `data:${mime};base64,${base64}`;
-						} else {
-							content = await zipEntry.async("string");
 						}
 						const cleanPath = relativePath.replace(/^\/+/, '');
 						restoredFiles[cleanPath] = content;
@@ -453,14 +454,24 @@
 			window.addEventListener('blur', stop);
 		}
 
+		_isTextFile(file) {
+			// MIMEタイプが明確にテキストを示す場合
+			if (file.type.startsWith('text/') || file.type === 'application/json' || file.type === 'application/xml') {
+				return true;
+			}
+			// MIMEタイプが空の場合や正確でない場合のための拡張子フォールバック
+			return this._isTextFilename(file.name);
+		}
+
 		_readFileContent(file) {
 			return new Promise((resolve, reject) => {
-				const isBinary = this._isBinaryFilename(file.name) || file.type.startsWith('image/') || file.type === 'application/pdf';
+				const isText = this._isTextFile(file);
 				const reader = new FileReader();
 				reader.onload = () => resolve(reader.result);
 				reader.onerror = reject;
-				if (isBinary) reader.readAsDataURL(file);
-				else reader.readAsText(file);
+				// テキスト以外（未知のファイルも含む）はすべてBase64 Data URIとして安全に読み込む
+				if (isText) reader.readAsText(file);
+				else reader.readAsDataURL(file);
 			});
 		}
 
@@ -557,8 +568,8 @@
 			}
 		}
 
-		_isBinaryFilename(name) {
-			return !!name.match(/\.(png|jpg|jpeg|gif|webp|svg|ico|bmp|pdf|woff|woff2|ttf|eot|otf|zip|tar|gz|7z|rar|mp3|wav|mp4|webm|ogg)$/i);
+		_isTextFilename(name) {
+			return !!name.match(/\.(txt|md|js|json|html|css|xml|yml|yaml|csv|log|sh|py)$/i);
 		}
 
 		_guessMimeType(filename) {
