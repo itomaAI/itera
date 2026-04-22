@@ -294,7 +294,10 @@
 				const content = [];
 
 				for (const file of attachments) {
-					const isText = file.type.startsWith('text/') || file.name.match(/\.(js|json|md|txt|html|css|xml|yml)$/);
+					// テキストのホワイトリスト方式。未知のファイルはすべてバイナリ(Base64)として安全に扱う
+					const isText = file.type.startsWith('text/') ||
+						file.type === 'application/json' || file.type === 'application/xml' ||
+						!!file.name.match(/\.(txt|md|js|json|html|css|xml|yml|yaml|csv|log|sh|py)$/i);
 
 					// ファイル読み込み
 					const reader = new FileReader();
