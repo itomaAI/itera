@@ -8,7 +8,7 @@
     // Host-Side Implementation
     // ==========================================
     class RpcManager {
-        constructor(timeoutMs = 15000) {
+        constructor(timeoutMs = 150000) {
             this.pendingRequests = new Map();
             this.timeoutMs = timeoutMs;
         }
@@ -53,7 +53,7 @@
     // ==========================================
     global.Itera.Ipc.GuestRpcCode = `
     class RpcManager {
-        constructor(timeoutMs = 15000) {
+        constructor(timeoutMs = 150000) {
             this.pendingRequests = new Map();
             this.timeoutMs = timeoutMs;
         }
