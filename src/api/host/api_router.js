@@ -156,29 +156,42 @@
 				context,
 				opts
 			}) => {
-				let text = `[INTERNAL AGENT TRIGGER]\n${instruction}`;
-				if (context) text += `\n\nContext: ${JSON.stringify(context)}`;
+				let text = `[System Task Request]\n${instruction}`;
+				if (context) text += `\n\n[Context]\n${JSON.stringify(context, null, 2)}`;
 
-				d.shell._refreshEngineConfig();
-				if (!opts?.silent) d.shell.panels.chat.setProcessing(true);
-				await d.engine.injectUserTurn([{
-					text
-				}], {
-					visible: !opts?.silent
+				const lpml = `<event type="system_task">\n${text}\n</event>`;
+				
+				const turn = d.history.append(global.Itera.Role.SYSTEM, lpml, {
+					type: 'event_log',
+					visible: !opts?.silent,
+					trigger_llm: true // これによりEngineが自動的にAIを発火させます
 				});
+
+				if (!opts?.silent) {
+					d.shell.panels.chat.appendTurn(turn);
+					d.shell._refreshEngineConfig();
+					d.shell.panels.chat.setProcessing(true);
+				}
 				return true;
 			});
 
 			t.registerHandler('ai:log', async ({
 				message,
-				type
+				type,
+				opts
 			}) => {
+				const triggerLlm = opts?.trigger_llm === true;
 				const lpml = `<event type="${type || 'app_event'}">\n${message}\n</event>`;
 				const turn = d.history.append(global.Itera.Role.SYSTEM, lpml, {
 					type: 'event_log',
-					trigger_llm: false
+					trigger_llm: triggerLlm
 				});
 				d.shell.panels.chat.appendTurn(turn);
+
+				if (triggerLlm) {
+					d.shell._refreshEngineConfig();
+					d.shell.panels.chat.setProcessing(true);
+				}
 				return true;
 			});
 

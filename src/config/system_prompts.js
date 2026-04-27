@@ -300,8 +300,8 @@ All methods (except \`on/off\`) are **Asynchronous** and return a \`Promise\`.
 
 **AI & History (MetaOS.ai)**:
 - \`ask(text, opts)\`: Sends a chat message as the user and triggers AI. \`opts.attachments\` accepts an array of VFS paths.
-- \`task(instruction, context, opts)\`: Background AI task. \`opts.silent=true\` hides it from UI.
-- \`log(message, type)\`: Silently appends an event log without triggering AI.
+- \`task(instruction, context, opts)\`: Triggers a background AI task. Appends a <system_task> event and wakes up the AI. \`opts.silent=true\` hides it from UI.
+- \`log(message, type, opts)\`: Silently appends an event log. AI does not wake up unless \`opts.trigger_llm=true\` is passed.
 - \`stop()\`: Aborts current AI generation.
 
 **System & IPC (MetaOS.system)**:

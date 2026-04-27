@@ -41,7 +41,7 @@
         ai: {
             ask: async (text, opts = {}) => transport.requestHost('ai:ask', { text, opts }),
             task: async (instruction, context, opts = {}) => transport.requestHost('ai:task', { instruction, context, opts }),
-            log: async (message, type) => transport.requestHost('ai:log', { message, type }),
+            log: async (message, type, opts = {}) => transport.requestHost('ai:log', { message, type, opts }),
             stop: async () => transport.requestHost('ai:stop', {})
         },
 
