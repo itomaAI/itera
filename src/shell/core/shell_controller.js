@@ -313,7 +313,8 @@
 					}
 
 					const timestamp = Date.now();
-					const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+					// / \ : * ? " < > | および制御文字を除去
+					const safeName = file.name.replace(/[\/\\:*?"<>|\x00-\x1F]/g, '_');
 					const path = `${CACHE_DIR}/${timestamp}_${safeName}`;
 
 					try {
