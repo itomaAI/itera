@@ -57,8 +57,11 @@
 			if ((payload.type === 'append' || payload.type === 'update') && payload.turn) {
 				const turn = payload.turn;
 
-				if (payload.type === 'append' && turn.role === Role.USER) {
-					this.continuousToolCount = 0;
+				// ユーザーの直接入力、またはシステム/アプリからの明示的なタスク要求の場合はカウントをリセットする
+				if (payload.type === 'append') {
+					if (turn.role === Role.USER || (turn.meta && turn.meta.type === 'event_log' && turn.content.includes('<event type="system_task">'))) {
+						this.continuousToolCount = 0;
+					}
 				}
 
 				// 自分自身の思考更新はトリガー要因にしない
@@ -153,8 +156,8 @@
 					return; // 起床条件を満たさない（finish で終わった、またはパッシブなログのみ）ため静かに待機
 				}
 
-				// 暴走チェック
-				if (this.continuousToolCount >= this.MAX_CONTINUOUS_TOOLS) {
+				// 暴走チェック (-1 など 0 以下の値が設定された場合は無制限とする)
+				if (this.MAX_CONTINUOUS_TOOLS > 0 && this.continuousToolCount >= this.MAX_CONTINUOUS_TOOLS) {
 					this.state.history.append(Role.SYSTEM, `<event type="system_alert">\nSystem Alert: Max continuous tool executions (${this.MAX_CONTINUOUS_TOOLS}) reached. Auto-trigger paused.\n</event>`, {
 						type: TurnType.ERROR,
 						trigger_llm: false
