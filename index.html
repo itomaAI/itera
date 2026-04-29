@@ -165,9 +165,10 @@
             <h1 class="font-bold text-text-main tracking-wide text-sm">Itera <span class="text-[10px] font-normal text-text-muted ml-1 hidden sm:inline">REAL Architecture</span></h1>
         </div>
         <div class="flex items-center gap-3">
-            <input type="password" id="api-key" placeholder="Gemini API Key" 
-                   class="bg-card border border-border-main rounded px-2 py-1 text-xs w-24 sm:w-48 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary text-text-main placeholder-text-muted transition-all">
-            <button id="btn-save-key" class="text-xs bg-card hover:bg-hover px-3 py-1 rounded transition border border-border-main hover:text-text-main text-text-muted">Save</button>
+            <button id="btn-open-api-modal" class="text-xs bg-card hover:bg-hover px-3 py-1 rounded transition border border-border-main hover:text-text-main text-text-muted flex items-center gap-1.5 shadow-sm">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4v-4l5.659-5.659A6 6 0 1121 9z"></path></svg>
+                Keys
+            </button>
         </div>
     </header>
 
@@ -389,6 +390,28 @@
         </div>
     </div>
 
+    <!-- API Settings Modal -->
+    <div id="api-settings-modal" class="fixed inset-0 bg-black/80 z-[10000] hidden flex items-center justify-center backdrop-blur-sm transition-opacity">
+        <div class="bg-panel rounded-lg shadow-2xl w-full max-w-md border border-border-main flex flex-col mx-4">
+            <div class="p-4 border-b border-border-main flex justify-between items-center bg-panel rounded-t-lg">
+                <h3 class="font-bold text-text-main flex items-center gap-2">
+                    <svg class="w-4 h-4 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4v-4l5.659-5.659A6 6 0 1121 9z"></path></svg>
+                    API Keys (Secrets)
+                </h3>
+                <button id="btn-close-api-modal" class="text-text-muted hover:text-text-main transition w-6 h-6 flex items-center justify-center rounded hover:bg-hover">✕</button>
+            </div>
+            
+            <div class="p-4 space-y-5 overflow-y-auto max-h-[60vh] bg-app/50" id="api-settings-container">
+                <!-- Dynamically injected by ApiSettingsModal -->
+            </div>
+
+            <div class="p-4 border-t border-border-main bg-panel rounded-b-lg flex justify-end gap-2">
+                <button id="btn-cancel-api-modal" class="px-4 py-2 rounded text-sm font-medium text-text-muted hover:text-text-main hover:bg-hover transition border border-transparent hover:border-border-main">Cancel</button>
+                <button id="btn-save-api-modal" class="px-4 py-2 rounded text-sm font-bold bg-primary text-white hover:bg-primary/90 shadow transition border border-primary/50">Save Keys</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Scripts -->
     <script src="src/core/state/vfs.js"></script>
     <script src="src/core/state/store.js"></script>
@@ -433,6 +456,7 @@
     <script src="src/shell/modals/editor_modal.js"></script>
     <script src="src/shell/modals/media_viewer.js"></script>
     <script src="src/shell/modals/settings_modal.js"></script>
+    <script src="src/shell/modals/api_settings_modal.js"></script>
     <script src="src/shell/windowing/process_manager.js"></script>
     <script src="src/shell/core/shell_controller.js"></script>
     
