@@ -2,68 +2,73 @@
 
 **An Autonomous AI Operating System Running Entirely in Your Browser**
 
-Itera OS is an experimental implementation of an autonomous AI operating system that runs entirely within the web browser.
+Itera OS is an experimental implementation of an autonomous AI operating system that operates entirely within the constraints of a web browser. 
 
-Departing from the traditional paradigm of "chatbots that only return text," Itera adopts the **Host-Driven Intelligence (HDI)** approach. In this architecture, an AI agent directly constructs, manipulates, and maintains the user's computing environment—including the file system, UI processes, and background daemons.
+Departing from the traditional paradigm of conversational chatbots, Itera adopts a **Host-Driven Intelligence (HDI)** approach. In this architecture, the AI agent is granted privileged access to directly construct, manipulate, and maintain the user's computing environment—including the Virtual File System (VFS), UI processes, and background daemons—without relying on any backend server infrastructure.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Status: Experimental](https://img.shields.io/badge/Status-Experimental-orange.svg)]()
 
 ---
 
-## 💡 1. Introduction
+## 1. Abstract
 
-Itera OS operates without any backend server (such as Python or Node.js). All code execution, file manipulation, and UI rendering occur locally within the user's browser memory.
+Itera OS executes all system logic, file manipulation, and UI rendering locally within the browser's memory and IndexedDB. 
+When a user issues a natural language request (e.g., "Deploy a task management application"), the AI agent autonomously generates the required HTML/JS/CSS, persists it to the VFS, and spawns it as a live process. Through continuous interaction, the system functions as an adaptive digital workspace that recursively self-improves.
 
-When a user requests, "I need a task management app," or "Write a script to aggregate this data," the AI instantly writes the HTML/JS/CSS, saves it to the Virtual File System (VFS), and spawns it as a live process. The system itself functions as a digital workspace that recursively self-improves and adapts through continuous interaction between the AI and the user.
+## 2. Key Architectural Features
 
-## ⚙️ 2. The REAL Architecture
+### 2.1. The REAL Architecture
+To translate the inferential capabilities of Large Language Models (LLMs) into autonomous OS operations, the system implements the **REAL (Recursive Environment-Agent Loop)** architecture.
+1. **Cognitive Layer (L1)**: Evaluates the current state ($\Omega_t$) and outputs operational intentions via LLM-Prompting Markup Language (LPML) tags.
+2. **Control Layer (L2)**: Parses L1 intentions, executes physical interventions (e.g., file I/O, process management), and injects the results back into the context.
+3. **State Layer (L3)**: Functions as the Single Source of Truth, consisting of the VFS and Epistemic History.
 
-To translate the reasoning capabilities of Large Language Models (LLMs) into autonomous OS operations, we implemented the **REAL (Recursive Environment-Agent Loop)** architecture.
+### 2.2. Host-Guest Isolation & IPC
+The OS space is strictly isolated by privilege levels:
+* **Host (Kernel)**: Runs on the main thread, handling LLM routing, VFS operations, and process lifecycle management.
+* **Guest (Userland)**: Runs user applications and background daemons inside sandboxed `iframe`s.
+Guest processes communicate with the Host via the `window.MetaOS` asynchronous Bridge API to perform secure system operations.
 
-The system is strictly divided into three distinct layers, allowing the AI to autonomously cycle through "Observe, Think, Act, and Update."
+### 2.3. Agnostic LLM Routing
+The Cognitive Layer is decoupled from specific LLM providers. By configuring the API keys and defining the model with a provider prefix (e.g., `openai/gpt-5.5`), the internal router dynamically switches the target endpoint and context projection logic.
 
-1. **Cognitive Layer (L1: The Mind)**
-   The pure thinking and planning layer powered by an LLM (currently Google Gemini). It observes the current environmental state and outputs intentions (via LPML tags) detailing "what to do next."
-2. **Control Layer (L2: The Hands)**
-   The engine that interprets L1's intentions and performs physical interventions in the environment (e.g., creating/editing files, spawning/killing processes). It is also responsible for preventing infinite loops and handling errors.
-3. **State Layer (L3: The World)**
-   Comprising the Virtual File System (VFS) and Epistemic History. It serves as the agent's memory and the absolute "Single Source of Truth" for the environment.
+## 3. Quick Start Protocol
 
-## 🏗️ 3. System Design: Host & Guest Isolation
+To boot and operate the environment, follow these initialization steps:
 
-To ensure security and system stability, the OS space is isolated by privilege levels.
+### Step 1: Inject API Secrets
+1. Click the **"Keys"** button located in the top-right header of the OS.
+2. Enter your API Keys for the desired providers (e.g., Google, OpenAI, Anthropic). 
+*(Note: Secrets are stored locally in the browser's `localStorage` and are never transmitted to unauthorized external servers.)*
 
-* **Host (Brain / Kernel)**
-  Running on the browser's main thread, this is the privileged zone responsible for LLM communication, VFS management, tool execution authority, and process lifecycle management.
-* **Guest (Body / Userland)**
-  The user space operating within sandboxed `iframe`s. Both foreground dashboard UIs and background daemon processes (such as API polling) run entirely in this domain.
-* **Itera Bridge (MetaOS API)**
-  The IPC (Inter-Process Communication) protocol connecting the Guest to the Host. Guest applications use the `window.MetaOS` client library to perform file operations, broadcast events to other processes, or request autonomous tasks from the AI (`agent` / `ask`).
+### Step 2: Configure the Cognitive Engine
+1. Launch the **Settings** application (⚙️) from the Dashboard.
+2. Under the **AI Engine (LLM)** section, specify the target model using the `<provider>/<model>` syntax.
+   * *Examples:* `openai/gpt-5.5`, `anthropic/claude-opus-4-7`, `google/gemini-3-flash-preview`.
+   *(If no provider prefix is specified, the system defaults to Google's API.)*
+3. Verify that the model badge in the chat panel header reflects your updated configuration.
 
-## 📦 4. Itera Blueprints: AI-Native Software Packaging
+### Step 3: Interaction & Blueprint Deployment
+* **Natural Language Control**: Use the right-side chat panel to issue commands (e.g., "Change the system theme to Midnight", "Fix the syntax error in `apps/tasks.html`").
+* **Itera Blueprints**: To install new software, drag and drop a `.md` blueprint file (e.g., `docs/blueprints/pomodoro.md`) into the chat panel and instruct the AI to install it. The agent will read the blueprint, adapt the code to your current system theme, and safely merge it into the VFS.
 
-Itera OS introduces **Itera Blueprints**—a unique, AI-native package management approach for integrating third-party apps and extensions.
+## 4. System Resilience & Management
 
-A Blueprint is essentially a Markdown (`.md`) file. It contains not only the application's source code but also "natural language installation instructions for the AI."
+### 4.1. Time Machine (State Snapshots)
+Given the potential for AI-driven destructive modifications, the system features a snapshot mechanism. 
+Click the **Clock Icon** in the top-left sidebar to create a snapshot of the entire VFS and History ($\Omega_t$). If an operation causes catastrophic failure, you can instantly revert the system to a stable state.
 
-When a user drops a Blueprint file into the chat and says, "Install this," the AI reads the context of the user's current environment (such as theme settings and existing file structures), safely interprets and merges the code, and updates system registries (e.g., `apps.json`). This paradigm enables flexible, context-aware feature extensions that static installers cannot achieve.
+### 4.2. Factory Reset & Data Persistence
+* **Factory Reset**: If the system is critically corrupted, click the **Red Trash Icon** in the sidebar to purge the VFS and rebuild the initial system files.
+* **Exporting Data**: Since VFS data is volatile upon browser cache clearance, it is highly recommended to periodically click the **Download Icon** (arrow down) in the sidebar to export a complete `.zip` backup of your workspace.
 
-## 🚀 5. User Guide & Best Practices
+## 5. Constraints & Security Considerations
 
-1. **Boot**: Visit the [Demo Page](https://itomaai.github.io/itera/), enter your Gemini API Key in the top-right settings area, and save it. (Your key is stored locally in `localStorage` only.)
-2. **Interaction**: Issue instructions in natural language via the right-side chat panel. You can request anything from creating apps and changing UI themes to tweaking system configurations.
-3. **Resilience (Time Machine)**: AI-driven system manipulation can sometimes lead to unexpected, destructive changes. Itera OS includes a "Time Machine" (snapshot) feature. Always create a snapshot before requesting major architectural changes, and instantly roll back to a healthy state if something fails.
-4. **Data Persistence**: VFS data is stored in IndexedDB and persists across reloads. However, clearing your browser cache will erase this data. We strongly recommend regularly exporting your entire system as a `.zip` file from the sidebar as a backup.
+* **Sandbox Limitations**: Due to browser security constraints, Itera cannot execute native shell binaries (e.g., `npm`, `python`), nor can it directly access the host machine's physical file system.
+* **CORS Restrictions**: Direct HTTP requests to external APIs are often blocked by CORS. To mitigate this, users can define a proxy URL in the Settings app, which the `MetaOS.net.fetch` API will route traffic through.
+* **Loop Divergence**: If the AI's internal state representation diverges from the actual VFS state, it may fall into an infinite error-correction loop. In such cases, trigger a manual interrupt by pressing the **"Stop"** button in the chat panel.
 
-## ⚠️ 6. Constraints & Troubleshooting
-
-* **Sandbox Constraints**: Because it runs entirely in the browser, Itera cannot execute shell commands (e.g., `npm`, `python`), make direct HTTP requests that violate CORS policies, or access your local machine's physical file system.
-* **Loop Divergence**: Occasionally, the AI's perception of the code may diverge from the actual VFS state, causing the AI to fall into an endless error-correction loop. If this happens, use the "Stop" button in the chat panel to forcefully halt its thought process.
-* **Factory Reset**: If the system becomes critically corrupted and cannot be recovered via the Time Machine, you can use the "Red Trash Icon" in the sidebar to perform a Factory Reset, rebuilding the system to its initial state.
-
-## License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-Copyright (c) 2026 itomaAI inc.
+---
+**License**: MIT License  
+**Copyright**: (c) 2026 itomaAI inc.
