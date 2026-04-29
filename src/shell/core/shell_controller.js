@@ -110,6 +110,7 @@
 			this.windowing.processManager = new Windowing.ProcessManager(vfs);
 			this.modals.settings = new Modals.SettingsModal(storage, configManager);
 			this.modals.media = new Modals.MediaViewer();
+			this.modals.apiSettings = new Modals.ApiSettingsModal(); // ★ 新規追加
 
 			this.panels.chat.setVfs(vfs);
 
@@ -133,28 +134,25 @@
 				Control.Tools.registerBasicTools(registry);
 			}
 
-			this._createLLM = () => {
-				const apiKey = localStorage.getItem('itera_api_key') || "";
-				const conf = configManager.get('llm');
-				const model = conf?.model || "gemini-3.1-pro-preview";
-				this._updateModelStatus(model);
-				return new Cognitive.GeminiAdapter(apiKey, model, {}, this.state.logger);
-			};
-
-			const projector = new Cognitive.GeminiProjector(this.config.SYSTEM_PROMPT || "");
-
+			// Engineの初期化 (AdapterとProjectorは後で注入)
 			this.engine = new Control.Engine({
 					history,
 					vfs,
 					configManager
 				},
-				projector,
-				this._createLLM(),
+				null,
+				null,
 				translator,
 				registry, {
 					shell: this
 				}
 			);
+
+			// LLMとProjectorの初回セットアップ
+			this._refreshEngineConfig();
+
+			// シークレット変更時の再セットアップ
+			this.modals.apiSettings.on('secrets_updated', () => this._refreshEngineConfig());
 
 			// Initialize new IPC transport and API router
 			this.transport = new global.Itera.Ipc.HostTransport();
@@ -588,7 +586,85 @@
 		}
 
 		_refreshEngineConfig() {
-			if (this.engine) this.engine.llm = this._createLLM();
+			if (!this.engine) return;
+
+			// 1. config.json (VFS) からモデル定義を取得し、プロバイダを判定
+			const configManager = this.state.configManager;
+			const rawModel = configManager.get('llm')?.model || this.config.DEFAULT_MODEL;
+			
+			let provider = "google";
+			let modelName = rawModel;
+
+			const slashIdx = rawModel.indexOf('/');
+			if (slashIdx !== -1) {
+				provider = rawModel.substring(0, slashIdx).toLowerCase();
+				modelName = rawModel.substring(slashIdx + 1);
+			}
+
+			// 2. localStorage からシークレット(APIキー等)を取得
+			let secrets = {};
+			try {
+				secrets = JSON.parse(localStorage.getItem('itera_llm_secrets') || '{}');
+			} catch(e) {}
+
+			if (!secrets.google && localStorage.getItem('itera_api_key')) {
+				secrets.google = localStorage.getItem('itera_api_key');
+			}
+
+			// 3. UIの更新 (チャットパネル上のバッジにプロバイダ名を付けて表示)
+			this._updateModelStatus(`${provider}/${modelName}`);
+
+			// 4. Provider に応じた Projector と Adapter のファクトリ
+			const sysPrompt = this.config.SYSTEM_PROMPT || "";
+			const apiKey = secrets[provider] || "";
+			
+			let newLlm, newProjector;
+
+			switch (provider) {
+				case 'openai':
+					if (Cognitive.OpenAIProjector && Cognitive.OpenAIAdapter) {
+						newProjector = new Cognitive.OpenAIProjector(sysPrompt);
+						newLlm = new Cognitive.OpenAIAdapter(apiKey, modelName, "https://api.openai.com/v1", {}, this.state.logger);
+					} else {
+						console.warn(`[Shell] OpenAI adapters not yet loaded. Fallback to Gemini.`);
+						newProjector = new Cognitive.GeminiProjector(sysPrompt);
+						newLlm = new Cognitive.GeminiAdapter(secrets.google, modelName, {}, this.state.logger);
+					}
+					break;
+					
+				case 'anthropic':
+					if (Cognitive.AnthropicProjector && Cognitive.AnthropicAdapter) {
+						newProjector = new Cognitive.AnthropicProjector(sysPrompt);
+						newLlm = new Cognitive.AnthropicAdapter(apiKey, modelName, {}, this.state.logger);
+					} else {
+						console.warn(`[Shell] Anthropic adapters not yet loaded. Fallback to Gemini.`);
+						newProjector = new Cognitive.GeminiProjector(sysPrompt);
+						newLlm = new Cognitive.GeminiAdapter(secrets.google, modelName, {}, this.state.logger);
+					}
+					break;
+					
+				case 'custom':
+					if (Cognitive.OpenAIProjector && Cognitive.OpenAIAdapter) {
+						const baseUrl = secrets.custom_url || "http://localhost:11434/v1";
+						newProjector = new Cognitive.OpenAIProjector(sysPrompt);
+						newLlm = new Cognitive.OpenAIAdapter(apiKey, modelName, baseUrl, {}, this.state.logger);
+					} else {
+						console.warn(`[Shell] Custom adapters not yet loaded. Fallback to Gemini.`);
+						newProjector = new Cognitive.GeminiProjector(sysPrompt);
+						newLlm = new Cognitive.GeminiAdapter(secrets.google, modelName, {}, this.state.logger);
+					}
+					break;
+					
+				case 'google':
+				default:
+					newProjector = new Cognitive.GeminiProjector(sysPrompt);
+					newLlm = new Cognitive.GeminiAdapter(apiKey, modelName, {}, this.state.logger);
+					break;
+			}
+
+			// Engine への注入
+			this.engine.projector = newProjector;
+			this.engine.llm = newLlm;
 		}
 
 		_triggerAutoSave() {
