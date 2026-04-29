@@ -193,7 +193,7 @@
 				let purged = 0;
 				if (typeof vfs.purgeTrash === 'function') purged += vfs.purgeTrash(7);
 				if (this.state.logger) purged += this.state.logger.purgeOldLogs(7);
-				
+
 				if (purged > 0) {
 					console.log(`[System Cron] Daily maintenance completed. Purged ${purged} old files.`);
 					this._triggerAutoSave();
@@ -208,7 +208,10 @@
 			await this.refreshPreview();
 
 			if (this.state.logger) {
-				this.state.logger.log('system', { action: 'boot', message: 'System booted successfully' });
+				this.state.logger.log('system', {
+					action: 'boot',
+					message: 'System booted successfully'
+				});
 			}
 			console.log("[Itera] System Ready.");
 		}
@@ -272,7 +275,9 @@
 			if (btnAddressGo) {
 				// モバイル等でボタンタップ時にinputのフォーカスが外れてボタンが消えるのを防ぐ
 				btnAddressGo.addEventListener('mousedown', (e) => e.preventDefault());
-				btnAddressGo.addEventListener('touchstart', (e) => e.preventDefault(), { passive: false });
+				btnAddressGo.addEventListener('touchstart', (e) => e.preventDefault(), {
+					passive: false
+				});
 				btnAddressGo.addEventListener('click', handleAddressNavigate);
 			}
 			const {
@@ -487,7 +492,7 @@
 			vfs.on('change', (payload) => {
 				this._updateStorageUI(payload.usage);
 				this._triggerAutoSave();
-				
+
 				// システムログへのサイレントな書き込みはゲストアプリにブロードキャストしない（パフォーマンス保護）
 				if (!payload.path || !payload.path.startsWith('system/logs/')) {
 					this.windowing.processManager.broadcast('file_changed', payload);
@@ -591,7 +596,7 @@
 			// 1. config.json (VFS) からモデル定義を取得し、プロバイダを判定
 			const configManager = this.state.configManager;
 			const rawModel = configManager.get('llm')?.model || this.config.DEFAULT_MODEL;
-			
+
 			let provider = "google";
 			let modelName = rawModel;
 
@@ -605,7 +610,7 @@
 			let secrets = {};
 			try {
 				secrets = JSON.parse(localStorage.getItem('itera_llm_secrets') || '{}');
-			} catch(e) {}
+			} catch (e) {}
 
 			if (!secrets.google && localStorage.getItem('itera_api_key')) {
 				secrets.google = localStorage.getItem('itera_api_key');
@@ -617,7 +622,7 @@
 			// 4. Provider に応じた Projector と Adapter のファクトリ
 			const sysPrompt = this.config.SYSTEM_PROMPT || "";
 			const apiKey = secrets[provider] || "";
-			
+
 			let newLlm, newProjector;
 
 			switch (provider) {
@@ -631,7 +636,18 @@
 						newLlm = new Cognitive.GeminiAdapter(secrets.google, modelName, {}, this.state.logger);
 					}
 					break;
-					
+
+				case 'openrouter':
+					if (Cognitive.OpenAIProjector && Cognitive.OpenAIAdapter) {
+						newProjector = new Cognitive.OpenAIProjector(sysPrompt);
+						newLlm = new Cognitive.OpenAIAdapter(apiKey, modelName, "https://openrouter.ai/api/v1", {}, this.state.logger);
+					} else {
+						console.warn(`[Shell] OpenAI adapters not yet loaded. Fallback to Gemini.`);
+						newProjector = new Cognitive.GeminiProjector(sysPrompt);
+						newLlm = new Cognitive.GeminiAdapter(secrets.google, modelName, {}, this.state.logger);
+					}
+					break;
+
 				case 'anthropic':
 					if (Cognitive.AnthropicProjector && Cognitive.AnthropicAdapter) {
 						newProjector = new Cognitive.AnthropicProjector(sysPrompt);
@@ -642,7 +658,7 @@
 						newLlm = new Cognitive.GeminiAdapter(secrets.google, modelName, {}, this.state.logger);
 					}
 					break;
-					
+
 				case 'custom':
 					if (Cognitive.OpenAIProjector && Cognitive.OpenAIAdapter) {
 						const baseUrl = secrets.custom_url || "http://localhost:11434/v1";
@@ -654,7 +670,7 @@
 						newLlm = new Cognitive.GeminiAdapter(secrets.google, modelName, {}, this.state.logger);
 					}
 					break;
-					
+
 				case 'google':
 				default:
 					newProjector = new Cognitive.GeminiProjector(sysPrompt);
@@ -715,11 +731,11 @@
 
 			// 1. セッションリセットのロギング
 			if (this.state.logger) {
-				this.state.logger.log('system', { 
-					action: 'session_reset', 
-					purgeMedia, 
+				this.state.logger.log('system', {
+					action: 'session_reset',
+					purgeMedia,
 					restoreTools,
-					hasSummary: !!summary 
+					hasSummary: !!summary
 				});
 			}
 
