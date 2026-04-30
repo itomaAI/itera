@@ -35,7 +35,7 @@ Cognitive Layerは特定のLLMプロバイダから分離されています。AP
 
 ## 3. Quick Start Protocol (初期セットアップ手順)
 
-環境を起動し操作を開始するには、以下の初期化手順を実行してください：
+環境を起動するには、まず **[Itera OS ライブ環境 (Demo)](https://itomaai.github.io/itera/)** にアクセスしてください。その後、以下の初期化手順を実行します：
 
 ### Step 1: APIシークレットの注入
 1. OSの右上ヘッダーにある **「Keys」** ボタンをクリックします。

@@ -117,9 +117,10 @@ Rule:
 </define_tag>
 
 <define_tag name="create_file">
-Creates a new file or completely overwrites an existing one.
+Creates a new file. Fails if the file already exists unless overwrite="true" is specified.
 Attributes:
     - path: File path.
+    - overwrite (optional): "true" or "false" (default). Set to "true" to completely overwrite an existing file.
 Content:
     - The full text content of the file.
 Rules:
