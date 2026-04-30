@@ -1,5 +1,5 @@
 // AUTO-GENERATED FILE - DO NOT EDIT MANUALLY
-// Generated on: 2026-04-07T08:32:46Z
+// Generated on: 2026-04-30T01:52:23Z
 
 (function(global) {
     global.Itera = global.Itera || {};
@@ -1548,7 +1548,7 @@ The Engine extracts and executes only the parts enclosed in \`<tags>\`, processi
 
 **Action Tags (File System):**
 *   **\`<read_file path="...">\`**: Loads file content into your context.
-*   **\`<create_file path="...">\`**: Creates a new file or overwrites a file.
+*   **\`<create_file path="...">\`**: Creates a new file. Fails if it exists unless \`overwrite="true"\` is set.
 *   **\`<edit_file path="...">\`**: Rewrites a part of a file using regex or precise line replacement.
 
 **Action Tags (Process & OS Control):**
