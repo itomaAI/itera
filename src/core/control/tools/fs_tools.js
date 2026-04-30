@@ -90,12 +90,19 @@
 
         // 2. create_file
         registry.register('create_file', async (params, context) => {
+            const isOverwrite = params.overwrite === 'true';
+            
+            if (!isOverwrite && context.vfs.exists(params.path)) {
+                throw new Error(`File already exists at ${params.path}. Set overwrite="true" if you intend to completely overwrite it, or use <edit_file> to modify it.`);
+            }
+            
             let content = params.content || "";
             content = content.replace(/^\r?\n/, '').replace(/\r?\n$/, '');
             const msg = context.vfs.writeFile(params.path, content);
+            
             return {
                 log: msg,
-                ui: `📝 Created ${params.path}`
+                ui: `📝 ${isOverwrite ? 'Overwrote' : 'Created'} ${params.path}`
             };
         });
 

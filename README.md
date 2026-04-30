@@ -35,7 +35,7 @@ The Cognitive Layer is decoupled from specific LLM providers. By configuring the
 
 ## 3. Quick Start Protocol
 
-To boot and operate the environment, follow these initialization steps:
+To initialize the environment, first navigate to the **[Itera OS Live Environment (Demo)](https://itomaai.github.io/itera/)**. Then, follow these initialization steps:
 
 ### Step 1: Inject API Secrets
 1. Click the **"Keys"** button located in the top-right header of the OS.
