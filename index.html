@@ -7,6 +7,24 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Itera: AI Secretary</title>
 
+    <!-- Universal OAuth Callback Interceptor -->
+    <script>
+        (function() {
+            // 親ウィンドウが存在し、かつURLにOAuth特有のパラメータが含まれているか判定
+            if (window.opener && window.opener !== window && window.location.href.match(/[#?&](access_token|code|state|error)=/)) {
+                // 解析の責務は親ウィンドウに委譲し、URLの情報をそのまま送信する
+                window.opener.postMessage({
+                    type: 'ITERA_OAUTH_CALLBACK',
+                    hash: window.location.hash,
+                    search: window.location.search
+                }, window.location.origin);
+                
+                // 自身を閉じる（OSの重いロードをスキップ）
+                window.close();
+            }
+        })();
+    </script>
+
     <!-- Icon -->
     <link rel="icon" type="image/svg+xml" href="assets/icon.svg">
     
