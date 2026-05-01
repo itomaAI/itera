@@ -16,12 +16,35 @@
 		}
 
 		/**
-		 * OAuth等の認証処理を行う
-		 * 成功した場合、アクセストークンなどは configManager 等を通じて永続化する
-		 * @returns {Promise<boolean>} 認証に成功したかどうか
+		 * API通信による認証状態のテストを行う
+		 * @returns {Promise<boolean>} 認証トークンが有効かどうか
 		 */
 		async auth() {
 			throw new Error(`[${this.providerId}] auth() must be implemented.`);
+		}
+
+		/**
+		 * 認証情報を破棄し、サインアウト状態にする
+		 */
+		clearAuth() {
+			throw new Error(`[${this.providerId}] clearAuth() must be implemented.`);
+		}
+
+		/**
+		 * 認証用ポップアップを開くためのURLを生成する
+		 * @param {string} redirectUri - 認証後に戻ってくるURL
+		 * @returns {string} 認証URL
+		 */
+		getAuthUrl(redirectUri) {
+			throw new Error(`[${this.providerId}] getAuthUrl() must be implemented.`);
+		}
+
+		/**
+		 * ポップアップから返ってきたコールバック情報（トークンなど）を受け取り保存する
+		 * @param {Object} callbackData - { token, ... }
+		 */
+		saveAuthCallback(callbackData) {
+			throw new Error(`[${this.providerId}] saveAuthCallback() must be implemented.`);
 		}
 
 		/**
