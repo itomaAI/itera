@@ -11,15 +11,15 @@
 		constructor(vfs, configManager) {
 			this.vfs = vfs;
 			this.configManager = configManager;
-			this.provider = new GDriveProvider(configManager); // 現状はGoogle Drive固定
+
+			// 現在はGoogle Driveプロバイダを固定でインスタンス化
+			this.provider = new GDriveProvider(configManager);
 
 			this.isSyncing = false;
 			this.daemonTimer = null;
 			this.listeners = {
 				'status_change': []
 			};
-
-			this.lastSyncMeta = null; // 不要なフェッチを避けるためのキャッシュ
 		}
 
 		on(event, callback) {
@@ -86,12 +86,11 @@
 			let errorCount = 0;
 
 			try {
-				// 1. インデックスのメタデータ（更新日時）を取得し、変更があるかチェック
+				// 1. インデックスのメタデータ（更新日時）を取得
 				const remoteMeta = await this.provider.getIndexMetadata();
 				let remoteIndex = null;
 
 				if (remoteMeta) {
-					// TODO: キャッシュを用いた最適化は将来拡張。今回は安全のため常に取得する
 					remoteIndex = await this.provider.getIndex();
 				}
 
@@ -99,14 +98,44 @@
 				const diff = SyncEngine.computeDiff(this.vfs.files, remoteIndex);
 				let newIndexData = diff.newIndexData;
 
+				// --- チェックポイント管理用の変数 ---
+				let unsavedChangesCount = 0;
+				let lastSavedTime = Date.now();
+				const CHECKPOINT_THRESHOLD_FILES = 50;
+				const CHECKPOINT_THRESHOLD_MS = 120000; // 2分
+
+				/**
+				 * 進行状況に応じてインデックスを途中保存するヘルパー関数
+				 */
+				const evaluateCheckpoint = async () => {
+					const now = Date.now();
+					const timeSinceLastSave = now - lastSavedTime;
+
+					if (unsavedChangesCount >= CHECKPOINT_THRESHOLD_FILES || timeSinceLastSave >= CHECKPOINT_THRESHOLD_MS) {
+						if (unsavedChangesCount > 0) {
+							console.log(`[SyncManager] Creating checkpoint... saving index.`);
+							newIndexData.last_synced_at = Date.now();
+							await this.provider.uploadIndex(newIndexData);
+
+							unsavedChangesCount = 0;
+							lastSavedTime = Date.now();
+						}
+					}
+				};
+
 				// 3. Download キューの処理
 				for (const item of diff.downloadQueue) {
 					try {
 						const content = await this.provider.downloadFile(item.remote_id);
-						// VFSに書き込む (silentはAPI Routerのイベント発火を防ぐが、VFS自体のchangeイベントは発火しUIは更新される)
+
+						// VFSに書き込む (ローカルメモリへの反映)
 						this.vfs.writeFile(item.path, content);
+
 						successCount++;
-						console.log(`[SyncManager] Downloaded: ${item.path}`);
+						unsavedChangesCount++;
+
+						// 進行状況のチェック
+						await evaluateCheckpoint();
 					} catch (e) {
 						console.error(`[SyncManager] Failed to download ${item.path}:`, e);
 						errorCount++;
@@ -118,44 +147,52 @@
 				// 4. Upload キューの処理
 				for (const item of diff.uploadQueue) {
 					try {
-						// VFS上のファイルのMIMEタイプを推定（必要に応じて）
+						// VFS上のファイルのMIMEタイプを推定
 						const ext = item.path.split('.').pop().toLowerCase();
 						let mimeType = 'text/plain';
 						if (['png', 'jpg', 'jpeg', 'gif', 'svg', 'webp'].includes(ext)) {
-							// DataURIの場合はUpload時にパースされるため厳密でなくてよい
 							mimeType = `image/${ext === 'svg' ? 'svg+xml' : ext}`;
 						} else if (ext === 'json') {
 							mimeType = 'application/json';
+						} else if (ext === 'pdf') {
+							mimeType = 'application/pdf';
 						}
 
+						// プロバイダを通じてアップロードを実行
 						const newRemoteId = await this.provider.uploadFile(item.path, item.content, mimeType, item.remote_id);
 
-						// アップロード成功後、新しいメタデータをインデックスに追加
+						// アップロード成功後、新しいメタデータをメモリ上のインデックスに追加
 						const vfsStat = this.vfs.stat(item.path);
 						newIndexData.files[item.path] = {
 							remote_id: newRemoteId,
 							updated_at: vfsStat.updated_at,
 							size: vfsStat.size
 						};
+
 						successCount++;
-						console.log(`[SyncManager] Uploaded: ${item.path}`);
+						unsavedChangesCount++;
+
+						// 進行状況のチェック
+						await evaluateCheckpoint();
 					} catch (e) {
 						console.error(`[SyncManager] Failed to upload ${item.path}:`, e);
 						errorCount++;
-						// 既存ファイルの上書きに失敗した場合、インデックスの古い情報を維持する
+						// 既存ファイルの上書きに失敗した場合、インデックスの古い情報を維持して次回再試行させる
 						if (remoteIndex && remoteIndex.files[item.path]) {
 							newIndexData.files[item.path] = remoteIndex.files[item.path];
 						}
 					}
 				}
 
-				// 5. 変更があった場合のみインデックスを更新して保存
-				if (diff.downloadQueue.length > 0 || diff.uploadQueue.length > 0) {
+				// 5. 最終コミット（残りのインデックス保存）
+				// 変更があった（未保存のキューが残っている、または最初から差分があったがチェックポイントに達しなかった）場合
+				if (unsavedChangesCount > 0 || diff.downloadQueue.length > 0 || diff.uploadQueue.length > 0) {
 					newIndexData.last_synced_at = Date.now();
 					await this.provider.uploadIndex(newIndexData);
-					console.log(`[SyncManager] Index updated.`);
+					console.log(`[SyncManager] Final index updated.`);
 				}
 
+				// 結果のUIフィードバック
 				if (errorCount > 0) {
 					this._emitStatus('error', `${successCount} synced, ${errorCount} failed`);
 				} else {
