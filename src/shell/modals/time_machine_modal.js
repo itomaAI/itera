@@ -17,7 +17,7 @@
         BTN_DELETE_ALL: 'btn-delete-all-snapshots'
     };
 
-    class SettingsModal {
+    class TimeMachineModal {
         constructor(storage, configManager) {
             this.storage = storage;
             this.configManager = configManager;
@@ -173,6 +173,6 @@
         }
     }
 
-    global.Itera.Shell.Modals.SettingsModal = SettingsModal;
+    global.Itera.Shell.Modals.TimeMachineModal = TimeMachineModal;
 
 })(window);

@@ -185,9 +185,16 @@
                 <div class="flex items-center gap-2">
                     <div class="w-2 h-2 rounded-full bg-success animate-pulse shadow-[0_0_4px_rgba(var(--c-accent-success),0.5)]"></div>
                     <span class="text-xs font-bold text-text-main tracking-wide">System</span>
+                    <!-- Cloud Sync Status Indicator -->
+                    <div id="sync-status-indicator" class="hidden ml-1 text-text-muted transition-colors duration-300" title="Cloud Sync Status">
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z"></path></svg>
+                    </div>
                 </div>
                 <div class="flex items-center gap-1">
-                    <button id="btn-history" title="Settings / Time Machine" class="p-1.5 text-text-muted hover:text-text-main hover:bg-hover rounded transition">
+                    <button id="btn-sync" title="Cloud Sync" class="p-1.5 text-text-muted hover:text-primary hover:bg-hover rounded transition">
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z"></path></svg>
+                    </button>
+                    <button id="btn-history" title="Time Machine" class="p-1.5 text-text-muted hover:text-text-main hover:bg-hover rounded transition">
                         <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
                     </button>
                     <div class="w-px h-4 bg-border-main mx-1"></div>
@@ -368,8 +375,44 @@
     <!-- Background Processes (Daemons) -->
     <div id="background-processes" class="hidden"></div>
 
-    <!-- Settings Modal -->
-    <div id="history-modal" class="fixed inset-0 bg-black/80 z- hidden flex items-center justify-center modal backdrop-blur-sm transition-opacity">
+    <!-- Sync Modal -->
+    <div id="sync-modal" class="fixed inset-0 bg-black/80 z-[10000] hidden flex items-center justify-center backdrop-blur-sm transition-opacity">
+        <div class="bg-panel rounded-lg shadow-2xl w-full max-w-md border border-border-main flex flex-col mx-4">
+            <div class="p-4 border-b border-border-main flex justify-between items-center bg-panel rounded-t-lg">
+                <h3 class="font-bold text-text-main flex items-center gap-2">
+                    <svg class="w-4 h-4 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z"></path></svg>
+                    Cloud Sync
+                </h3>
+                <button id="btn-close-sync" class="text-text-muted hover:text-text-main transition w-6 h-6 flex items-center justify-center rounded hover:bg-hover">✕</button>
+            </div>
+            
+            <div class="p-6 space-y-6">
+                <div>
+                    <label class="block text-xs font-bold text-text-muted uppercase mb-2">Storage Provider</label>
+                    <select id="sync-provider-select" class="w-full bg-card border border-border-main rounded-md p-2 text-sm text-text-main focus:outline-none focus:border-primary">
+                        <option value="gdrive">Google Drive</option>
+                    </select>
+                </div>
+                
+                <div class="bg-card/50 p-4 rounded-lg border border-border-main/50 flex flex-col items-center justify-center text-center space-y-3">
+                    <div id="sync-status-text" class="text-sm font-mono mt-2">● Standby</div>
+                    <button id="btn-auth-gdrive" class="px-4 py-2 rounded-lg text-sm font-bold bg-primary text-white hover:bg-primary/90 transition shadow">
+                        Sign in with Google
+                    </button>
+                </div>
+            </div>
+
+            <div class="p-4 border-t border-border-main bg-panel rounded-b-lg flex justify-between items-center">
+                <span class="text-[10px] text-text-muted font-mono">Syncs automatically every 5 mins</span>
+                <button id="btn-sync-now" class="px-4 py-2 rounded-lg text-sm font-medium bg-card hover:bg-hover border border-border-main transition">
+                    Sync Now
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Settings Modal (Time Machine) -->
+    <div id="history-modal" class="fixed inset-0 bg-black/80 z-[10000] hidden flex items-center justify-center modal backdrop-blur-sm transition-opacity">
         <div class="bg-panel rounded-lg shadow-2xl w-full max-w-md border border-border-main flex flex-col max-h-[80vh]">
             <div class="p-4 border-b border-border-main flex justify-between items-center bg-panel rounded-t-lg">
                 <h3 class="font-bold text-text-main flex items-center gap-2">
@@ -419,6 +462,12 @@
     <script src="src/core/state/history.js"></script>
     <script src="src/core/state/logger.js"></script>
     
+    <!-- Sync Domain -->
+    <script src="src/core/sync/providers/base_provider.js"></script>
+    <script src="src/core/sync/providers/gdrive_provider.js"></script>
+    <script src="src/core/sync/sync_engine.js"></script>
+    <script src="src/core/sync/sync_manager.js"></script>
+    
     <!-- Cognitive -->
     <script src="src/core/cognitive/llm_adapter.js"></script>
     <script src="src/core/cognitive/translator.js"></script>
@@ -455,8 +504,9 @@
     <script src="src/shell/panels/chat_panel.js"></script>
     <script src="src/shell/modals/editor_modal.js"></script>
     <script src="src/shell/modals/media_viewer.js"></script>
-    <script src="src/shell/modals/settings_modal.js"></script>
+    <script src="src/shell/modals/time_machine_modal.js"></script>
     <script src="src/shell/modals/api_settings_modal.js"></script>
+    <script src="src/shell/modals/sync_modal.js"></script>
     <script src="src/shell/windowing/process_manager.js"></script>
     <script src="src/shell/core/shell_controller.js"></script>
     
