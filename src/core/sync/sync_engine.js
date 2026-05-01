@@ -44,7 +44,8 @@
                     // （※ローカルでの削除は、即座にリモートも消す仕様に寄せた方が競合が少ない）
                     downloadQueue.push({
                         path: path,
-                        remote_id: remoteMeta.remote_id
+                        remote_id: remoteMeta.remote_id,
+                        updated_at: remoteMeta.updated_at
                     });
                     
                     // ダウンロード後にインデックスにそのまま載せるため、データを引き継ぐ
@@ -71,7 +72,8 @@
                         // リモートの方が新しい。Downloadキューへ。
                         downloadQueue.push({
                             path: path,
-                            remote_id: remoteMeta.remote_id
+                            remote_id: remoteMeta.remote_id,
+                            updated_at: remoteMeta.updated_at
                         });
                         newIndexData.files[path] = remoteMeta;
                     }

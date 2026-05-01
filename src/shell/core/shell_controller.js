@@ -68,13 +68,16 @@
 			}
 
 			if (autoUpdate && this.config.DEFAULT_FILES) {
+				// ビルドスクリプトが生成した静的なビルド時刻を使用（未定義なら起動時の時刻にフォールバック）
+				const buildTime = this.config.BUILD_TIME || Date.now();
+				
 				Object.keys(this.config.DEFAULT_FILES).forEach(path => {
 					if (path.startsWith('docs/') || path.startsWith('system/lib/') || path.startsWith('system/kernel/')) {
 						initialFiles[path] = {
 							content: this.config.DEFAULT_FILES[path],
 							meta: {
-								created_at: Date.now(),
-								updated_at: Date.now()
+								created_at: buildTime,
+								updated_at: buildTime
 							}
 						};
 					}
