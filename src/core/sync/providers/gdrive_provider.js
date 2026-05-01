@@ -70,6 +70,20 @@
 		}
 
 		/**
+		 * 認証情報の破棄
+		 */
+		clearAuth() {
+			let secrets = {};
+			try {
+				secrets = JSON.parse(localStorage.getItem('itera_sync_secrets') || '{}');
+			} catch (e) {}
+			if (secrets[this.providerId]) {
+				delete secrets[this.providerId];
+				localStorage.setItem('itera_sync_secrets', JSON.stringify(secrets));
+			}
+		}
+
+		/**
 		 * 同期専用のフォルダ（IteraOS_Sync）のIDを取得する。なければ作成する。
 		 */
 		async _getFolderId() {

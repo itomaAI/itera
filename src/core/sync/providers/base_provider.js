@@ -17,11 +17,17 @@
 
 		/**
 		 * OAuth等の認証処理を行う
-		 * 成功した場合、アクセストークンなどは configManager 等を通じて永続化する
 		 * @returns {Promise<boolean>} 認証に成功したかどうか
 		 */
 		async auth() {
 			throw new Error(`[${this.providerId}] auth() must be implemented.`);
+		}
+
+		/**
+		 * 認証情報を破棄し、サインアウト状態にする
+		 */
+		clearAuth() {
+			throw new Error(`[${this.providerId}] clearAuth() must be implemented.`);
 		}
 
 		/**

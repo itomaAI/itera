@@ -32,6 +32,11 @@
 			this.syncManager.on('status_change', (payload) => {
 				this._updateStatusUI(payload.status, payload.details);
 			});
+
+			// トークン期限切れイベントの購読
+			window.addEventListener('itera_sync_auth_expired', () => {
+				this._updateUI(); // サインインボタンなどをリセットする
+			});
 		}
 
 		on(event, callback) {
