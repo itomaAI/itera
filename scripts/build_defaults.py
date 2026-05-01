@@ -89,6 +89,7 @@ def build_default_files() -> None:
     global.Itera = global.Itera || {{}};
     global.Itera.Config = global.Itera.Config || {{}};
 
+    global.Itera.Config.BUILD_TIME = new Date("{now}").getTime();
     global.Itera.Config.DEFAULT_FILES = {{
 {entries_str}
     }};

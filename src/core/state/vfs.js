@@ -431,6 +431,16 @@
             return `Replaced content in ${p}`;
         }
 
+        /**
+         * ファイルの更新日時を強制的に書き換える（同期エンジンの復元用）
+         */
+        touch(path, timestamp) {
+            const p = this._norm(path);
+            if (this.isFile(p)) {
+                this.files[p].meta.updated_at = timestamp;
+            }
+        }
+
         editLines(path, start, end, mode, newContent = "") {
             const p = this._norm(path);
             if (!this.isFile(p)) throw new Error(`File not found: ${p}`);

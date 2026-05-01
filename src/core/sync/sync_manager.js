@@ -131,6 +131,11 @@
 						// VFSに書き込む (ローカルメモリへの反映)
 						this.vfs.writeFile(item.path, content);
 
+						// VFSの仕様により現在時刻に上書きされてしまうタイムスタンプを、クラウド上の本来の時刻に巻き戻す
+						if (item.updated_at && this.vfs.touch) {
+							this.vfs.touch(item.path, item.updated_at);
+						}
+
 						successCount++;
 						unsavedChangesCount++;
 
