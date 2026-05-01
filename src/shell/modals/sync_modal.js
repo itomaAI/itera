@@ -8,10 +8,9 @@
 	const DOM_IDS = {
 		MODAL: 'sync-modal',
 		BTN_CLOSE: 'btn-close-sync',
-		BTN_AUTH: 'btn-auth-gdrive',
+		BTN_AUTH: 'btn-auth-gdrive', // UI上のボタン
 		BTN_SYNC_NOW: 'btn-sync-now',
 		STATUS_TEXT: 'sync-status-text',
-		LAST_SYNC_TIME: 'sync-last-time',
 		PROVIDER_SELECT: 'sync-provider-select'
 	};
 
@@ -22,8 +21,6 @@
 			this.els = {};
 			this.events = {};
 
-			this.CLIENT_ID = '683000743319-ucl8e9it3l2e5grdgsq38ohdrd9fccej.apps.googleusercontent.com'; // ★ 本番デプロイ時に書き換える必要があります
-
 			this._initElements();
 			this._bindEvents();
 			this._updateUI();
@@ -33,9 +30,9 @@
 				this._updateStatusUI(payload.status, payload.details);
 			});
 
-			// トークン期限切れイベントの購読
+			// トークン期限切れなどの外部要因による認証リセットイベントの購読
 			window.addEventListener('itera_sync_auth_expired', () => {
-				this._updateUI(); // サインインボタンなどをリセットする
+				this._updateUI();
 			});
 		}
 
@@ -66,12 +63,14 @@
 		}
 
 		_isAuthenticated() {
+			// プロバイダの認証状態をHostのlocalStorageから判定する
 			let secrets = {};
 			try {
 				secrets = JSON.parse(localStorage.getItem('itera_sync_secrets') || '{}');
 			} catch (e) {}
-			// シンプルな有無のチェック。有効期限は通信時に判明する
-			return !!secrets.gdrive?.token;
+
+			const currentProviderId = this.syncManager.provider.providerId;
+			return !!secrets[currentProviderId]?.token;
 		}
 
 		_updateUI() {
@@ -80,6 +79,8 @@
 			const isAuth = this._isAuthenticated();
 
 			if (this.els.BTN_AUTH) {
+				this.els.BTN_AUTH.classList.remove('opacity-75', 'cursor-wait'); // ロード状態のリセット
+
 				if (isAuth) {
 					this.els.BTN_AUTH.textContent = "Sign Out";
 					this.els.BTN_AUTH.className = "px-4 py-2 rounded-lg text-sm font-medium text-text-muted hover:text-error hover:bg-error/10 transition border border-border-main";
@@ -124,38 +125,34 @@
 		}
 
 		async _handleAuthToggle() {
+			const provider = this.syncManager.provider;
+
 			if (this._isAuthenticated()) {
 				// サインアウト処理
-				if (confirm("Disconnect Google Drive? This will stop cloud synchronization.")) {
-					let secrets = {};
-					try {
-						secrets = JSON.parse(localStorage.getItem('itera_sync_secrets') || '{}');
-					} catch (e) {}
-
-					delete secrets.gdrive;
-					localStorage.setItem('itera_sync_secrets', JSON.stringify(secrets));
-
+				if (confirm(`Disconnect Cloud Sync? This will stop synchronization.`)) {
+					provider.clearAuth();
 					this.syncManager.stopDaemon();
 					this._updateUI();
 				}
 			} else {
-				// サインイン（OAuth 2.0 Implicit Flow）
-				if (this.CLIENT_ID === 'YOUR_GOOGLE_CLIENT_ID') {
-					alert("Developer Mode: You must set your Google Client ID in src/shell/modals/sync_modal.js to use Google Drive Sync.");
+				// サインイン処理 (OAuth フローの開始)
+				const redirectUri = window.location.origin + window.location.pathname;
+				let authUrl;
+
+				try {
+					// 認証URLの生成をプロバイダに委譲
+					authUrl = provider.getAuthUrl(redirectUri);
+				} catch (err) {
+					alert(err.message);
 					return;
 				}
 
-				// ポップアップがリダイレクトされるべきURI（現在のURLからクエリ等を除いたベース部分）
-				const redirectUri = window.location.origin + window.location.pathname;
-				const scope = 'https://www.googleapis.com/auth/drive.file';
-				const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${this.CLIENT_ID}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=token&scope=${encodeURIComponent(scope)}`;
-
-				// ポップアップを開いてGoogleログイン画面へ
-				const popup = window.open(authUrl, 'gdrive_auth', 'width=500,height=600');
+				// ポップアップを開いてログイン画面へ
+				const popup = window.open(authUrl, 'itera_sync_auth', 'width=500,height=600');
 
 				// UIを一時的に「待機中」に変更
 				if (this.els.BTN_AUTH) {
-					this.els.BTN_AUTH.innerHTML = `<span class="animate-pulse">Waiting for Google...</span>`;
+					this.els.BTN_AUTH.innerHTML = `<span class="animate-pulse">Waiting for Auth...</span>`;
 					this.els.BTN_AUTH.classList.add('opacity-75', 'cursor-wait');
 				}
 
@@ -167,24 +164,19 @@
 					if (e.data && e.data.type === 'ITERA_OAUTH_CALLBACK') {
 						window.removeEventListener('message', messageHandler); // リスナーを解除
 
-						// GoogleのImplicit Flowはフラグメント（#）にトークンを返すため、それを解析する
+						// Googleはフラグメント（#）にトークンを返す。プロバイダによっては ?code= のため両方チェックする。
 						const hashString = e.data.hash ? e.data.hash.substring(1) : '';
-						const params = new URLSearchParams(hashString);
+						const searchString = e.data.search ? e.data.search.substring(1) : '';
+						const params = new URLSearchParams(hashString || searchString);
+
+						// OAuthの標準的なアクセストークン名で取得（プロバイダが異なってもほぼ共通）
 						const token = params.get('access_token');
 
 						if (token) {
-							// トークンの保存
-							let secrets = {};
-							try {
-								secrets = JSON.parse(localStorage.getItem('itera_sync_secrets') || '{}');
-							} catch (err) {}
-
-							secrets.gdrive = {
-								token: token.trim(),
-								timestamp: Date.now()
-							};
-							localStorage.setItem('itera_sync_secrets', JSON.stringify(secrets));
-
+							// トークンの保存をプロバイダに委譲
+							provider.saveAuthCallback({
+								token: token
+							});
 							this._updateUI();
 
 							// 認証後、すぐに初回同期を走らせる

@@ -15,10 +15,12 @@
 			this.uploadUrl = 'https://www.googleapis.com/upload/drive/v3/files';
 			this.syncFolderName = 'IteraOS_Sync';
 			this.folderId = null; // キャッシュ用
+
+			this.CLIENT_ID = '683000743319-ucl8e9it3l2e5grdgsq38ohdrd9fccej.apps.googleusercontent.com';
 		}
 
 		/**
-		 * 現在のアクセストークンを取得する
+		 * 現在のアクセストークンを取得する (HostのlocalStorageから安全に取得)
 		 */
 		_getToken() {
 			let secrets = {};
@@ -26,7 +28,7 @@
 				secrets = JSON.parse(localStorage.getItem('itera_sync_secrets') || '{}');
 			} catch (e) {}
 
-			const token = secrets.gdrive?.token;
+			const token = secrets[this.providerId]?.token;
 			if (!token) throw new Error("Google Drive access token is not set.");
 			return token;
 		}
@@ -56,17 +58,32 @@
 		}
 
 		/**
-		 * 認証の確認（トークンが有効かテストする）
+		 * 認証用ポップアップを開くためのURLを生成する
 		 */
-		async auth() {
-			try {
-				// シンプルに自分の情報を取得してトークンをテスト
-				await this._fetch('https://www.googleapis.com/drive/v3/about?fields=user');
-				return true;
-			} catch (e) {
-				console.warn("[GDriveProvider] Auth failed:", e.message);
-				return false;
+		getAuthUrl(redirectUri) {
+			if (this.CLIENT_ID === 'YOUR_GOOGLE_CLIENT_ID') {
+				throw new Error("Developer Mode: Google Client ID is not set in gdrive_provider.js");
 			}
+			const scope = 'https://www.googleapis.com/auth/drive.file';
+			return `https://accounts.google.com/o/oauth2/v2/auth?client_id=${this.CLIENT_ID}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=token&scope=${encodeURIComponent(scope)}`;
+		}
+
+		/**
+		 * コールバックから得たトークンを保存する
+		 */
+		saveAuthCallback(callbackData) {
+			if (!callbackData || !callbackData.token) throw new Error("Invalid callback data: No token found.");
+
+			let secrets = {};
+			try {
+				secrets = JSON.parse(localStorage.getItem('itera_sync_secrets') || '{}');
+			} catch (e) {}
+
+			secrets[this.providerId] = {
+				token: callbackData.token.trim(),
+				timestamp: Date.now()
+			};
+			localStorage.setItem('itera_sync_secrets', JSON.stringify(secrets));
 		}
 
 		/**
@@ -77,9 +94,24 @@
 			try {
 				secrets = JSON.parse(localStorage.getItem('itera_sync_secrets') || '{}');
 			} catch (e) {}
+
 			if (secrets[this.providerId]) {
 				delete secrets[this.providerId];
 				localStorage.setItem('itera_sync_secrets', JSON.stringify(secrets));
+			}
+		}
+
+		/**
+		 * 認証の確認（トークンが有効かAPIを叩いてテストする）
+		 */
+		async auth() {
+			try {
+				// シンプルに自分の情報を取得してトークンをテスト
+				await this._fetch('https://www.googleapis.com/drive/v3/about?fields=user');
+				return true;
+			} catch (e) {
+				console.warn(`[${this.providerId}] Auth test failed:`, e.message);
+				return false;
 			}
 		}
 
@@ -133,7 +165,7 @@
 		}
 
 		// =================================================================
-		// Provider Interface Implementation
+		// Sync I/O Implementation
 		// =================================================================
 
 		async getIndexMetadata() {
@@ -201,7 +233,6 @@
 
 		async downloadFile(remoteId) {
 			const res = await this._fetch(`${this.baseUrl}/${remoteId}?alt=media`);
-
 			const contentType = res.headers.get('Content-Type') || 'application/octet-stream';
 
 			// テキスト系ファイルの場合はそのまま文字列として返す
@@ -247,7 +278,7 @@
 						'Content-Type': 'application/json'
 					},
 					body: JSON.stringify({
-						name: path, // IteraOS上のフルパスをそのまま名前として保存する (フラット構造で管理)
+						name: path, // IteraOS上のフルパスをそのまま名前として保存
 						parents: [folderId]
 					})
 				});
@@ -274,7 +305,7 @@
 				});
 				return true;
 			} catch (e) {
-				// すでに削除されているなどのエラーは無視して成功扱いにする
+				// すでに削除されている等のエラーは無視して成功扱いにする
 				console.warn(`[GDriveProvider] Failed to delete file ${remoteId}:`, e);
 				return true;
 			}
