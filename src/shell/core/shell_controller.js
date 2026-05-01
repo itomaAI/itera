@@ -30,7 +30,9 @@
 		STORAGE_TEXT: 'storage-usage-text',
 		SAVE_STATUS: 'save-status',
 		MODEL_STATUS: 'model-status',
-		ADDRESS_BAR: 'preview-address-bar'
+		ADDRESS_BAR: 'preview-address-bar',
+		BTN_SYNC: 'btn-sync',
+		SYNC_INDICATOR: 'sync-status-indicator' // ★ 追加
 	};
 
 	class ShellController {
@@ -108,9 +110,23 @@
 			this.panels.explorer = new Panels.Explorer(vfs);
 			this.modals.editor = new Modals.EditorModal();
 			this.windowing.processManager = new Windowing.ProcessManager(vfs);
-			this.modals.settings = new Modals.SettingsModal(storage, configManager);
+			this.modals.timeMachine = new Modals.TimeMachineModal(storage, configManager);
 			this.modals.media = new Modals.MediaViewer();
 			this.modals.apiSettings = new Modals.ApiSettingsModal(); // ★ 新規追加
+
+			// Cloud Sync Initialization
+			if (global.Itera.Sync && global.Itera.Sync.SyncManager) {
+				const syncManager = new global.Itera.Sync.SyncManager(vfs, configManager);
+				this.state.syncManager = syncManager;
+				this.modals.sync = new Modals.SyncModal(syncManager, configManager);
+				
+				// 認証済みならブート時にデーモンを開始 (5分間隔)
+				let secrets = {};
+				try { secrets = JSON.parse(localStorage.getItem('itera_sync_secrets') || '{}'); } catch(e) {}
+				if (secrets.gdrive?.token) {
+					syncManager.startDaemon(5);
+				}
+			}
 
 			this.panels.chat.setVfs(vfs);
 
@@ -282,8 +298,7 @@
 			}
 			const {
 				editor,
-				media,
-				settings
+				media
 			} = this.modals;
 			const {
 				vfs,
@@ -406,6 +421,41 @@
 				chat.appendTurn(turn);
 			});
 
+			// Cloud Sync Events
+			if (this.els.BTN_SYNC && this.modals.sync) {
+				this.els.BTN_SYNC.onclick = () => this.modals.sync.open();
+			}
+			if (this.state.syncManager && this.els.SYNC_INDICATOR) {
+				const ind = this.els.SYNC_INDICATOR;
+				this.state.syncManager.on('status_change', (payload) => {
+					ind.classList.remove('hidden', 'text-text-muted', 'text-warning', 'text-success', 'text-error', 'animate-pulse');
+					
+					switch (payload.status) {
+						case 'idle':
+							ind.classList.add('text-text-muted');
+							break;
+						case 'syncing':
+							ind.classList.add('text-warning', 'animate-pulse');
+							break;
+						case 'synced':
+							ind.classList.add('text-success');
+							break;
+						case 'error':
+							ind.classList.add('text-error');
+							break;
+					}
+					if (payload.details) ind.title = payload.details;
+				});
+				
+				// 起動時に認証済みなら表示
+				let secrets = {};
+				try { secrets = JSON.parse(localStorage.getItem('itera_sync_secrets') || '{}'); } catch(e) {}
+				if (secrets.gdrive?.token) {
+					ind.classList.remove('hidden');
+					ind.classList.add('text-text-muted');
+				}
+			}
+
 			// Editor Events
 			editor.on('save', (path, content) => {
 				try {
@@ -424,8 +474,8 @@
 				}
 			});
 
-			// Settings Events
-			settings.on('factory_reset', async () => {
+			// Time Machine & System Reset Events
+			this.modals.timeMachine.on('factory_reset', async () => {
 				try {
 					const timestamp = new Date().toLocaleString();
 					const label = `Auto Backup (Pre-Reset) - ${timestamp}`;
@@ -442,8 +492,8 @@
 				await this.refreshPreview();
 				alert("System Reset Complete. (Safety backup created)");
 			});
-			settings.on('create_snapshot', async (label) => await storage.createSnapshot(label, vfs.files, history.get()));
-			settings.on('restore_snapshot', async (id) => {
+			this.modals.timeMachine.on('create_snapshot', async (label) => await storage.createSnapshot(label, vfs.files, history.get()));
+			this.modals.timeMachine.on('restore_snapshot', async (id) => {
 				const snap = await storage.getSnapshot(id);
 				if (snap) {
 					vfs.loadFiles(snap.files);
@@ -452,7 +502,7 @@
 					await this.refreshPreview();
 				}
 			});
-			settings.on('api_key_updated', () => this._refreshEngineConfig());
+			this.modals.timeMachine.on('api_key_updated', () => this._refreshEngineConfig());
 
 			// Process Manager Events handled internally by components, no direct hooks needed here.
 
