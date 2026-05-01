@@ -31,8 +31,7 @@
 		SAVE_STATUS: 'save-status',
 		MODEL_STATUS: 'model-status',
 		ADDRESS_BAR: 'preview-address-bar',
-		BTN_SYNC: 'btn-sync',
-		SYNC_INDICATOR: 'sync-status-indicator' // ★ 追加
+		BTN_SYNC: 'btn-sync'
 	};
 
 	class ShellController {
@@ -423,36 +422,33 @@
 
 			// Cloud Sync Events
 			if (this.els.BTN_SYNC && this.modals.sync) {
-				this.els.BTN_SYNC.onclick = () => this.modals.sync.open();
-			}
-			if (this.state.syncManager && this.els.SYNC_INDICATOR) {
-				const ind = this.els.SYNC_INDICATOR;
-				this.state.syncManager.on('status_change', (payload) => {
-					ind.classList.remove('hidden', 'text-text-muted', 'text-warning', 'text-success', 'text-error', 'animate-pulse');
-					
-					switch (payload.status) {
-						case 'idle':
-							ind.classList.add('text-text-muted');
-							break;
-						case 'syncing':
-							ind.classList.add('text-warning', 'animate-pulse');
-							break;
-						case 'synced':
-							ind.classList.add('text-success');
-							break;
-						case 'error':
-							ind.classList.add('text-error');
-							break;
-					}
-					if (payload.details) ind.title = payload.details;
-				});
+				const btnSync = this.els.BTN_SYNC;
+				btnSync.onclick = () => this.modals.sync.open();
 				
-				// 起動時に認証済みなら表示
-				let secrets = {};
-				try { secrets = JSON.parse(localStorage.getItem('itera_sync_secrets') || '{}'); } catch(e) {}
-				if (secrets.gdrive?.token) {
-					ind.classList.remove('hidden');
-					ind.classList.add('text-text-muted');
+				if (this.state.syncManager) {
+					this.state.syncManager.on('status_change', (payload) => {
+						// 既存の色・アニメーションクラスをリセット
+						btnSync.classList.remove('text-text-muted', 'text-warning', 'text-success', 'text-error', 'animate-pulse');
+						
+						switch (payload.status) {
+							case 'idle':
+								btnSync.classList.add('text-text-muted');
+								btnSync.title = 'Cloud Sync (Standby)';
+								break;
+							case 'syncing':
+								btnSync.classList.add('text-warning', 'animate-pulse');
+								btnSync.title = 'Cloud Sync (Syncing...)';
+								break;
+							case 'synced':
+								btnSync.classList.add('text-success');
+								btnSync.title = 'Cloud Sync (Success)';
+								break;
+							case 'error':
+								btnSync.classList.add('text-error');
+								btnSync.title = `Cloud Sync Error: ${payload.details || 'Unknown'}`;
+								break;
+						}
+					});
 				}
 			}
 
