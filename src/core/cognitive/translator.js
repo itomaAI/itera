@@ -36,8 +36,12 @@
 		 * @param {string[]} additionalExcludeTags - 動的に追加する保護対象タグのリスト
 		 */
 		parse(text, additionalExcludeTags = []) {
+			// フェールセーフ: LLMが指示を無視してCDATAでエスケープした場合、
+			// 独自のパースロジックと衝突しないようにガワ(タグ)だけを剥がして中身を展開する
+			const cleanedText = text.replace(/<!\[CDATA\[([\s\S]*?)\]\]>/gi, '$1');
+
 			const exclude = [...this.defaultExcludeTags, ...additionalExcludeTags];
-			const { tree, truncatedText, isTruncated } = this._parseToTree(text, exclude);
+			const { tree, truncatedText, isTruncated } = this._parseToTree(cleanedText, exclude);
 
 			// 1. ツリーのルートレベルに残っている「どのタグにも属さない生テキスト」を結合
 			let leakedText = "";
