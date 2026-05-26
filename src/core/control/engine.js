@@ -305,7 +305,7 @@
 					params: safeParams, // 属性エコーバック用
 					output: {
 						log: `[Pending] Executing ${action.type}...`,
-						ui: `⌛ Executing ${action.type}...`,
+						ui: `⚙️ Executing ${action.type}...`,
 						trigger_llm: false // 実行中は発火要因にしない
 					}
 				};
