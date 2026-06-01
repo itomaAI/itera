@@ -7,11 +7,11 @@
 
 	global.Itera.Control.Tools.registerSysTools = function(registry) {
 
-		// 1. finish (Task Completion)
+		// 1. finish (Halt Loop)
 		registry.register('finish', async (params, context) => {
 			return {
-				log: `Task completed.`,
-				ui: `✅ Task Completed`,
+				log: `Autonomous loop stopped. Standing by.`,
+				ui: `✅ Standby`,
 				halt_loop: true // ループを強制停止する
 			};
 		});
