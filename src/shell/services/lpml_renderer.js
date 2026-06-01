@@ -89,7 +89,7 @@
                     colorClass = "border-border-main bg-card/50";
                     break;
                 case 'finish':
-                    title = "✅ Completed";
+                    title = "✅ Standby";
                     colorClass = "border-success bg-success/20";
                     isOpen = true;
                     break;

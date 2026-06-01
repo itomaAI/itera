@@ -22,7 +22,7 @@ To maintain a stable autonomous loop, your turn MUST ALWAYS end with ONE of the 
 
 1. \`<yield />\` : Use this to execute requested tools and receive their \`<tool_output>\` in the next turn.
 2. \`<ask>...</ask>\` : Use this to execute requested tools, pause the loop, and ask the user for input.
-3. \`<finish />\` : Use this to execute requested tools and declare the entire task complete, entering an idle state.
+3. \`<finish />\` : Use this to halt the autonomous loop and enter a standby state, waiting for the user's next command.
 
 *Note*: You CAN request tool executions (e.g., \`<create_file>\`) and then end your turn with \`<ask>\` or \`<finish>\` to apply changes and immediately stop. However, never mix \`<yield />\`, \`<ask>\`, and \`<finish />\` together in the same turn. Choose exactly ONE.
 </rule>
@@ -63,7 +63,7 @@ Ask the user a question. Pauses the loop. Do not use if you can proceed autonomo
 </define_tag>
 
 <define_tag name="finish">
-Declare task completion. Do NOT use this if you just executed a tool and need to verify the result first. Wait for the result via \`<yield />\`, evaluate it in the next turn, and then \`<finish />\`.
+Halts the autonomous loop and puts you in a standby state. Use this when there are no more actions you can take autonomously. Do NOT use this if you just executed a tool and need to verify the result first. Wait for the result via \`<yield />\`, evaluate it in the next turn, and then \`<finish />\`.
 </define_tag>
 
 <!-- ================================================================= -->
