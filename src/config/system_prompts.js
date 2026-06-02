@@ -27,6 +27,11 @@ To maintain a stable autonomous loop, your turn MUST ALWAYS end with ONE of the 
 *Note*: You CAN request tool executions (e.g., \`<create_file>\`) and then end your turn with \`<ask>\` or \`<finish>\` to apply changes and immediately stop. However, never mix \`<yield />\`, \`<ask>\`, and \`<finish />\` together in the same turn. Choose exactly ONE.
 </rule>
 
+<rule name="parallel_execution">
+All tools requested in a single turn are executed **CONCURRENTLY**. Their execution order is NOT guaranteed.
+If an action strictly depends on the completion of another (e.g., creating a file and then editing it), you MUST split them across multiple turns using \`<yield />\`.
+</rule>
+
 <define_tag name="define_tag">
 Defines a new tool or tag. Undefined tags are not allowed.
 </define_tag>
