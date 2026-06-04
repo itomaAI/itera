@@ -26,7 +26,8 @@
 				'report',
 				'ask',
 				'user_input',
-				'user_attachment'
+				'user_attachment',
+				'inject_js'
 			];
 		}
 

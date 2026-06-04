@@ -21,6 +21,14 @@
         return await handler(payload.params);
     });
 
+    // HostからのJS直接注入の待ち受け
+    transport.registerHandler('eval_js', async (payload) => {
+        // AsyncFunctionを利用して非同期関数としてコードを評価する
+        const AsyncFunction = Object.getPrototypeOf(async function(){}).constructor;
+        const func = new AsyncFunction(payload.code);
+        return await func();
+    });
+
     global.MetaOS = {
         // 1. ファイルシステム (VFS)
         fs: {

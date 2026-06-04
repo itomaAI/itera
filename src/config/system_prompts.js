@@ -220,6 +220,18 @@ Attributes:
     - pid: Process ID to terminate.
 </define_tag>
 
+<define_tag name="inject_js">
+Injects and executes raw JavaScript code within the context of a running process.
+Attributes:
+    - pid (optional): Process ID. Defaults to "main" (foreground UI). Use a custom ID for background daemons.
+Content:
+    - The raw JavaScript code to execute.
+Rules:
+    - **No Escaping**: Write raw JavaScript directly. Do NOT use CDATA or HTML entity escaping (e.g., &lt;).
+    - **Return Value**: The code is evaluated as an async function body. If you want to see the result, use the \`return\` statement.
+    - **Async Support**: You can freely use \`await\` inside the code.
+</define_tag>
+
 <define_tag name="ps">
 Lists all currently running processes (foreground and background).
 </define_tag>
