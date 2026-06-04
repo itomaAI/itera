@@ -121,6 +121,63 @@
 				error: true
 			};
 		});
+
+		// 5. inject_js (Inject and execute JavaScript in a process)
+		registry.register('inject_js', async (params, context) => {
+			const pid = params.pid || 'main';
+			const code = params.content || '';
+			
+			if (!code.trim()) {
+				throw new Error("No JavaScript code provided to inject.");
+			}
+
+			if (context.shell && context.shell.windowing && context.shell.windowing.processManager) {
+				const pm = context.shell.windowing.processManager;
+				const proc = pm.processes.get(pid);
+
+				if (!proc || !proc.iframe || !proc.iframe.contentWindow) {
+					throw new Error(`Target process '${pid}' is not running or not accessible.`);
+				}
+
+				try {
+					// Guestへコードを送信し、評価結果を待機する
+					let result = await context.shell.transport.invokeGuest(
+						pid,
+						'eval_js', 
+						{ code },
+						proc.iframe.contentWindow
+					);
+
+					// DOMノードなど循環参照を持つオブジェクトが返された場合の対策として、
+					// 見やすく安全な文字列表現に変換する
+					let logResult = result;
+					if (typeof result === 'object' && result !== null) {
+						try {
+							logResult = JSON.stringify(result, null, 2);
+						} catch (e) {
+							logResult = String(result);
+						}
+					} else if (result === undefined) {
+						logResult = "undefined";
+					}
+
+					return {
+						log: `Execution result:\n${logResult}`,
+						ui: `💉 Injected JS into [${pid}]`
+					};
+				} catch (err) {
+					return {
+						log: `Execution error in [${pid}]: ${err.message}`,
+						ui: `⚠️ JS Injection Failed`,
+						error: true
+					};
+				}
+			}
+			return {
+				log: "ProcessManager not available.",
+				error: true
+			};
+		});
 	};
 
 })(window);
