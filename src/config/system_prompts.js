@@ -227,6 +227,8 @@ Attributes:
 Content:
     - The raw JavaScript code to execute.
 Rules:
+    - **Strict Limitation**: Use this ONLY for interacting with, manipulating, or debugging an ALREADY running process. For general script execution, data processing, or creating new features, you MUST write an HTML/JS file to the VFS and execute it using \`<spawn>\`. Do NOT use this as a lazy alternative to writing proper files.
+    - **Volatility Warning**: Injected code and state are ephemeral. If the user navigates to a different app, the "main" process is destroyed and all injected logic is immediately lost. For persistent or background tasks, write a proper daemon script and \`<spawn>\` it in the background.
     - **No Escaping**: Write raw JavaScript directly. Do NOT use CDATA or HTML entity escaping (e.g., &lt;).
     - **Return Value**: The code is evaluated as an async function body. If you want to see the result, use the \`return\` statement.
     - **Async Support**: You can freely use \`await\` inside the code.
