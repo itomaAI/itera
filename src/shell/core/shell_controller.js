@@ -31,7 +31,11 @@
 		SAVE_STATUS: 'save-status',
 		MODEL_STATUS: 'model-status',
 		ADDRESS_BAR: 'preview-address-bar',
-		BTN_SYNC: 'btn-sync'
+		BTN_SYNC: 'btn-sync',
+		BTN_TASKS: 'btn-tasks',
+		TASK_MODAL: 'task-switcher-modal',
+		TASK_GRID: 'task-switcher-grid',
+		BTN_CLOSE_TASKS: 'btn-close-tasks'
 	};
 
 	class ShellController {
@@ -434,6 +438,22 @@
 			});
 
 			// Cloud Sync Events
+			// Task Switcher Events
+			if (this.els.BTN_TASKS) {
+				this.els.BTN_TASKS.onclick = () => this._openTaskSwitcher();
+			}
+			if (this.els.BTN_CLOSE_TASKS) {
+				this.els.BTN_CLOSE_TASKS.onclick = () => this._closeTaskSwitcher();
+			}
+			if (this.els.TASK_MODAL) {
+				this.els.TASK_MODAL.onclick = (e) => {
+					// モーダルの背景、またはカード間の余白をクリックした場合に閉じる
+					if (e.target === this.els.TASK_MODAL || e.target === this.els.TASK_GRID) {
+						this._closeTaskSwitcher();
+					}
+				};
+			}
+
 			if (this.els.BTN_SYNC && this.modals.sync) {
 				const btnSync = this.els.BTN_SYNC;
 				btnSync.onclick = () => this.modals.sync.open();
@@ -645,6 +665,94 @@
 			}
 		}
 
+		_openTaskSwitcher() {
+			if (!this.els.TASK_MODAL) return;
+			
+			// 1. ノンブロッキング: まず開いてキャッシュ済みの画像で描画する
+			this._renderTaskSwitcher();
+			this.els.TASK_MODAL.classList.remove('hidden');
+
+			// 2. 非同期で現在Foregroundのアプリのスクショを最新化し、完了したら差し替える
+			const fgApp = Array.from(this.windowing.processManager.processes.values()).find(p => p.state === 'foreground');
+			if (fgApp) {
+				this.windowing.processManager.captureScreenshot(fgApp.pid).then(data => {
+					fgApp.thumbnailData = data;
+					// モーダルが開いたままなら再描画して画像を更新
+					if (!this.els.TASK_MODAL.classList.contains('hidden')) {
+						this._renderTaskSwitcher();
+					}
+				}).catch(() => {});
+			}
+		}
+
+		_closeTaskSwitcher() {
+			if (!this.els.TASK_MODAL) return;
+			this.els.TASK_MODAL.classList.add('hidden');
+		}
+
+		_renderTaskSwitcher() {
+			const grid = this.els.TASK_GRID;
+			if (!grid) return;
+			grid.innerHTML = '';
+
+			const apps = Array.from(this.windowing.processManager.processes.values())
+				.filter(p => p.type === 'app')
+				.sort((a, b) => b.lastActiveTime - a.lastActiveTime);
+
+			if (apps.length === 0) {
+				grid.innerHTML = '<div class="text-white/50 text-center w-full mt-10 text-sm">No recent apps</div>';
+				return;
+			}
+
+			apps.forEach(app => {
+				const card = document.createElement('div');
+				card.className = "snap-center shrink-0 w-48 sm:w-64 flex flex-col items-center gap-4 transition-transform hover:scale-105 group relative";
+				
+				// 画面サムネイル (またはプレースホルダー)
+				const thumbWrapper = document.createElement('div');
+				thumbWrapper.className = `w-full aspect-[9/16] bg-card rounded-2xl border-2 overflow-hidden shadow-2xl relative cursor-pointer transition-colors ${app.state === 'foreground' ? 'border-primary' : 'border-border-main group-hover:border-primary/50'}`;
+				
+				if (app.thumbnailData) {
+					const img = document.createElement('img');
+					// APIの仕様上、Base64文字列のみが返ってくる場合があるためプレフィックスを補完
+					const src = app.thumbnailData.startsWith('data:') ? app.thumbnailData : `data:image/png;base64,${app.thumbnailData}`;
+					img.src = src;
+					img.className = "w-full h-full object-cover object-top";
+					thumbWrapper.appendChild(img);
+				} else {
+					thumbWrapper.innerHTML = `<div class="absolute inset-0 flex items-center justify-center text-4xl opacity-20">⚙️</div>`;
+				}
+				
+				// アプリ名
+				const appName = app.path.split('/').pop().replace('.html', '');
+				const title = document.createElement('div');
+				title.className = "text-white font-bold tracking-wide capitalize drop-shadow-md text-sm";
+				title.textContent = appName;
+				
+				// キルボタン
+				const btnKill = document.createElement('button');
+				btnKill.className = "absolute top-2 right-2 w-7 h-7 bg-error hover:bg-error/80 text-white rounded-full shadow-lg flex items-center justify-center opacity-0 md:opacity-0 group-hover:opacity-100 transition-opacity z-10 font-bold text-sm border-2 border-white/20";
+				btnKill.innerHTML = "✕";
+
+				thumbWrapper.onclick = () => {
+					// 既にフォアグラウンドでも一応呼んで状態をリセットする
+					this.windowing.processManager.spawn(app.pid, app.path, 'foreground');
+					this._closeTaskSwitcher();
+				};
+
+				btnKill.onclick = (e) => {
+					e.stopPropagation();
+					this.windowing.processManager.kill(app.pid);
+					this._renderTaskSwitcher(); // 再描画
+				};
+
+				thumbWrapper.appendChild(btnKill);
+				card.appendChild(thumbWrapper);
+				card.appendChild(title);
+				grid.appendChild(card);
+			});
+		}
+
 		_updateModelStatus(modelName) {
 			if (this.els.MODEL_STATUS) this.els.MODEL_STATUS.textContent = modelName;
 		}
@@ -765,13 +873,22 @@
 		}
 
 		async refreshPreview(path) {
-			// mainプロセスとして起動するショートカット
-			const currentPath = this.windowing.processManager.processes.get('main')?.path || 'index.html';
-			await this.windowing.processManager.spawn('main', path || currentPath, 'foreground', true);
+			// 対象パスが指定されていなければ、現在最前面のアプリのパスを使用
+			let targetPath = path;
+			if (!targetPath) {
+				const fgApp = Array.from(this.windowing.processManager.processes.values()).find(p => p.state === 'foreground');
+				targetPath = fgApp ? fgApp.path : 'index.html';
+			}
+			
+			// パスから一意なPIDを生成 (例: apps/tasks.html -> app_apps_tasks_html)
+			const safeName = targetPath.replace(/[^a-zA-Z0-9_-]/g, '_');
+			const pid = `app_${safeName}`;
+			
+			await this.windowing.processManager.spawn(pid, targetPath, 'foreground', true);
 		}
 
 		async captureScreenshot() {
-			return await this.windowing.processManager.captureScreenshot('main');
+			return await this.windowing.processManager.captureScreenshot(); // 省略時はProcessManagerが自動でForegroundを探す
 		}
 
 		/**
@@ -843,8 +960,8 @@
 		 */
 		_restoreAddressBar() {
 			if (!this.windowing || !this.windowing.processManager) return;
-			const mainProc = this.windowing.processManager.processes.get('main');
-			const path = mainProc ? mainProc.path : 'index.html';
+			const fgApp = Array.from(this.windowing.processManager.processes.values()).find(p => p.state === 'foreground');
+			const path = fgApp ? fgApp.path : 'index.html';
 			this.windowing.processManager._updateAddressBar(path);
 		}
 	}

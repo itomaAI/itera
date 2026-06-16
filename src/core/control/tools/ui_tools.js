@@ -9,10 +9,17 @@
 
 		// 1. spawn (Start or restart a process)
 		registry.register('spawn', async (params, context) => {
-			const pid = params.pid || 'main';
+			let pid = params.pid || 'main';
 			const path = params.path || 'index.html';
-			const mode = params.mode || (pid === 'main' ? 'foreground' : 'background');
+			let mode = params.mode || 'background';
 			const forceReload = params.force === 'true';
+
+			// フォールバック: pid="main" や pid省略時はパスベースの自動PIDに変換する
+			if (pid === 'main') {
+				mode = 'foreground';
+				const safeName = path.replace(/[^a-zA-Z0-9_-]/g, '_');
+				pid = `app_${safeName}`;
+			}
 
 			if (context.shell && context.shell.windowing && context.shell.windowing.processManager) {
 				await context.shell.windowing.processManager.spawn(pid, path, mode, forceReload);
@@ -62,7 +69,11 @@
 						ui: `📊 Process List (0)`
 					};
 				}
-				const logStr = list.map(p => `PID: ${p.pid.padEnd(15)} | Mode: ${p.mode.padEnd(10)} | Path: ${p.path}`).join('\n');
+				// 新しいプロセスモデルに合わせて Type と State を出力する
+				const logStr = list.map(p => 
+					`PID: ${p.pid.padEnd(15)} | Type: ${p.type.padEnd(6)} | State: ${p.state.padEnd(10)} | Path: ${p.path}`
+				).join('\n');
+				
 				return {
 					log: logStr,
 					ui: `📊 Process List (${list.length})`
@@ -124,8 +135,17 @@
 
 		// 5. inject_js (Inject and execute JavaScript in a process)
 		registry.register('inject_js', async (params, context) => {
-			const pid = params.pid || 'main';
+			let pid = params.pid;
 			const code = params.content || '';
+
+			// 互換性フォールバック: pid指定がない、または 'main' の場合は現在の Foreground を探す
+			if (!pid || pid === 'main') {
+				if (context.shell && context.shell.windowing && context.shell.windowing.processManager) {
+					const fg = Array.from(context.shell.windowing.processManager.processes.values()).find(p => p.state === 'foreground');
+					if (fg) pid = fg.pid;
+					else pid = 'app_index_html'; // 何もなければindexとしてみる
+				}
+			}
 			
 			if (!code.trim()) {
 				throw new Error("No JavaScript code provided to inject.");

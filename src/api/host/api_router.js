@@ -207,8 +207,18 @@
 				path,
 				opts
 			}) => {
-				const pid = opts?.pid || 'main';
-				const mode = opts?.mode || (pid === 'main' ? 'foreground' : 'background');
+				let pid = opts?.pid || 'main';
+				let mode = opts?.mode || 'background';
+				
+				// 後方互換対応: 'main' が指定された場合はパスから固有PIDを生成し、必ずforegroundにする
+				if (pid === 'main') {
+					mode = 'foreground';
+					if (path) {
+						const safeName = path.replace(/[^a-zA-Z0-9_-]/g, '_');
+						pid = `app_${safeName}`;
+					}
+				}
+
 				const force = opts?.forceReload || false;
 				await d.processManager.spawn(pid, path, mode, force);
 				if (mode === 'foreground') d.shell._closeMobileDrawers();
@@ -289,7 +299,9 @@
 			t.registerHandler('host:address_bar', async ({
 				path
 			}) => {
-				const proc = d.processManager.processes.get('main');
+				// main固定ではなく、現在 Foreground にいるアプリを探す
+				const fgApp = Array.from(d.processManager.processes.values()).find(p => p.state === 'foreground');
+				const proc = fgApp;
 				if (proc) {
 					const currentBase = proc.path.split(/[?#]/)[0];
 					const newPath = currentBase + path;

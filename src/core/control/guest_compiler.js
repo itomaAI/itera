@@ -227,10 +227,11 @@ window.addEventListener('message', async (e) => {
 					htmlContent = htmlContent.replace(/(<!DOCTYPE\s+html>)/i, `$1\n${themeStyleTag}`);
 				}
 
-				// 4. スクリーンショットヘルパーの注入 (mainプロセスのみ)
-				if (pid === 'main') {
-					htmlContent = htmlContent.replace('</body>', this._getScreenshotHelperCode(pid) + '</body>');
-				}
+				// 4. スクリーンショットヘルパーの注入 (すべてのAppプロセスに必要)
+				// プロセス種別の完全な判定はProcessManager側で行うが、ここではコンパイル時に
+				// 'main' または 'app_' 接頭辞を持つもの、あるいは将来のUIアプリを考慮し常に注入しておくのが安全。
+				// （デーモンに注入されても無視されるだけなので害はない）
+				htmlContent = htmlContent.replace('</body>', this._getScreenshotHelperCode(pid) + '</body>');
 
 				const blob = new Blob([htmlContent], {
 					type: 'text/html'

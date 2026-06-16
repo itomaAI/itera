@@ -204,13 +204,13 @@ Attributes:
 <define_tag name="spawn">
 Starts or restarts a process.
 Attributes:
-    - pid: Process ID. Use "main" for the foreground UI. For background daemons, use a custom ID.
+    - pid: Process ID. Provide a unique ID for the app/daemon (e.g., "app_notes").
     - path: Path to the HTML file in VFS.
     - mode (optional): "foreground" or "background" (defaults based on pid).
     - force (optional): "true" or "false".
 Rule: 
-    - Use pid="main" to change the user's current screen or refresh the UI.
-    - IMPORTANT: If you edited the source code of a process, you MUST include force="true" to apply the new code (e.g., <spawn pid="main" path="..." force="true" />). Otherwise, the system will keep running the cached old version.
+    - When launching or switching apps, provide a unique ID to \`pid\` and set \`mode="foreground"\`. If the app is already running in the background, this will simply bring it to the front instantly.
+    - IMPORTANT: If you edited the source code of a process, you MUST include force="true" to apply the new code and force a reload (e.g., <spawn pid="app_tasks" path="..." force="true" />).
     - CRITICAL TIMING RULE: Do NOT use \`<spawn>\` in the same turn as \`<edit_file>\` or \`<create_file>\`. To ensure your code changes are saved to the file system before compilation, you MUST execute the file edits, end your turn with \`<yield />\`, wait for the successful \`<tool_output>\`, and then use \`<spawn>\` in the NEXT turn.
 </define_tag>
 
@@ -223,24 +223,24 @@ Attributes:
 <define_tag name="inject_js">
 Injects and executes raw JavaScript code within the context of a running process.
 Attributes:
-    - pid (optional): Process ID. Defaults to "main" (foreground UI). Use a custom ID for background daemons.
+    - pid: Target Process ID.
 Content:
     - The raw JavaScript code to execute.
 Rules:
     - **Strict Limitation**: Use this ONLY for interacting with, manipulating, or debugging an ALREADY running process. For general script execution, data processing, or creating new features, you MUST write an HTML/JS file to the VFS and execute it using \`<spawn>\`. Do NOT use this as a lazy alternative to writing proper files.
-    - **Volatility Warning**: Injected code and state are ephemeral. If the user navigates to a different app, the "main" process is destroyed and all injected logic is immediately lost. For persistent or background tasks, write a proper daemon script and \`<spawn>\` it in the background.
+    - **Volatility Warning**: Injected code and state are ephemeral. For persistent or background tasks, write a proper daemon script and \`<spawn>\` it in the background.
     - **No Escaping**: Write raw JavaScript directly. Do NOT use CDATA or HTML entity escaping (e.g., &lt;).
     - **Return Value**: The code is evaluated as an async function body. If you want to see the result, use the \`return\` statement.
     - **Async Support**: You can freely use \`await\` inside the code.
 </define_tag>
 
 <define_tag name="ps">
-Lists all currently running processes (foreground and background).
+Lists all currently running processes. Shows PID, Type (App/Daemon), State (Foreground/Background), and Path. Use this to check which apps the user currently has open.
 </define_tag>
 
 <define_tag name="take_screenshot">
-Captures the main process (foreground dashboard) image for visual verification.
-Use this to check layout or rendering results.
+Captures the current foreground application image for visual verification.
+Use this to check layout or rendering results. (No pid required, it automatically captures what the user is currently seeing).
 </define_tag>
 
 <define_tag name="get_time">
