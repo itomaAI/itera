@@ -58,13 +58,7 @@
 				let text = this.els.INPUT ? this.els.INPUT.value.trim() : "";
 				if (!text && this.pendingUploads.length === 0 && this.pendingReferences.length === 0) return;
 				
-				// VFS参照をテキストとして追加
-				if (this.pendingReferences.length > 0) {
-					const refs = this.pendingReferences.map(path => `<user_attachment path="${path}">[Existing VFS Path]</user_attachment>`).join('\n');
-					text = text ? `${text}\n\n${refs}` : refs;
-				}
-
-				if (this.events['send']) this.events['send'](text, [...this.pendingUploads]);
+				if (this.events['send']) this.events['send'](text, [...this.pendingUploads], [...this.pendingReferences]);
 				if (this.els.INPUT) this.els.INPUT.value = '';
 				this._clearUploads();
 			};
