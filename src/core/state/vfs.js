@@ -291,12 +291,51 @@
         copyFile(srcPath, destPath) {
             const src = this._norm(srcPath);
             const dest = this._norm(destPath);
-            if (!this.isFile(src)) throw new Error(`Source file ${src} not found.`);
-            if (this.exists(dest)) throw new Error(`Destination ${dest} already exists.`);
 
-            const content = this.files[src].content;
-            this.writeFile(dest, content);
-            return `Copied: ${src} -> ${dest}`;
+            // 1. ファイルのコピー
+            if (this.isFile(src)) {
+                if (this.exists(dest)) throw new Error(`Destination ${dest} already exists.`);
+                const content = this.files[src].content;
+                this.writeFile(dest, content);
+                return `Copied: ${src} -> ${dest}`;
+            }
+
+            // 2. ディレクトリの再帰的コピー (ディープコピー)
+            const srcDir = src.endsWith('/') ? src : src + '/';
+            const destDir = dest.endsWith('/') ? dest : dest + '/';
+            const targets = Object.keys(this.files).filter(k => k.startsWith(srcDir));
+
+            if (targets.length > 0) {
+                // コピー先パスに重複がないか事前チェック
+                const conflict = targets.some(k => this.exists(k.replace(srcDir, destDir)));
+                if (conflict) throw new Error(`Destination conflict in directory copy.`);
+
+                // VFSストレージの容量チェック
+                let copySize = 0;
+                targets.forEach(k => copySize += this.files[k].content.length);
+                const currentTotal = this._calcTotalSize();
+                if (currentTotal + copySize > this.MAX_SIZE) {
+                    throw new Error(`Storage Quota Exceeded. Cannot copy directory ${src}.`);
+                }
+
+                // 実データの複製
+                const now = Date.now();
+                let count = 0;
+                targets.forEach(k => {
+                    const destFile = k.replace(srcDir, destDir);
+                    this.files[destFile] = {
+                        content: this.files[k].content,
+                        meta: { created_at: now, updated_at: now }
+                    };
+                    count++;
+                });
+
+                // 一括イベント発行 (GUIへの反映用)
+                this._emit('change', { type: 'copy_dir', path: dest, from: src, to: dest, usage: this.getUsage() });
+                return `Copied directory: ${src} -> ${dest} (${count} files)`;
+            }
+
+            throw new Error(`Source ${src} not found.`);
         }
 
         purgeTrash(days = 7) {
