@@ -125,6 +125,8 @@
             border: 3px solid rgb(var(--c-bg-card)); border-top: 3px solid rgb(var(--c-accent-primary)); border-radius: 50%;
             width: 24px; height: 24px; animation: spin 1s linear infinite;
         }
+        .hide-scrollbar::-webkit-scrollbar { display: none; }
+        .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
         .pb-safe { padding-bottom: env(safe-area-inset-bottom); }
 
@@ -271,6 +273,10 @@
                 <button id="btn-refresh" class="text-text-muted hover:text-text-main p-1 rounded hover:bg-hover transition" title="Reload">
                     <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
                 </button>
+                <div class="w-px h-4 bg-border-main mx-1"></div>
+                <button id="btn-tasks" class="text-text-muted hover:text-text-main p-1 rounded hover:bg-hover transition" title="Recent Apps">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"></path></svg>
+                </button>
                 <div class="flex-1 bg-app rounded px-3 py-1 text-[11px] text-text-muted font-mono border border-border-main flex items-center shadow-inner relative group focus-within:ring-1 focus-within:ring-primary/50">
                     <span class="text-success mr-2 text-[10px] shrink-0">🔒</span> 
                     <input type="text" id="preview-address-bar" class="bg-transparent border-none outline-none flex-1 w-full text-text-main truncate placeholder-text-muted pr-6" value="metaos://view" spellcheck="false" autocomplete="off">
@@ -280,8 +286,12 @@
                 </div>
             </div>
             <!-- Preview -->
-            <div class="flex-1 relative bg-app overflow-hidden group">
-                <iframe id="preview-frame" class="w-full h-full border-none bg-white" sandbox="allow-scripts allow-forms allow-modals allow-popups allow-same-origin"></iframe>
+            <div class="flex-1 relative bg-app overflow-hidden group" id="apps-container">
+                <!-- Legacy main frame (will be managed/deprecated by ProcessManager later) -->
+                <iframe id="preview-frame" class="absolute inset-0 w-full h-full border-none bg-app" sandbox="allow-scripts allow-forms allow-modals allow-popups allow-same-origin"></iframe>
+                
+                <!-- Dynamic App iframes will be injected here -->
+
                 <div id="preview-loader" class="absolute inset-0 bg-app/80 flex items-center justify-center hidden z-20 backdrop-blur-sm">
                     <div class="text-center">
                         <div class="loader mx-auto mb-3"></div>
@@ -444,6 +454,17 @@
                     Create Snapshot Now
                 </button>
             </div>
+        </div>
+    </div>
+
+    <!-- Task Switcher Modal -->
+    <div id="task-switcher-modal" class="fixed inset-0 bg-black/80 z-[10000] hidden flex flex-col items-center justify-center backdrop-blur-md transition-opacity">
+        <div class="absolute top-4 right-4">
+            <button id="btn-close-tasks" class="text-text-muted hover:text-white transition w-10 h-10 flex items-center justify-center rounded-full hover:bg-white/10 text-xl">✕</button>
+        </div>
+        <h2 class="text-white text-xl font-bold mb-8 tracking-widest uppercase shadow-black drop-shadow-md">Recent Apps</h2>
+        <div id="task-switcher-grid" class="flex gap-6 overflow-x-auto max-w-full px-8 py-4 snap-x snap-mandatory hide-scrollbar">
+            <!-- App cards will be injected here by ProcessManager / ShellController -->
         </div>
     </div>
 
