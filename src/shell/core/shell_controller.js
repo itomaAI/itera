@@ -422,6 +422,9 @@
 				});
 				chat.appendTurn(turn);
 			});
+			explorer.on('add_to_context', (path) => {
+				chat.addVfsReference(path);
+			});
 
 			// Cloud Sync Events
 			if (this.els.BTN_SYNC && this.modals.sync) {

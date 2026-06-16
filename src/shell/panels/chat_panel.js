@@ -27,6 +27,7 @@
 			this.els = {};
 			this.events = {};
 			this.pendingUploads = [];
+			this.pendingReferences = []; // ★ Added: VFS Path references
 			this.currentStreamEl = null;
 			this.currentStreamContent = "";
 			this.isProcessing = false;
@@ -54,8 +55,15 @@
 		_bindEvents() {
 			const handleSend = () => {
 				// 思考中・ツール実行中であっても横槍（割り込み）を許可するためガードを削除
-				const text = this.els.INPUT ? this.els.INPUT.value.trim() : "";
-				if (!text && this.pendingUploads.length === 0) return;
+				let text = this.els.INPUT ? this.els.INPUT.value.trim() : "";
+				if (!text && this.pendingUploads.length === 0 && this.pendingReferences.length === 0) return;
+				
+				// VFS参照をテキストとして追加
+				if (this.pendingReferences.length > 0) {
+					const refs = this.pendingReferences.map(path => `<user_attachment path="${path}">[Existing VFS Path]</user_attachment>`).join('\n');
+					text = text ? `${text}\n\n${refs}` : refs;
+				}
+
 				if (this.events['send']) this.events['send'](text, [...this.pendingUploads]);
 				if (this.els.INPUT) this.els.INPUT.value = '';
 				this._clearUploads();
@@ -143,6 +151,13 @@
 			if (files.length > 0) this._addUploads(files);
 		}
 
+		addVfsReference(path) {
+			if (!this.pendingReferences.includes(path)) {
+				this.pendingReferences.push(path);
+				this._renderUploadPreviews();
+			}
+		}
+
 		_addUploads(files) {
 			Array.from(files).forEach(f => this.pendingUploads.push(f));
 			this._renderUploadPreviews();
@@ -150,6 +165,7 @@
 
 		_clearUploads() {
 			this.pendingUploads = [];
+			this.pendingReferences = [];
 			this._renderUploadPreviews();
 		}
 
@@ -157,17 +173,30 @@
 			const area = this.els.PREVIEW_AREA;
 			if (!area) return;
 			area.innerHTML = "";
-			if (this.pendingUploads.length === 0) {
+			if (this.pendingUploads.length === 0 && this.pendingReferences.length === 0) {
 				area.classList.add('hidden');
 				return;
 			}
 			area.classList.remove('hidden');
+			
 			this.pendingUploads.forEach((file, index) => {
 				const div = document.createElement('div');
 				div.className = "bg-card border border-border-main rounded pl-2 pr-1 py-1 text-xs flex items-center gap-2 text-text-muted select-none";
 				div.innerHTML = `<span class="truncate max-w-[150px]" title="${file.name}">📎 ${file.name}</span><button class="text-text-muted hover:text-error w-5 h-5 flex items-center justify-center">×</button>`;
 				div.querySelector('button').onclick = () => {
 					this.pendingUploads.splice(index, 1);
+					this._renderUploadPreviews();
+				};
+				area.appendChild(div);
+			});
+
+			this.pendingReferences.forEach((path, index) => {
+				const div = document.createElement('div');
+				div.className = "bg-primary/10 border border-primary/30 rounded pl-2 pr-1 py-1 text-xs flex items-center gap-2 text-primary select-none";
+				const name = path.split('/').pop() || path;
+				div.innerHTML = `<span class="truncate max-w-[150px]" title="${path}">📄 ${name}</span><button class="text-primary/70 hover:text-error w-5 h-5 flex items-center justify-center">×</button>`;
+				div.querySelector('button').onclick = () => {
+					this.pendingReferences.splice(index, 1);
 					this._renderUploadPreviews();
 				};
 				area.appendChild(div);

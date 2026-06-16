@@ -157,6 +157,10 @@
 					this.els.INPUT_CONTEXT.click();
 				}
 			});
+
+			this.treeView.on('add_to_context', (path) => {
+				if (this.events['add_to_context']) this.events['add_to_context'](path);
+			});
 		}
 
 		// --- Upload & Backup Handling ---
