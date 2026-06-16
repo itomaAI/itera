@@ -309,9 +309,16 @@
 			} = this.state;
 
 			// Chat Events
-			chat.on('send', async (text, attachments) => {
+			chat.on('send', async (text, attachments, vfsReferences = []) => {
 				const CACHE_DIR = 'system/cache/media';
 				const content = [];
+
+				// VFS参照を独立したタグブロックとして追加
+				for (const path of vfsReferences) {
+					content.push({
+						text: `<user_attachment path="${path}">[Existing VFS Path]</user_attachment>`
+					});
+				}
 
 				for (const file of attachments) {
 					// テキストのホワイトリスト方式。未知のファイルはすべてバイナリ(Base64)として安全に扱う
