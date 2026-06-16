@@ -288,6 +288,11 @@
                 actions.push({ separator: true });
             }
 
+            actions.push({ label: 'Add to Context', action: () => {
+                if (this.events['add_to_context']) this.events['add_to_context'](node.path);
+            }});
+            actions.push({ separator: true });
+
             actions.push({ label: 'Duplicate', action: () => {
                 if (this.events['duplicate']) this.events['duplicate'](node.path);
             }});
