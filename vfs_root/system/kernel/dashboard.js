@@ -53,7 +53,7 @@
         // Notes Widget
         const notes = await App.getRecentNotes(5).catch(() => []);
         DOM('widget-notes').innerHTML = notes.length ? notes.map(path => `
-            <div class="flex items-center gap-2 p-2 rounded hover:bg-hover transition cursor-pointer group" onclick="localStorage.setItem('metaos_open_note', '${path}'); AppUI.go('apps/notes.html')">
+            <div class="flex items-center gap-2 p-2 rounded hover:bg-hover transition cursor-pointer group" onclick="AppUI.go('apps/notes.html?file=' + encodeURIComponent('${path}'))">
                 <svg class="w-4 h-4 text-text-muted group-hover:text-primary transition" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
                 <span class="text-sm text-text-main truncate font-mono opacity-90">${path.split('/').pop().replace('.md', '')}</span>
             </div>`).join('') : '<div class="text-text-muted text-xs italic py-2">No notes found.</div>';

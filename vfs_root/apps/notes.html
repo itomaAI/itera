@@ -145,9 +145,9 @@
 
         async function init() {
             await loadList();
-            const pending = localStorage.getItem('metaos_open_note');
+            const params = new URLSearchParams(window.location.search);
+            const pending = params.get('file');
             if(pending) {
-                localStorage.removeItem('metaos_open_note');
                 openNote(pending);
             }
         }
