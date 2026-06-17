@@ -195,18 +195,6 @@
 					proc.iframe.style.opacity = '0';
 					proc.iframe.style.pointerEvents = 'none';
 					proc.iframe.style.zIndex = '1';
-					
-					// サムネイル撮影: 新しいアプリのコンパイル＆起動のCPU負荷を避けるため、1秒遅延して実行
-					setTimeout(() => {
-						// 1秒後にまだバックグラウンドにいる場合のみ撮影
-						if (proc.state === 'background') {
-							this.captureScreenshot(pid).then(data => {
-								proc.thumbnailData = data;
-							}).catch(e => {
-								console.warn(`[ProcessManager] Failed to capture thumbnail for ${pid}`);
-							});
-						}
-					}, 1000);
 				}
 			}
 

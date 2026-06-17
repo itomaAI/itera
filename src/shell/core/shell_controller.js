@@ -668,21 +668,9 @@
 		_openTaskSwitcher() {
 			if (!this.els.TASK_MODAL) return;
 			
-			// 1. ノンブロッキング: まず開いてキャッシュ済みの画像で描画する
+			// 軽量なアイコンベースになったため、開く際に即時再描画
 			this._renderTaskSwitcher();
 			this.els.TASK_MODAL.classList.remove('hidden');
-
-			// 2. 非同期で現在Foregroundのアプリのスクショを最新化し、完了したら差し替える
-			const fgApp = Array.from(this.windowing.processManager.processes.values()).find(p => p.state === 'foreground');
-			if (fgApp) {
-				this.windowing.processManager.captureScreenshot(fgApp.pid).then(data => {
-					fgApp.thumbnailData = data;
-					// モーダルが開いたままなら再描画して画像を更新
-					if (!this.els.TASK_MODAL.classList.contains('hidden')) {
-						this._renderTaskSwitcher();
-					}
-				}).catch(() => {});
-			}
 		}
 
 		_closeTaskSwitcher() {
@@ -704,38 +692,44 @@
 				return;
 			}
 
+			// VFSからアプリ設定を読み込む（アイコンと名前の解決用）
+			let appRegistry = [];
+			try {
+				if (this.state.vfs.exists('system/config/apps.json')) {
+					appRegistry = JSON.parse(this.state.vfs.readFile('system/config/apps.json'));
+				}
+			} catch (e) {}
+
 			apps.forEach(app => {
 				const card = document.createElement('div');
-				card.className = "snap-center shrink-0 w-48 sm:w-64 flex flex-col items-center gap-4 transition-transform hover:scale-105 group relative";
+				card.className = "snap-center shrink-0 w-28 sm:w-36 flex flex-col items-center gap-3 transition-transform hover:scale-105 group relative";
 				
-				// 画面サムネイル (またはプレースホルダー)
-				const thumbWrapper = document.createElement('div');
-				thumbWrapper.className = `w-full aspect-[9/16] bg-card rounded-2xl border-2 overflow-hidden shadow-2xl relative cursor-pointer transition-colors ${app.state === 'foreground' ? 'border-primary' : 'border-border-main group-hover:border-primary/50'}`;
+				// ベースパスの取得（クエリ削除）
+				const basePath = app.path.split(/[?#]/)[0];
 				
-				if (app.thumbnailData) {
-					const img = document.createElement('img');
-					// APIの仕様上、Base64文字列のみが返ってくる場合があるためプレフィックスを補完
-					const src = app.thumbnailData.startsWith('data:') ? app.thumbnailData : `data:image/png;base64,${app.thumbnailData}`;
-					img.src = src;
-					img.className = "w-full h-full object-cover object-top";
-					thumbWrapper.appendChild(img);
-				} else {
-					thumbWrapper.innerHTML = `<div class="absolute inset-0 flex items-center justify-center text-4xl opacity-20">⚙️</div>`;
-				}
+				// アプリのメタデータを解決
+				const regInfo = appRegistry.find(r => r.path === basePath);
+				const fallbackName = basePath.split('/').pop().replace('.html', '');
+				const appName = regInfo ? regInfo.name : (fallbackName === 'index' ? 'Dashboard' : fallbackName);
+				const appIcon = regInfo ? regInfo.icon : (fallbackName === 'index' ? '🏠' : '⚙️');
+				
+				// アイコンラッパー (正方形で角丸)
+				const iconWrapper = document.createElement('div');
+				iconWrapper.className = `w-24 h-24 sm:w-32 sm:h-32 bg-card rounded-3xl border-2 flex items-center justify-center text-5xl sm:text-6xl shadow-xl relative cursor-pointer transition-colors ${app.state === 'foreground' ? 'border-primary ring-4 ring-primary/30' : 'border-border-main group-hover:border-primary/50'}`;
+				
+				iconWrapper.innerHTML = `<span>${appIcon}</span>`;
 				
 				// アプリ名
-				const appName = app.path.split('/').pop().replace('.html', '');
 				const title = document.createElement('div');
-				title.className = "text-white font-bold tracking-wide capitalize drop-shadow-md text-sm";
+				title.className = "text-white font-bold tracking-wide capitalize drop-shadow-md text-sm truncate w-full text-center";
 				title.textContent = appName;
 				
 				// キルボタン
 				const btnKill = document.createElement('button');
-				btnKill.className = "absolute top-2 right-2 w-7 h-7 bg-error hover:bg-error/80 text-white rounded-full shadow-lg flex items-center justify-center opacity-0 md:opacity-0 group-hover:opacity-100 transition-opacity z-10 font-bold text-sm border-2 border-white/20";
+				btnKill.className = "absolute -top-2 -right-2 w-8 h-8 bg-error hover:bg-error/80 text-white rounded-full shadow-lg flex items-center justify-center opacity-0 md:opacity-0 group-hover:opacity-100 transition-opacity z-10 font-bold text-sm border-2 border-white/20";
 				btnKill.innerHTML = "✕";
 
-				thumbWrapper.onclick = () => {
-					// 既にフォアグラウンドでも一応呼んで状態をリセットする
+				iconWrapper.onclick = () => {
 					this.windowing.processManager.spawn(app.pid, app.path, 'foreground');
 					this._closeTaskSwitcher();
 				};
@@ -746,8 +740,8 @@
 					this._renderTaskSwitcher(); // 再描画
 				};
 
-				thumbWrapper.appendChild(btnKill);
-				card.appendChild(thumbWrapper);
+				iconWrapper.appendChild(btnKill);
+				card.appendChild(iconWrapper);
 				card.appendChild(title);
 				grid.appendChild(card);
 			});
