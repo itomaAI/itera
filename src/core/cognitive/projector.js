@@ -72,8 +72,12 @@
 			// 履歴の浅いコピーを作成（メタデータ更新は参照を通じて元の履歴にも反映される想定）
 			const history = [...historyData];
 
-			// APIキーの取得 (localStorageフォールバック)
-			const apiKey = localStorage.getItem('itera_api_key');
+			// APIキーの取得
+			let apiKey = localStorage.getItem('itera_api_key');
+			try {
+				const secrets = JSON.parse(localStorage.getItem('itera_llm_secrets') || '{}');
+				if (secrets.google) apiKey = secrets.google;
+			} catch (e) {}
 
 			const apiMessages = [];
 
