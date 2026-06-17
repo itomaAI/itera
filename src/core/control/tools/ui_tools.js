@@ -17,7 +17,8 @@
 			// フォールバック: pid="main" や pid省略時はパスベースの自動PIDに変換する
 			if (pid === 'main') {
 				mode = 'foreground';
-				const safeName = path.replace(/[^a-zA-Z0-9_-]/g, '_');
+				const basePath = path.split(/[?#]/)[0];
+				const safeName = basePath.replace(/[^a-zA-Z0-9_-]/g, '_');
 				pid = `app_${safeName}`;
 			}
 
