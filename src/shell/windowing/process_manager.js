@@ -71,7 +71,9 @@
 			// 後方互換対応: 'main' が指定された場合はパスベースのPIDに変換し、強制的にforegroundにする
 			if (pid === 'main') {
 				mode = 'foreground';
-				const safeName = path.replace(/[^a-zA-Z0-9_-]/g, '_');
+				// プロセスの一意性を保つため、クエリを除外したベースパスでPIDを生成する
+				const basePath = path.split(/[?#]/)[0];
+				const safeName = basePath.replace(/[^a-zA-Z0-9_-]/g, '_');
 				pid = `app_${safeName}`;
 			}
 
@@ -79,12 +81,12 @@
 
 			const existingProc = this.processes.get(pid);
 			if (existingProc && existingProc.iframe) {
-				const currentBase = existingProc.path.split(/[?#]/)[0];
-				const newBase = path.split(/[?#]/)[0];
+				// 案1対応: クエリやハッシュを含む「完全なパス」が一致する場合のみ再利用（Resume）する。
+				// 異なるクエリが指定された場合は false となり、既存プロセスはkillされクエリ付きで強制再起動される。
+				const isExactPathMatch = existingProc.path === path;
 
-				// 同じアプリの画面遷移 (Soft Navigation または 単なるFocus復帰)
-				if (!forceReload && currentBase === newBase && existingProc.type === type) {
-					console.log(`[ProcessManager] Resume / Soft Navigation [${pid}] -> ${path}`);
+				if (!forceReload && isExactPathMatch && existingProc.type === type) {
+					console.log(`[ProcessManager] Resume [${pid}] -> ${path}`);
 					
 					existingProc.path = path;
 					

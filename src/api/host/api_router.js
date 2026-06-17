@@ -214,7 +214,8 @@
 				if (pid === 'main') {
 					mode = 'foreground';
 					if (path) {
-						const safeName = path.replace(/[^a-zA-Z0-9_-]/g, '_');
+						const basePath = path.split(/[?#]/)[0];
+						const safeName = basePath.replace(/[^a-zA-Z0-9_-]/g, '_');
 						pid = `app_${safeName}`;
 					}
 				}

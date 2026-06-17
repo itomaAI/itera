@@ -881,7 +881,8 @@
 			}
 			
 			// パスから一意なPIDを生成 (例: apps/tasks.html -> app_apps_tasks_html)
-			const safeName = targetPath.replace(/[^a-zA-Z0-9_-]/g, '_');
+			const basePath = targetPath.split(/[?#]/)[0];
+			const safeName = basePath.replace(/[^a-zA-Z0-9_-]/g, '_');
 			const pid = `app_${safeName}`;
 			
 			await this.windowing.processManager.spawn(pid, targetPath, 'foreground', true);
