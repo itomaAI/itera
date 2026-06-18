@@ -710,8 +710,15 @@
 				// アプリのメタデータを解決
 				const regInfo = appRegistry.find(r => r.path === basePath);
 				const fallbackName = basePath.split('/').pop().replace('.html', '');
-				const appName = regInfo ? regInfo.name : (fallbackName === 'index' ? 'Dashboard' : fallbackName);
-				const appIcon = regInfo ? regInfo.icon : (fallbackName === 'index' ? '🏠' : '⚙️');
+				
+				let appName = regInfo ? regInfo.name : fallbackName;
+				let appIcon = regInfo ? regInfo.icon : '⚙️';
+				
+				// ルート直下の index.html のみデフォルトでダッシュボードとして扱う
+				if (!regInfo && basePath === 'index.html') {
+					appName = 'Dashboard';
+					appIcon = '🏠';
+				}
 				
 				// アイコンラッパー (正方形で角丸)
 				const iconWrapper = document.createElement('div');
