@@ -92,7 +92,16 @@
 			};
 		});
 
-		// 7. thinking / plan
+		// 7. breathe (Take a breath and refresh reasoning cycle)
+		registry.register('breathe', async (params, context) => {
+			return {
+				log: `Deep breath taken. Reasoning cycle refreshed.\nReview your previous <thinking> or <plan> and proceed with your next action or response.`,
+				ui: `💨 Taking a breath...`,
+				trigger_llm: true // 副作用はないがループを継続する
+			};
+		});
+
+		// 8. thinking / plan
 		// これらはLLMの思考過程用タグであり、ツールとしての実体動作はない
 		// ログに残すためだけに定義する
 		registry.register('thinking', async () => null);

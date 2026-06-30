@@ -88,6 +88,10 @@
                     title = "⏳ Waiting for System...";
                     colorClass = "border-border-main bg-card/50";
                     break;
+                case 'breathe':
+                    title = "💨 Taking a breath...";
+                    colorClass = "border-border-main bg-card/50";
+                    break;
                 case 'finish':
                     title = "✅ Standby";
                     colorClass = "border-success bg-success/20";
