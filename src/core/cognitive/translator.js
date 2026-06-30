@@ -199,7 +199,7 @@
 					stack[stack.length - 1].content.push(el);
 					
 					// ★ Terminal Tag Detection (Empty Tag)
-					if (['yield', 'ask', 'finish'].includes(name) && tagExclude === null && stack.length === 1) {
+					if (['yield', 'breathe', 'ask', 'finish'].includes(name) && tagExclude === null && stack.length === 1) {
 					    terminalIndex = indTagEnd;
 					    break;
 					}
@@ -211,7 +211,7 @@
 					else stack[stack.length - 1].content.push(tagStr);
 					
 					// ★ Terminal Tag Detection (End Tag)
-					if (['yield', 'ask', 'finish'].includes(name) && tagExclude === null && stack.length === 1) {
+					if (['yield', 'breathe', 'ask', 'finish'].includes(name) && tagExclude === null && stack.length === 1) {
 					    terminalIndex = indTagEnd;
 					    break;
 					}
@@ -241,8 +241,8 @@
 		_sortActions(actions) {
 			const edits = actions.filter(a => a.type === 'edit_file');
 			const others = actions.filter(a => a.type !== 'edit_file');
-			const interrupts = others.filter(a => ['ask', 'finish'].includes(a.type));
-			const normalTools = others.filter(a => !['ask', 'finish'].includes(a.type));
+			const interrupts = others.filter(a => ['ask', 'finish', 'breathe'].includes(a.type));
+			const normalTools = others.filter(a => !['ask', 'finish', 'breathe'].includes(a.type));
 			edits.sort((a, b) => {
 				const pathA = a.params.path || "";
 				const pathB = b.params.path || "";

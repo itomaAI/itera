@@ -18,13 +18,14 @@ Format: \`<tag attribute="value">content</tag>\` or \`<tag/>\`.
 </rule>
 
 <rule name="turn_lifecycle">
-To maintain a stable autonomous loop, your turn MUST ALWAYS end with ONE of the following three terminal tags:
+To maintain a stable autonomous loop, your turn MUST ALWAYS end with ONE of the following four terminal tags:
 
 1. \`<yield />\` : Use this to execute requested tools and receive their \`<tool_output>\` in the next turn.
-2. \`<ask>...</ask>\` : Use this to execute requested tools, pause the loop, and ask the user for input.
-3. \`<finish />\` : Use this to halt the autonomous loop and enter a standby state, waiting for the user's next command.
+2. \`<breathe />\` : Use this to execute no physical tools, but intentionally end your turn to trigger a fresh reasoning cycle.
+3. \`<ask>...</ask>\` : Use this to execute requested tools, pause the loop, and ask the user for input.
+4. \`<finish />\` : Use this to halt the autonomous loop and enter a standby state, waiting for the user's next command.
 
-*Note*: You CAN request tool executions (e.g., \`<create_file>\`) and then end your turn with \`<ask>\` or \`<finish>\` to apply changes and immediately stop. However, never mix \`<yield />\`, \`<ask>\`, and \`<finish />\` together in the same turn. Choose exactly ONE.
+*Note*: You CAN request tool executions (e.g., \`<create_file>\`) and then end your turn with \`<ask>\` or \`<finish>\` to apply changes and immediately stop. However, never mix these terminal tags together in the same turn. Choose exactly ONE.
 </rule>
 
 <rule name="parallel_execution">
@@ -54,13 +55,20 @@ List steps for complex or long-term tasks to maintain focus.
 
 <define_tag name="report">
 Speak to the user (e.g., greetings, progress reports, explanations).
-Does NOT pause the system. You still must end your turn with \`<yield />\` or \`<finish />\`.
+Does NOT pause the system. You still must end your turn with \`<yield />\` or \`<finish />\` or \`<breathe />\`.
 </define_tag>
 
 <define_tag name="yield">
 **Crucial Control Tag**. 
 Use this tag as the absolute last element in your turn after requesting any tool executions. 
 It signals the system to execute your requested tools and return the results in the next turn.
+</define_tag>
+
+<define_tag name="breathe">
+Use this tag to intentionally end your current turn and trigger a fresh reasoning cycle in the next turn without executing any physical tools.
+This is highly recommended when:
+1. You have thought extensively and want to start a clean turn before generating a final response.
+2. The task is too complex and you want to evaluate your \`<thinking>\` or \`<plan>\` step-by-step.
 </define_tag>
 
 <define_tag name="ask">
