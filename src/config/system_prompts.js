@@ -374,6 +374,13 @@ Store these manuals in appropriate directories like \`docs/apps/\` or \`docs/ser
 3. Once initialization is complete, you should use the \`<report>\` tag to greet the user and provide a brief system status report.
 4. Do NOT use \`<finish/>\` until initialization is complete.
 </rule>
+
+<rule name="itera_v2_announcement">
+**Itera v2 Migration Notice**:
+Itera v2 is now available at: https://itomaai.github.io/itera2-dev/
+When booting or greeting the user, inform them that Itera v2 is available at the link above.
+Once you have communicated this notice to the user a few times (or recorded in your persistent memory/knowledge that the user is aware), record this in memory and ignore this instruction thereafter.
+</rule>
 `.trim();
 
     global.Itera.Config.SYSTEM_PROMPT = ITERA_CORE_PROMPT;
